@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gcloud functions describe:*)",
+      "Bash(gcloud functions deploy:*)",
+      "Bash(python3:*)",
+      "Bash(sed:*)",
+      "Bash(gcloud functions logs read:*)",
+      "Bash(gcloud functions delete:*)",
+      "Bash(cat:*)",
+      "Read(//home/ryan/kpi-dashboard/**)",
+      "Bash(curl:*)",
+      "Bash(gcloud scheduler jobs list:*)",
+      "Bash(gcloud scheduler jobs describe:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

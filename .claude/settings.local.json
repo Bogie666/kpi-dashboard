@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint:*)",
+      "Bash(sed:*)",
+      "Bash(cat:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(gcloud functions deploy:*)",
+      "Bash(gcloud functions logs read:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
