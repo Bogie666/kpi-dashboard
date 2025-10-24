@@ -1413,16 +1413,34 @@ const TechnicianView = ({
   // UPDATED: Use dataKey to get the right data source
   const allTechnicianData = dashboardData[dataKey] || [];
   let technicianData;
-  
+
+  // Debug logging
+  console.log(`🔧 TechnicianView - ${viewTitle}`);
+  console.log(`📦 Using dataKey: ${dataKey}`);
+  console.log(`📊 Total records:`, allTechnicianData.length);
+  if (allTechnicianData.length > 0) {
+    console.log(`📋 Sample record:`, allTechnicianData[0]);
+    console.log(`🏷️ Unique trades:`, [...new Set(allTechnicianData.map(t => t.trade))]);
+  }
+  if (tradeFilter) {
+    console.log(`🔍 Applying trade filter: ${tradeFilter}`);
+  }
   if (businessUnitFilter) {
-    // Filter by business unit (for plumbing/electrical still using old endpoint)
+    console.log(`🏢 Applying business unit filter: ${businessUnitFilter}`);
+  }
+
+  if (businessUnitFilter) {
+    // Filter by business unit
     technicianData = filterTechniciansByBusinessUnit(allTechnicianData, businessUnitFilter);
+    console.log(`✅ After business unit filter:`, technicianData.length);
   } else if (tradeFilter) {
-    // Filter by trade (for plumbing/electrical still using old endpoint)
+    // Filter by trade
     technicianData = filterTechniciansByTrade(allTechnicianData, tradeFilter);
+    console.log(`✅ After trade filter:`, technicianData.length);
   } else {
     // No filter - use data as-is (for HVAC Tech and HVAC Maintenance with new endpoints)
     technicianData = allTechnicianData;
+    console.log(`✅ No filter, using all records`);
   }
     
     // Company totals (for display only)
