@@ -22,15 +22,36 @@ const CompetitionLeaderboard = ({ competitionId }) => {
   const [loading, setLoading] = useState(true);
   const [photos, setPhotos] = useState({});
 
+  const PHOTO_API = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/photo_api';
+
   // Load competition and leaderboard data
   useEffect(() => {
-    if (competitionId) {
-      loadCompetitionData();
-    } else {
-      // If no competitionId provided, fetch the active competition
-      loadActiveCompetition();
-    }
+    const loadData = async () => {
+      await loadPhotos(); // Load all photos first
+      if (competitionId) {
+        loadCompetitionData();
+      } else {
+        loadActiveCompetition();
+      }
+    };
+    loadData();
   }, [competitionId]);
+
+  const loadPhotos = async () => {
+    try {
+      const response = await fetch(`${PHOTO_API}/technicians`);
+      const data = await response.json();
+      if (data.status === 'success') {
+        const photoMap = {};
+        data.data.forEach(tech => {
+          photoMap[tech.name.toLowerCase()] = tech.photo_url;
+        });
+        setPhotos(photoMap);
+      }
+    } catch (error) {
+      console.error('Error loading photos:', error);
+    }
+  };
 
   const loadActiveCompetition = async () => {
     try {
@@ -49,22 +70,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
 
           if (leaderboardResult.status === 'success') {
             setCompetition(leaderboardResult.data.competition);
-            const leaderboardData = leaderboardResult.data.leaderboard || [];
-
-            // Load photos for all technicians
-            const photoPromises = leaderboardData.map(async (tech) => {
-              const photoUrl = await technicianPhotoApi.getPhotoByName(tech.name);
-              return { techId: tech.id, photoUrl };
-            });
-
-            const photoResults = await Promise.all(photoPromises);
-            const photoMap = {};
-            photoResults.forEach(({ techId, photoUrl }) => {
-              if (photoUrl) photoMap[techId] = photoUrl;
-            });
-
-            setPhotos(photoMap);
-            setLeaderboard(leaderboardData);
+            setLeaderboard(leaderboardResult.data.leaderboard || []);
           }
         }
       }
@@ -85,22 +91,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
 
       if (result.status === 'success') {
         setCompetition(result.data.competition);
-        const leaderboardData = result.data.leaderboard || [];
-
-        // Load photos for all technicians
-        const photoPromises = leaderboardData.map(async (tech) => {
-          const photoUrl = await technicianPhotoApi.getPhotoByName(tech.name);
-          return { techId: tech.id, photoUrl };
-        });
-
-        const photoResults = await Promise.all(photoPromises);
-        const photoMap = {};
-        photoResults.forEach(({ techId, photoUrl }) => {
-          if (photoUrl) photoMap[techId] = photoUrl;
-        });
-
-        setPhotos(photoMap);
-        setLeaderboard(leaderboardData);
+        setLeaderboard(result.data.leaderboard || []);
       }
 
       setLoading(false);
@@ -195,9 +186,9 @@ const CompetitionLeaderboard = ({ competitionId }) => {
         <div className="flex items-start space-x-4">
           {/* Photo */}
           <div className={`flex-shrink-0 ${isTopThree ? 'w-20 h-20' : 'w-16 h-16'}`}>
-            {(tech.photo || photos[tech.id]) ? (
+            {photos[tech.name.toLowerCase()] ? (
               <img
-                src={tech.photo || photos[tech.id]}
+                src={photos[tech.name.toLowerCase()]}
                 alt={tech.name}
                 className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
               />
@@ -344,9 +335,9 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                 <div className="bg-gradient-to-br from-gray-400 to-gray-600 rounded-t-2xl p-6 text-center">
                   <div className="text-6xl mb-2">🥈</div>
                   <div className="w-20 h-20 mx-auto mb-3">
-                    {(leaderboard[1].photo || photos[leaderboard[1].id]) ? (
+                    {photos[leaderboard[1].name.toLowerCase()] ? (
                       <img
-                        src={leaderboard[1].photo || photos[leaderboard[1].id]}
+                        src={photos[leaderboard[1].name.toLowerCase()]}
                         alt={leaderboard[1].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white"
                       />
@@ -361,7 +352,14 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                     💵 $300
                   </div>
                   <div className="text-white text-3xl font-bold">{leaderboard[1].totalPoints}</div>
-                  <div className="text-gray-200 text-sm">points</div>
+                  <div className="text-gray-200 text-sm mb-2">points</div>
+                  <div className="flex justify-center gap-2 text-xs text-gray-200">
+                    <span>Flips: {leaderboard[1].metrics.soldFlips}</span>
+                    <span>•</span>
+                    <span>Items: {leaderboard[1].metrics.itemsSold}</span>
+                    <span>•</span>
+                    <span>Reviews: {leaderboard[1].metrics.reviews}</span>
+                  </div>
                 </div>
                 <div className="bg-gray-500 h-24 rounded-b-2xl flex items-center justify-center text-white text-4xl font-bold">
                   2
@@ -376,9 +374,9 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                   <Crown className="h-12 w-12 text-yellow-200 absolute -top-6 left-1/2 transform -translate-x-1/2" />
                   <div className="text-7xl mb-3">🏆</div>
                   <div className="w-24 h-24 mx-auto mb-4">
-                    {(leaderboard[0].photo || photos[leaderboard[0].id]) ? (
+                    {photos[leaderboard[0].name.toLowerCase()] ? (
                       <img
-                        src={leaderboard[0].photo || photos[leaderboard[0].id]}
+                        src={photos[leaderboard[0].name.toLowerCase()]}
                         alt={leaderboard[0].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white shadow-xl"
                       />
@@ -393,7 +391,14 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                     💰 $500 Prize
                   </div>
                   <div className="text-white text-4xl font-bold">{leaderboard[0].totalPoints}</div>
-                  <div className="text-yellow-100 text-sm">points</div>
+                  <div className="text-yellow-100 text-sm mb-2">points</div>
+                  <div className="flex justify-center gap-2 text-xs text-yellow-100">
+                    <span>Flips: {leaderboard[0].metrics.soldFlips}</span>
+                    <span>•</span>
+                    <span>Items: {leaderboard[0].metrics.itemsSold}</span>
+                    <span>•</span>
+                    <span>Reviews: {leaderboard[0].metrics.reviews}</span>
+                  </div>
                 </div>
                 <div className="bg-yellow-500 h-32 rounded-b-2xl flex items-center justify-center text-white text-5xl font-bold">
                   1
@@ -407,9 +412,9 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                 <div className="bg-gradient-to-br from-amber-600 to-amber-700 rounded-t-2xl p-6 text-center">
                   <div className="text-6xl mb-2">🥉</div>
                   <div className="w-20 h-20 mx-auto mb-3">
-                    {(leaderboard[2].photo || photos[leaderboard[2].id]) ? (
+                    {photos[leaderboard[2].name.toLowerCase()] ? (
                       <img
-                        src={leaderboard[2].photo || photos[leaderboard[2].id]}
+                        src={photos[leaderboard[2].name.toLowerCase()]}
                         alt={leaderboard[2].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white"
                       />
@@ -424,7 +429,14 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                     💵 $150
                   </div>
                   <div className="text-white text-3xl font-bold">{leaderboard[2].totalPoints}</div>
-                  <div className="text-amber-100 text-sm">points</div>
+                  <div className="text-amber-100 text-sm mb-2">points</div>
+                  <div className="flex justify-center gap-2 text-xs text-amber-100">
+                    <span>Flips: {leaderboard[2].metrics.soldFlips}</span>
+                    <span>•</span>
+                    <span>Items: {leaderboard[2].metrics.itemsSold}</span>
+                    <span>•</span>
+                    <span>Reviews: {leaderboard[2].metrics.reviews}</span>
+                  </div>
                 </div>
                 <div className="bg-amber-700 h-20 rounded-b-2xl flex items-center justify-center text-white text-4xl font-bold">
                   3
