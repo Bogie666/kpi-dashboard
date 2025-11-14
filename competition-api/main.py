@@ -466,6 +466,14 @@ def sync_competition_data(comp_id, request):
                     return ({'status': 'error', 'message': 'Competition missing item_code'}, 400)
 
                 # Query items sold from ServiceTitan data
+                logger.info(f"Querying items_sold with: code={item_code}, start_date={start_date}, end_date={end_date}")
+
+                # First check what codes exist in the table for debugging
+                check_codes_query = "SELECT DISTINCT code FROM servicetitan_items_sold LIMIT 20"
+                cursor.execute(check_codes_query)
+                available_codes = [row[0] for row in cursor.fetchall()]
+                logger.info(f"Available item codes in database: {available_codes}")
+
                 items_sold_query = """
                 SELECT sold_by_technician, SUM(quantity) as total_quantity
                 FROM servicetitan_items_sold
@@ -481,7 +489,11 @@ def sync_competition_data(comp_id, request):
                 items_sold_rows = cursor.fetchall()
                 items_sold_data = {row[0]: row[1] for row in items_sold_rows}
 
-                logger.info(f"Found {len(items_sold_data)} technicians with items sold for item code {item_code}")
+                logger.info(f"Found {len(items_sold_data)} technicians with items sold for item code '{item_code}'")
+                if items_sold_data:
+                    logger.info(f"Sample items_sold data: {list(items_sold_data.items())[:5]}")
+                else:
+                    logger.warning(f"No items sold found for code='{item_code}' between {start_date} and {end_date}")
 
                 # Fetch sold flips from ServiceTitan for exact competition date range
                 # Using custom date range API endpoint from servicetitan-sync
