@@ -151,6 +151,8 @@ const CompetitionLeaderboard = ({ competitionId }) => {
     const isTopThree = tech.rank <= 3;
     const rankChanged = tech.rank !== tech.previousRank;
     const rankUp = tech.previousRank > tech.rank;
+    const minimumPoints = competition?.minimumToQualify || 25;
+    const isQualified = tech.totalPoints >= minimumPoints;
 
     return (
       <div
@@ -159,20 +161,22 @@ const CompetitionLeaderboard = ({ competitionId }) => {
         }`}
         style={{ animationDelay: `${index * 100}ms` }}
       >
-        {/* Rank Badge */}
-        <div className="absolute -top-4 -left-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg ${
-            tech.rank === 1 ? 'bg-yellow-500' :
-            tech.rank === 2 ? 'bg-gray-400' :
-            tech.rank === 3 ? 'bg-amber-600' :
-            'bg-gray-700'
-          }`}>
-            {tech.rank <= 3 ? getRankEmoji(tech.rank) : `#${tech.rank}`}
+        {/* Rank Badge - only show for qualified technicians */}
+        {isQualified && (
+          <div className="absolute -top-4 -left-4">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg ${
+              tech.rank === 1 ? 'bg-yellow-500' :
+              tech.rank === 2 ? 'bg-gray-400' :
+              tech.rank === 3 ? 'bg-amber-600' :
+              'bg-gray-700'
+            }`}>
+              {tech.rank <= 3 ? getRankEmoji(tech.rank) : `#${tech.rank}`}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Rank Change Indicator */}
-        {rankChanged && (
+        {/* Rank Change Indicator - only show for qualified technicians */}
+        {isQualified && rankChanged && (
           <div className="absolute -top-2 -right-2">
             <div className={`px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1 ${
               rankUp ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
@@ -208,7 +212,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                 <h3 className={`font-bold text-white ${isTopThree ? 'text-2xl' : 'text-xl'}`}>
                   {tech.name}
                 </h3>
-                {tech.rank === 1 && getRankIcon(tech.rank)}
+                {isQualified && tech.rank === 1 && getRankIcon(tech.rank)}
               </div>
               <div className="text-right">
                 <div className="flex items-center justify-end space-x-2">
@@ -486,17 +490,27 @@ const CompetitionLeaderboard = ({ competitionId }) => {
         </div>
 
         {/* Rest of Leaderboard */}
-        {leaderboard.length > 3 && (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-white mb-4 flex items-center">
-              <Award className="h-6 w-6 text-blue-400 mr-2" />
-              Rest of the Pack
-            </h2>
-            {leaderboard.slice(3).map((tech, index) => (
-              <LeaderboardCard key={tech.rank} tech={tech} index={index + 3} />
-            ))}
-          </div>
-        )}
+        {(() => {
+          // Get the minimum points for qualification
+          const minimumPoints = competition?.minimumToQualify || 25;
+          const qualifiedLeaderboard = leaderboard.filter(tech => tech.totalPoints >= minimumPoints);
+
+          // Get technicians to show in "rest of pack" - everyone not on the podium
+          const podiumCount = Math.min(qualifiedLeaderboard.length, 3);
+          const restOfPack = leaderboard.slice(podiumCount);
+
+          return restOfPack.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-white mb-4 flex items-center">
+                <Award className="h-6 w-6 text-blue-400 mr-2" />
+                Rest of the Pack
+              </h2>
+              {restOfPack.map((tech, index) => (
+                <LeaderboardCard key={tech.rank} tech={tech} index={index + podiumCount} />
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Footer */}
         <div className="mt-12 text-center">
