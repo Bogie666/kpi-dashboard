@@ -211,8 +211,17 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                 {tech.rank === 1 && getRankIcon(tech.rank)}
               </div>
               <div className="text-right">
-                <div className="text-white font-bold text-2xl">{tech.totalPoints}</div>
-                <div className="text-xs text-white opacity-75">points</div>
+                <div className="flex items-center justify-end space-x-2">
+                  <div className="text-white font-bold text-2xl">{tech.totalPoints}</div>
+                  {competition && tech.totalPoints >= (competition.minimumToQualify || 25) && (
+                    <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                      QUALIFIED
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-white opacity-75">
+                  points {competition && `(min: ${competition.minimumToQualify || 25})`}
+                </div>
               </div>
             </div>
 
@@ -223,8 +232,8 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                 <div className="text-xs text-white opacity-75">Sold Flips</div>
               </div>
               <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center">
-                <div className="text-white font-bold text-lg">{tech.metrics.uvLights}</div>
-                <div className="text-xs text-white opacity-75">UV Lights</div>
+                <div className="text-white font-bold text-lg">{tech.metrics.itemsSold}</div>
+                <div className="text-xs text-white opacity-75">Items Sold</div>
               </div>
               <div className="bg-white bg-opacity-20 rounded-lg p-2 text-center">
                 <div className="text-white font-bold text-lg">{tech.metrics.reviews}</div>
@@ -292,19 +301,19 @@ const CompetitionLeaderboard = ({ competitionId }) => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 p-3 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 md:mb-8">
           <div className="flex items-center justify-center mb-4">
-            <Trophy className="h-16 w-16 text-yellow-400 mr-4" />
-            <h1 className="text-5xl md:text-6xl font-black text-white">
+            <Trophy className="hidden sm:block h-12 md:h-16 w-12 md:w-16 text-yellow-400 mr-2 md:mr-4" />
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white">
               {competition.name}
             </h1>
-            <Trophy className="h-16 w-16 text-yellow-400 ml-4" />
+            <Trophy className="hidden sm:block h-12 md:h-16 w-12 md:w-16 text-yellow-400 ml-2 md:ml-4" />
           </div>
 
-          <div className="flex items-center justify-center space-x-8 mb-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mb-6">
             <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-lg px-6 py-3">
               <div className="text-yellow-400 text-sm font-medium mb-1">Days Remaining</div>
               <div className="text-white text-3xl font-bold">{daysLeft}</div>
@@ -316,49 +325,71 @@ const CompetitionLeaderboard = ({ competitionId }) => {
           </div>
 
           {/* Competition Metrics */}
-          <div className="flex items-center justify-center space-x-4">
+          <div className="flex flex-wrap items-center justify-center gap-3">
             {competition.metrics.map((metric, index) => (
               <div key={index} className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg px-4 py-2">
                 <Target className="h-5 w-5 text-purple-200 inline mr-2" />
-                <span className="text-white font-medium">{metric.name}: {metric.target}</span>
+                <span className="text-white font-medium text-sm md:text-base">{metric.name}: {metric.target}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Podium - Top 3 */}
+        {/* Podium - Top 3 (only qualified technicians) */}
         <div className="mb-8">
-          <div className="flex items-end justify-center gap-4 mb-8">
-            {/* 2nd Place */}
-            {leaderboard[1] && (
-              <div className="flex-1 max-w-xs transform hover:scale-105 transition-transform">
+          {(() => {
+            // Filter leaderboard to only include technicians who meet the minimum
+            const minimumPoints = competition?.minimumToQualify || 25;
+            const qualifiedLeaderboard = leaderboard.filter(tech => tech.totalPoints >= minimumPoints);
+
+            // If no one qualifies, show a message
+            if (qualifiedLeaderboard.length === 0) {
+              return (
+                <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-8 text-center border-2 border-dashed border-gray-500">
+                  <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-white text-2xl font-bold mb-2">No Qualified Leaders Yet</h3>
+                  <p className="text-gray-300 text-lg">
+                    Reach {minimumPoints} points to appear on the podium and qualify for prizes!
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="flex flex-col md:flex-row md:items-end justify-center gap-4 mb-8">
+                {/* 2nd Place */}
+                {qualifiedLeaderboard[1] && (
+              <div className="w-full md:flex-1 md:max-w-xs mx-auto transform hover:scale-105 transition-transform order-2 md:order-1">
                 <div className="bg-gradient-to-br from-gray-400 to-gray-600 rounded-t-2xl p-6 text-center">
                   <div className="text-6xl mb-2">🥈</div>
                   <div className="w-20 h-20 mx-auto mb-3">
-                    {photos[leaderboard[1].name.toLowerCase()] ? (
+                    {photos[qualifiedLeaderboard[1].name.toLowerCase()] ? (
                       <img
-                        src={photos[leaderboard[1].name.toLowerCase()]}
-                        alt={leaderboard[1].name}
+                        src={photos[qualifiedLeaderboard[1].name.toLowerCase()]}
+                        alt={qualifiedLeaderboard[1].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white"
                       />
                     ) : (
                       <div className="w-full h-full rounded-full bg-gray-700 border-4 border-white flex items-center justify-center text-white font-bold text-xl">
-                        {leaderboard[1].name.split(' ').map(n => n[0]).join('')}
+                        {qualifiedLeaderboard[1].name.split(' ').map(n => n[0]).join('')}
                       </div>
                     )}
                   </div>
-                  <h3 className="text-white font-bold text-xl mb-2">{leaderboard[1].name}</h3>
+                  <h3 className="text-white font-bold text-xl mb-2">{qualifiedLeaderboard[1].name}</h3>
                   <div className="bg-green-500 text-white px-3 py-1 rounded-lg mb-2 text-lg font-bold shadow-lg">
                     💵 $300
                   </div>
-                  <div className="text-white text-3xl font-bold">{leaderboard[1].totalPoints}</div>
-                  <div className="text-gray-200 text-sm mb-2">points</div>
-                  <div className="flex justify-center gap-2 text-xs text-gray-200">
-                    <span>Flips: {leaderboard[1].metrics.soldFlips}</span>
+                  <div className="text-white text-3xl font-bold">{qualifiedLeaderboard[1].totalPoints}</div>
+                  <div className="text-gray-200 text-sm">points</div>
+                  <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold mb-2">
+                    ✓ QUALIFIED
+                  </div>
+                  <div className="flex justify-center gap-2 text-xs text-gray-200 mt-2">
+                    <span>Flips: {qualifiedLeaderboard[1].metrics.soldFlips}</span>
                     <span>•</span>
-                    <span>Items: {leaderboard[1].metrics.itemsSold}</span>
+                    <span>Items: {qualifiedLeaderboard[1].metrics.itemsSold}</span>
                     <span>•</span>
-                    <span>Reviews: {leaderboard[1].metrics.reviews}</span>
+                    <span>Reviews: {qualifiedLeaderboard[1].metrics.reviews}</span>
                   </div>
                 </div>
                 <div className="bg-gray-500 h-24 rounded-b-2xl flex items-center justify-center text-white text-4xl font-bold">
@@ -368,36 +399,39 @@ const CompetitionLeaderboard = ({ competitionId }) => {
             )}
 
             {/* 1st Place */}
-            {leaderboard[0] && (
-              <div className="flex-1 max-w-xs transform hover:scale-105 transition-transform">
+            {qualifiedLeaderboard[0] && (
+              <div className="w-full md:flex-1 md:max-w-xs mx-auto transform hover:scale-105 transition-transform order-1 md:order-2">
                 <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-t-2xl p-8 text-center relative">
                   <Crown className="h-12 w-12 text-yellow-200 absolute -top-6 left-1/2 transform -translate-x-1/2" />
                   <div className="text-7xl mb-3">🏆</div>
                   <div className="w-24 h-24 mx-auto mb-4">
-                    {photos[leaderboard[0].name.toLowerCase()] ? (
+                    {photos[qualifiedLeaderboard[0].name.toLowerCase()] ? (
                       <img
-                        src={photos[leaderboard[0].name.toLowerCase()]}
-                        alt={leaderboard[0].name}
+                        src={photos[qualifiedLeaderboard[0].name.toLowerCase()]}
+                        alt={qualifiedLeaderboard[0].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white shadow-xl"
                       />
                     ) : (
                       <div className="w-full h-full rounded-full bg-gray-700 border-4 border-white shadow-xl flex items-center justify-center text-white font-bold text-2xl">
-                        {leaderboard[0].name.split(' ').map(n => n[0]).join('')}
+                        {qualifiedLeaderboard[0].name.split(' ').map(n => n[0]).join('')}
                       </div>
                     )}
                   </div>
-                  <h3 className="text-white font-bold text-2xl mb-3">{leaderboard[0].name}</h3>
+                  <h3 className="text-white font-bold text-2xl mb-3">{qualifiedLeaderboard[0].name}</h3>
                   <div className="bg-green-500 text-white px-4 py-2 rounded-lg mb-3 text-2xl font-black shadow-lg">
                     💰 $500 Prize
                   </div>
-                  <div className="text-white text-4xl font-bold">{leaderboard[0].totalPoints}</div>
-                  <div className="text-yellow-100 text-sm mb-2">points</div>
-                  <div className="flex justify-center gap-2 text-xs text-yellow-100">
-                    <span>Flips: {leaderboard[0].metrics.soldFlips}</span>
+                  <div className="text-white text-4xl font-bold">{qualifiedLeaderboard[0].totalPoints}</div>
+                  <div className="text-yellow-100 text-sm">points</div>
+                  <div className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold mb-2">
+                    ✓ QUALIFIED
+                  </div>
+                  <div className="flex justify-center gap-2 text-xs text-yellow-100 mt-2">
+                    <span>Flips: {qualifiedLeaderboard[0].metrics.soldFlips}</span>
                     <span>•</span>
-                    <span>Items: {leaderboard[0].metrics.itemsSold}</span>
+                    <span>Items: {qualifiedLeaderboard[0].metrics.itemsSold}</span>
                     <span>•</span>
-                    <span>Reviews: {leaderboard[0].metrics.reviews}</span>
+                    <span>Reviews: {qualifiedLeaderboard[0].metrics.reviews}</span>
                   </div>
                 </div>
                 <div className="bg-yellow-500 h-32 rounded-b-2xl flex items-center justify-center text-white text-5xl font-bold">
@@ -407,35 +441,38 @@ const CompetitionLeaderboard = ({ competitionId }) => {
             )}
 
             {/* 3rd Place */}
-            {leaderboard[2] && (
-              <div className="flex-1 max-w-xs transform hover:scale-105 transition-transform">
+            {qualifiedLeaderboard[2] && (
+              <div className="w-full md:flex-1 md:max-w-xs mx-auto transform hover:scale-105 transition-transform order-3">
                 <div className="bg-gradient-to-br from-amber-600 to-amber-700 rounded-t-2xl p-6 text-center">
                   <div className="text-6xl mb-2">🥉</div>
                   <div className="w-20 h-20 mx-auto mb-3">
-                    {photos[leaderboard[2].name.toLowerCase()] ? (
+                    {photos[qualifiedLeaderboard[2].name.toLowerCase()] ? (
                       <img
-                        src={photos[leaderboard[2].name.toLowerCase()]}
-                        alt={leaderboard[2].name}
+                        src={photos[qualifiedLeaderboard[2].name.toLowerCase()]}
+                        alt={qualifiedLeaderboard[2].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white"
                       />
                     ) : (
                       <div className="w-full h-full rounded-full bg-gray-700 border-4 border-white flex items-center justify-center text-white font-bold text-xl">
-                        {leaderboard[2].name.split(' ').map(n => n[0]).join('')}
+                        {qualifiedLeaderboard[2].name.split(' ').map(n => n[0]).join('')}
                       </div>
                     )}
                   </div>
-                  <h3 className="text-white font-bold text-xl mb-2">{leaderboard[2].name}</h3>
+                  <h3 className="text-white font-bold text-xl mb-2">{qualifiedLeaderboard[2].name}</h3>
                   <div className="bg-green-500 text-white px-3 py-1 rounded-lg mb-2 text-lg font-bold shadow-lg">
                     💵 $150
                   </div>
-                  <div className="text-white text-3xl font-bold">{leaderboard[2].totalPoints}</div>
-                  <div className="text-amber-100 text-sm mb-2">points</div>
-                  <div className="flex justify-center gap-2 text-xs text-amber-100">
-                    <span>Flips: {leaderboard[2].metrics.soldFlips}</span>
+                  <div className="text-white text-3xl font-bold">{qualifiedLeaderboard[2].totalPoints}</div>
+                  <div className="text-amber-100 text-sm">points</div>
+                  <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold mb-2">
+                    ✓ QUALIFIED
+                  </div>
+                  <div className="flex justify-center gap-2 text-xs text-amber-100 mt-2">
+                    <span>Flips: {qualifiedLeaderboard[2].metrics.soldFlips}</span>
                     <span>•</span>
-                    <span>Items: {leaderboard[2].metrics.itemsSold}</span>
+                    <span>Items: {qualifiedLeaderboard[2].metrics.itemsSold}</span>
                     <span>•</span>
-                    <span>Reviews: {leaderboard[2].metrics.reviews}</span>
+                    <span>Reviews: {qualifiedLeaderboard[2].metrics.reviews}</span>
                   </div>
                 </div>
                 <div className="bg-amber-700 h-20 rounded-b-2xl flex items-center justify-center text-white text-4xl font-bold">
@@ -444,6 +481,8 @@ const CompetitionLeaderboard = ({ competitionId }) => {
               </div>
             )}
           </div>
+            );
+          })()}
         </div>
 
         {/* Rest of Leaderboard */}

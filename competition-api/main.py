@@ -123,7 +123,7 @@ def get_competitions():
                     id, name, start_date, end_date, status,
                     sold_flips_target, items_sold_target, reviews_target,
                     first_prize, second_prize, third_prize,
-                    item_code, created_at, updated_at
+                    item_code, created_at, updated_at, minimum_to_qualify
                 FROM competitions
                 ORDER BY start_date DESC
                 """
@@ -151,7 +151,8 @@ def get_competitions():
                         },
                         'itemCode': row[11],
                         'createdAt': row[12],
-                        'updatedAt': row[13]
+                        'updatedAt': row[13],
+                        'minimumToQualify': row[14] if row[14] else 25
                     })
 
                 return {'status': 'success', 'data': competitions}
@@ -171,7 +172,7 @@ def get_competition(comp_id):
                     id, name, start_date, end_date, status,
                     sold_flips_target, items_sold_target, reviews_target,
                     first_prize, second_prize, third_prize,
-                    item_code, created_at, updated_at
+                    item_code, created_at, updated_at, minimum_to_qualify
                 FROM competitions
                 WHERE id = %s
                 """
@@ -200,7 +201,8 @@ def get_competition(comp_id):
                     },
                     'itemCode': row[11],
                     'createdAt': row[12],
-                    'updatedAt': row[13]
+                    'updatedAt': row[13],
+                    'minimumToQualify': row[14] if row[14] else 25
                 }
 
                 return {'status': 'success', 'data': competition}
@@ -227,8 +229,9 @@ def create_competition(request):
         items_sold_target = next((m['target'] for m in metrics if m['name'] == 'itemsSold'), 0)
         reviews_target = next((m['target'] for m in metrics if m['name'] == 'reviews'), 0)
 
-        # Get item code
+        # Get item code and minimum to qualify
         item_code = data.get('itemCode', '')
+        minimum_to_qualify = data.get('minimumToQualify', 25)
 
         with db_manager.get_connection() as conn:
             with conn.cursor() as cursor:
@@ -236,9 +239,9 @@ def create_competition(request):
                 INSERT INTO competitions (
                     name, start_date, end_date, status,
                     sold_flips_target, items_sold_target, reviews_target,
-                    first_prize, second_prize, third_prize, item_code
+                    first_prize, second_prize, third_prize, item_code, minimum_to_qualify
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """
 
@@ -253,7 +256,8 @@ def create_competition(request):
                     data.get('firstPrize', 500.00),
                     data.get('secondPrize', 300.00),
                     data.get('thirdPrize', 150.00),
-                    item_code
+                    item_code,
+                    minimum_to_qualify
                 ))
 
                 comp_id = cursor.fetchone()[0]
@@ -312,6 +316,11 @@ def update_competition(comp_id, request):
         if 'itemCode' in data:
             update_fields.append('item_code = %s')
             values.append(data['itemCode'])
+
+        # Handle minimum to qualify
+        if 'minimumToQualify' in data:
+            update_fields.append('minimum_to_qualify = %s')
+            values.append(data['minimumToQualify'])
 
         update_fields.append('updated_at = CURRENT_TIMESTAMP')
         values.append(comp_id)
@@ -438,8 +447,8 @@ def get_leaderboard(comp_id):
 
 def sync_competition_data(comp_id, request):
     """
-    Sync competition data from ServiceTitan database tables
-    Queries servicetitan_items_sold and servicetitan_sold_flips tables
+    Sync competition data from ServiceTitan API
+    Fetches items sold and sold flips data for the competition's custom date range
     """
     try:
         with db_manager.get_connection() as conn:
@@ -465,42 +474,59 @@ def sync_competition_data(comp_id, request):
                 if not item_code:
                     return ({'status': 'error', 'message': 'Competition missing item_code'}, 400)
 
-                # Query items sold from ServiceTitan data
-                logger.info(f"Querying items_sold with: code={item_code}, start_date={start_date}, end_date={end_date}")
+                # Get ServiceTitan sync URL
+                servicetitan_sync_url = os.environ.get('SERVICETITAN_SYNC_URL',
+                    'https://us-central1-new-dashboard-2025.cloudfunctions.net/servicetitan-sync')
 
-                # First check what codes exist in the table for debugging
-                check_codes_query = "SELECT DISTINCT code FROM servicetitan_items_sold LIMIT 20"
-                cursor.execute(check_codes_query)
-                available_codes = [row[0] for row in cursor.fetchall()]
-                logger.info(f"Available item codes in database: {available_codes}")
+                # Fetch items sold from ServiceTitan for exact competition date range
+                # Using custom date range API endpoint from servicetitan-sync
+                # This gives us precise data for the competition period
+                logger.info(f"Fetching items sold data from ServiceTitan API for item code '{item_code}', date range: {start_date} to {end_date}")
 
-                items_sold_query = """
-                SELECT sold_by_technician, SUM(quantity) as total_quantity
-                FROM servicetitan_items_sold
-                WHERE code = %s
-                  AND invoice_date >= %s
-                  AND invoice_date <= %s
-                  AND sold_by_technician IS NOT NULL
-                  AND sold_by_technician != ''
-                GROUP BY sold_by_technician
-                """
+                items_fetch_url = f"{servicetitan_sync_url}/fetch-items-sold-custom"
+                params = {
+                    'start_date': str(start_date),
+                    'end_date': str(end_date)
+                }
 
-                cursor.execute(items_sold_query, (item_code, start_date, end_date))
-                items_sold_rows = cursor.fetchall()
-                items_sold_data = {row[0]: row[1] for row in items_sold_rows}
+                try:
+                    response = requests.get(items_fetch_url, params=params, timeout=120)
+                    response.raise_for_status()
+                    api_result = response.json()
 
-                logger.info(f"Found {len(items_sold_data)} technicians with items sold for item code '{item_code}'")
-                if items_sold_data:
-                    logger.info(f"Sample items_sold data: {list(items_sold_data.items())[:5]}")
-                else:
-                    logger.warning(f"No items sold found for code='{item_code}' between {start_date} and {end_date}")
+                    if api_result.get('status') == 'success':
+                        items_sold_records = api_result.get('data', [])
+
+                        # Filter by item_code and aggregate by technician
+                        items_sold_data = {}
+                        for record in items_sold_records:
+                            tech_name = record.get('sold_by_technician')
+                            code = record.get('code')
+                            quantity = record.get('quantity', 0)
+
+                            if tech_name and code == item_code:
+                                if tech_name not in items_sold_data:
+                                    items_sold_data[tech_name] = 0
+                                items_sold_data[tech_name] += quantity
+
+                        logger.info(f"Successfully fetched {len(items_sold_data)} technicians with items sold for item code '{item_code}'")
+                        if items_sold_data:
+                            logger.info(f"FULL items_sold data: {items_sold_data}")
+                    else:
+                        logger.warning(f"Failed to fetch items sold from API: {api_result.get('message')}")
+                        items_sold_data = {}
+
+                except requests.exceptions.Timeout:
+                    logger.error("Timeout fetching items sold data from ServiceTitan API")
+                    items_sold_data = {}
+                except Exception as e:
+                    logger.error(f"Error fetching items sold from API: {e}")
+                    logger.error(traceback.format_exc())
+                    items_sold_data = {}
 
                 # Fetch sold flips from ServiceTitan for exact competition date range
                 # Using custom date range API endpoint from servicetitan-sync
                 # This gives us precise data for the competition period
-                servicetitan_sync_url = os.environ.get('SERVICETITAN_SYNC_URL',
-                    'https://us-central1-new-dashboard-2025.cloudfunctions.net/servicetitan-sync')
-
                 fetch_url = f"{servicetitan_sync_url}/fetch-sold-flips-custom"
                 params = {
                     'start_date': str(start_date),
@@ -543,8 +569,10 @@ def sync_competition_data(comp_id, request):
                     items_sold = items_sold_data.get(tech_name, 0)
                     reviews = 0  # TODO: Add reviews integration
 
-                    # Calculate points: flips*10 + items*5 + reviews*8
-                    total_points = (sold_flips * 10) + (items_sold * 5) + (reviews * 8)
+                    # Calculate points: 1:1 ratio - each flip, item, and review = 1 point
+                    total_points = sold_flips + items_sold + reviews
+
+                    logger.info(f"Updating {tech_name}: sold_flips={sold_flips}, items_sold={items_sold}, reviews={reviews}, points={total_points}")
 
                     # Upsert into leaderboard
                     upsert_query = """
@@ -661,8 +689,8 @@ def update_manual_reviews(comp_id, request):
                     items_sold = 0
                     reviews = review_count
 
-                # Calculate new total points
-                total_points = (sold_flips * 10) + (items_sold * 5) + (reviews * 8)
+                # Calculate new total points: 1:1 ratio - each flip, item, and review = 1 point
+                total_points = sold_flips + items_sold + reviews
 
                 # Upsert the leaderboard entry
                 upsert_query = """

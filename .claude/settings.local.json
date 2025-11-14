@@ -21,7 +21,14 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(bash:*)",
-      "Bash(gcloud scheduler jobs describe:*)"
+      "Bash(gcloud scheduler jobs describe:*)",
+      "Bash(gcloud scheduler jobs create:*)",
+      "Bash(gcloud logging read:*)",
+      "Bash(timeout 10 psql:*)",
+      "Bash(timeout 30 psql:*)",
+      "Bash(gcloud sql connect:*)",
+      "Bash(gcloud sql databases list:*)",
+      "Bash(gcloud sql instances describe:*)"
     ],
     "deny": [],
     "ask": []

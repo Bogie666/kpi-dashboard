@@ -1927,6 +1927,79 @@ def fetch_sold_flips_data(period_type):
             raise
 
 
+def fetch_items_sold_custom_date_range(start_date, end_date):
+    """
+    Fetch Items Sold Report from ServiceTitan for a custom date range
+    Used by competition tracking to get data for specific competition periods
+    Report ID: 394027220
+    """
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/marketing/reports/394027220/data"
+
+    payload = {
+        "parameters": [
+            {"name": "DateType", "value": "0"},  # Custom date range
+            {"name": "IncludeInactive", "value": "false"},
+            {"name": "From", "value": start_date},
+            {"name": "To", "value": end_date}
+        ]
+    }
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Fetching Items Sold data from ServiceTitan API for {start_date} to {end_date}")
+            response = requests.post(url, headers=headers, json=payload)
+
+            if response.status_code == 429:
+                logger.info(f"Rate limited on attempt {attempt + 1}, waiting before retry...")
+                time.sleep(120)
+                continue
+
+            response.raise_for_status()
+
+            data = response.json()
+            rows = data.get("data", [])
+
+            processed_data = []
+            for row in rows:
+                # Parse quantity - handle both string and numeric formats
+                quantity_raw = row[3] if len(row) > 3 else 0
+                try:
+                    if isinstance(quantity_raw, str):
+                        quantity = int(float(quantity_raw.replace('$', '').replace(',', '')))
+                    else:
+                        quantity = int(quantity_raw)
+                except (ValueError, AttributeError):
+                    quantity = 0
+
+                record = {
+                    "invoice_date": row[0] if len(row) > 0 else None,
+                    "sold_by_technician": str(row[1]) if len(row) > 1 and row[1] else None,
+                    "code": str(row[2]) if len(row) > 2 and row[2] else None,
+                    "quantity": quantity,
+                    "invoice_number": str(row[4]) if len(row) > 4 and row[4] else None,
+                    "job_business_unit": str(row[5]) if len(row) > 5 and row[5] else None,
+                    "job_type": str(row[6]) if len(row) > 6 and row[6] else None
+                }
+
+                # Only include if we have actual data
+                if record["sold_by_technician"] and record["code"]:
+                    processed_data.append(record)
+
+            logger.info(f"Successfully fetched {len(processed_data)} Items Sold records for custom date range")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_items_sold_custom_date_range: {str(e)}")
+            logger.error(traceback.format_exc())
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying... (attempt {attempt + 2}/{max_retries})")
+                continue
+            raise
+
+
 def fetch_sold_flips_custom_date_range(start_date, end_date):
     """
     Fetch Technician Leads Sold Report from ServiceTitan for a custom date range
@@ -3069,6 +3142,62 @@ def sync_servicetitan_data(request):
                 response = {
                     'status': 'error',
                     'message': f'Failed to fetch sold flips data: {str(e)}',
+                    'timestamp': datetime.now().isoformat()
+                }
+                return (json.dumps(response, default=str, indent=2), 500, headers)
+
+        # Custom date range items sold endpoint for competition tracking
+        if request.path and '/fetch-items-sold-custom' in request.path:
+            start_date = request.args.get('start_date')
+            end_date = request.args.get('end_date')
+
+            if not start_date or not end_date:
+                response = {
+                    'status': 'error',
+                    'message': 'start_date and end_date parameters are required',
+                    'timestamp': datetime.now().isoformat()
+                }
+                return (json.dumps(response), 400, headers)
+
+            logger.info(f"Fetching items sold for custom date range: {start_date} to {end_date}")
+
+            try:
+                # Fetch items sold data for custom date range
+                items_sold_records = fetch_items_sold_custom_date_range(start_date, end_date)
+
+                if items_sold_records:
+                    # Return the data without storing it
+                    # Competition API will use this data directly
+                    response = {
+                        'status': 'success',
+                        'message': f'Fetched {len(items_sold_records)} items sold records',
+                        'data': items_sold_records,
+                        'date_range': {
+                            'start': start_date,
+                            'end': end_date
+                        },
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, default=str, indent=2), 200, headers)
+                else:
+                    response = {
+                        'status': 'success',
+                        'message': 'No data found for the specified date range',
+                        'data': [],
+                        'date_range': {
+                            'start': start_date,
+                            'end': end_date
+                        },
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, default=str, indent=2), 200, headers)
+
+            except Exception as e:
+                logger.error(f"Error fetching custom date range items sold: {str(e)}")
+                logger.error(traceback.format_exc())
+                response = {
+                    'status': 'error',
+                    'message': f'Failed to fetch items sold data: {str(e)}',
                     'timestamp': datetime.now().isoformat()
                 }
                 return (json.dumps(response, default=str, indent=2), 500, headers)

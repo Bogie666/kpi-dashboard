@@ -143,6 +143,7 @@ const CompetitionAdmin = () => {
           endDate: editingCompetition.endDate || '',
           status: editingCompetition.status || 'draft',
           itemCode: editingCompetition.itemCode || '',
+          minimumToQualify: editingCompetition.minimumToQualify || 25,
           metrics: editingCompetition.metrics || []
         };
       }
@@ -152,6 +153,7 @@ const CompetitionAdmin = () => {
         endDate: '',
         status: 'draft',
         itemCode: 'MUV-7-50DR-12',
+        minimumToQualify: 25,
         metrics: [
           { name: 'soldFlips', target: 0 },
           { name: 'itemsSold', target: 0 },
@@ -271,6 +273,26 @@ const CompetitionAdmin = () => {
               />
               <p className="text-xs text-gray-400 mt-1">
                 This code will be used to filter items in the ServiceTitan reports
+              </p>
+            </div>
+
+            {/* Minimum to Qualify */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Minimum Points to Qualify for Prize
+                <span className="text-xs text-gray-400 ml-2">(total points needed)</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.minimumToQualify}
+                onChange={(e) => setFormData({ ...formData, minimumToQualify: parseInt(e.target.value) || 0 })}
+                className="w-full bg-gray-700 text-white rounded-lg px-4 py-2 border border-gray-600 focus:border-blue-500 focus:outline-none"
+                placeholder="25"
+                required
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Technicians must reach this total to qualify for prizes (1 point per flip/item/review)
               </p>
             </div>
 
