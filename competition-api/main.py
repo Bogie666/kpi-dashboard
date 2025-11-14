@@ -477,19 +477,43 @@ def sync_competition_data(comp_id, request):
 
                 # Query sold flips from ServiceTitan data
                 # Using leads_sold column as the sold flips metric
+                # NOTE: servicetitan_sold_flips stores aggregated data by period_type (MTD, YTD, Last Month)
+                # For now, we'll use MTD for current month competitions
+                # TODO: Add date range support by storing start_date/end_date in servicetitan_sold_flips
+
+                # Determine which period_type to use based on competition dates
+                from datetime import datetime
+                comp_start = datetime.strptime(str(start_date), '%Y-%m-%d')
+                comp_end = datetime.strptime(str(end_date), '%Y-%m-%d')
+                today = datetime.now()
+
+                # Use MTD if competition covers current month
+                if comp_start.year == today.year and comp_start.month == today.month:
+                    period_filter = 'mtd'
+                # Use Last Month if competition is previous month
+                elif comp_start.year == today.year and comp_start.month == today.month - 1:
+                    period_filter = 'last_month'
+                # Use YTD if competition covers multiple months in current year
+                elif comp_start.year == today.year and comp_start.month < today.month:
+                    period_filter = 'ytd'
+                else:
+                    # Default to MTD as best approximation
+                    period_filter = 'mtd'
+                    logger.warning(f"Competition date range doesn't match available period types. Using MTD as approximation.")
+
                 sold_flips_query = """
                 SELECT technician_name, leads_sold
                 FROM servicetitan_sold_flips
-                WHERE period_type = 'mtd'
+                WHERE period_type = %s
                   AND technician_name IS NOT NULL
                   AND technician_name != ''
                 """
 
-                cursor.execute(sold_flips_query)
+                cursor.execute(sold_flips_query, (period_filter,))
                 sold_flips_rows = cursor.fetchall()
                 sold_flips_data = {row[0]: row[1] for row in sold_flips_rows}
 
-                logger.info(f"Found {len(sold_flips_data)} technicians with sold flips data (leads_sold)")
+                logger.info(f"Found {len(sold_flips_data)} technicians with sold flips data (leads_sold) using period_type={period_filter}")
 
                 # Get all unique technician names
                 all_techs = set(list(items_sold_data.keys()) + list(sold_flips_data.keys()))

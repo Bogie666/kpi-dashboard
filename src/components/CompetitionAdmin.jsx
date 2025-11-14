@@ -138,9 +138,9 @@ const CompetitionAdmin = () => {
         status: 'draft',
         itemCode: 'MUV-7-50DR-12',
         metrics: [
-          { name: 'soldFlips', target: 0, current: 0 },
-          { name: 'itemsSold', target: 0, current: 0 },
-          { name: 'reviews', target: 0, current: 0 }
+          { name: 'soldFlips', target: 0 },
+          { name: 'itemsSold', target: 0 },
+          { name: 'reviews', target: 0 }
         ]
       };
     });
@@ -284,29 +284,16 @@ const CompetitionAdmin = () => {
                           </span>
                         )}
                       </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Target</label>
-                        <input
-                          type="number"
-                          value={metric.target}
-                          onChange={(e) => updateMetric(index, 'target', parseInt(e.target.value))}
-                          className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm border border-gray-500 focus:border-blue-500 focus:outline-none"
-                          min="0"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Current Progress</label>
-                        <input
-                          type="number"
-                          value={metric.current}
-                          onChange={(e) => updateMetric(index, 'current', parseInt(e.target.value))}
-                          className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm border border-gray-500 focus:border-blue-500 focus:outline-none"
-                          min="0"
-                          readOnly={!editingCompetition}
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Target</label>
+                      <input
+                        type="number"
+                        value={metric.target}
+                        onChange={(e) => updateMetric(index, 'target', parseInt(e.target.value))}
+                        className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm border border-gray-500 focus:border-blue-500 focus:outline-none"
+                        min="0"
+                        required
+                      />
                     </div>
                   </div>
                   );
@@ -437,31 +424,16 @@ const CompetitionAdmin = () => {
           </span>
         </div>
 
-        {/* Quick Stats */}
+        {/* Competition Targets */}
         <div className="grid grid-cols-3 gap-4 mb-4">
-          {competition.metrics.map((metric, index) => {
-            const percentage = (metric.current / metric.target) * 100;
-            return (
-              <div key={index} className="bg-gray-700 rounded-lg p-3">
-                <div className="text-xs text-gray-400 mb-1">{metric.name}</div>
-                <div className="text-lg font-bold text-white mb-1">
-                  {metric.current} / {metric.target}
-                </div>
-                <div className="w-full bg-gray-600 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full ${
-                      percentage >= 100 ? 'bg-green-500' :
-                      percentage >= 75 ? 'bg-blue-500' :
-                      percentage >= 50 ? 'bg-yellow-500' :
-                      'bg-red-500'
-                    }`}
-                    style={{ width: `${Math.min(percentage, 100)}%` }}
-                  />
-                </div>
-                <div className="text-xs text-gray-400 mt-1">{percentage.toFixed(0)}%</div>
+          {competition.metrics.map((metric, index) => (
+            <div key={index} className="bg-gray-700 rounded-lg p-3">
+              <div className="text-xs text-gray-400 mb-1">{metric.name}</div>
+              <div className="text-lg font-bold text-white">
+                Target: {metric.target}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
         {/* Participants */}
