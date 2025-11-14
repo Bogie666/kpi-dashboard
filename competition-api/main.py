@@ -476,9 +476,9 @@ def sync_competition_data(comp_id, request):
                 logger.info(f"Found {len(items_sold_data)} technicians with items sold for item code {item_code}")
 
                 # Query sold flips from ServiceTitan data
-                # Using LeadsSet column as the sold flips metric
+                # Using leads_sold column as the sold flips metric
                 sold_flips_query = """
-                SELECT technician_name, leads_set
+                SELECT technician_name, leads_sold
                 FROM servicetitan_sold_flips
                 WHERE period_type = 'mtd'
                   AND technician_name IS NOT NULL
@@ -489,7 +489,7 @@ def sync_competition_data(comp_id, request):
                 sold_flips_rows = cursor.fetchall()
                 sold_flips_data = {row[0]: row[1] for row in sold_flips_rows}
 
-                logger.info(f"Found {len(sold_flips_data)} technicians with sold flips data (LeadsSet)")
+                logger.info(f"Found {len(sold_flips_data)} technicians with sold flips data (leads_sold)")
 
                 # Get all unique technician names
                 all_techs = set(list(items_sold_data.keys()) + list(sold_flips_data.keys()))
