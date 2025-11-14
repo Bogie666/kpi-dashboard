@@ -30,6 +30,7 @@ const CompetitionAdmin = () => {
   const [editingCompetition, setEditingCompetition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [totalParticipants, setTotalParticipants] = useState(0);
+  const [technicianNames, setTechnicianNames] = useState([]);
 
   // Manual review entry state
   const [showReviewEntry, setShowReviewEntry] = useState(false);
@@ -53,18 +54,31 @@ const CompetitionAdmin = () => {
         setCompetitions(result.data || []);
 
         // Calculate total participants across all competitions
+        // Also collect all unique technician names from active competitions
         let total = 0;
+        const allTechNames = new Set();
+
         for (const comp of result.data || []) {
           try {
             const leaderboard = await competitionApi.getLeaderboard(comp.id);
             if (leaderboard.status === 'success') {
               total += leaderboard.data?.leaderboard?.length || 0;
+
+              // Collect technician names from active competitions for review entry dropdown
+              if (comp.status === 'active') {
+                leaderboard.data?.leaderboard?.forEach(entry => {
+                  if (entry.name) {
+                    allTechNames.add(entry.name);
+                  }
+                });
+              }
             }
           } catch (e) {
             console.error('Error loading leaderboard for competition', comp.id, e);
           }
         }
         setTotalParticipants(total);
+        setTechnicianNames(Array.from(allTechNames).sort());
       } else {
         console.error('Failed to load competitions:', result.message);
       }
@@ -600,14 +614,19 @@ const CompetitionAdmin = () => {
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Technician Name
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={reviewFormData.technicianName}
                     onChange={(e) => setReviewFormData({ ...reviewFormData, technicianName: e.target.value })}
-                    placeholder="e.g., John Smith"
                     className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
-                  />
+                  >
+                    <option value="">Select Technician</option>
+                    {technicianNames.map(name => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

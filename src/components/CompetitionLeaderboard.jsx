@@ -306,11 +306,11 @@ const CompetitionLeaderboard = ({ competitionId }) => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <Trophy className="h-16 w-16 text-yellow-400 mr-4 animate-bounce" />
+            <Trophy className="h-16 w-16 text-yellow-400 mr-4" />
             <h1 className="text-5xl md:text-6xl font-black text-white">
               {competition.name}
             </h1>
-            <Trophy className="h-16 w-16 text-yellow-400 ml-4 animate-bounce" />
+            <Trophy className="h-16 w-16 text-yellow-400 ml-4" />
           </div>
 
           <div className="flex items-center justify-center space-x-8 mb-6">
@@ -344,9 +344,9 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                 <div className="bg-gradient-to-br from-gray-400 to-gray-600 rounded-t-2xl p-6 text-center">
                   <div className="text-6xl mb-2">🥈</div>
                   <div className="w-20 h-20 mx-auto mb-3">
-                    {leaderboard[1].photo ? (
+                    {(leaderboard[1].photo || photos[leaderboard[1].id]) ? (
                       <img
-                        src={leaderboard[1].photo}
+                        src={leaderboard[1].photo || photos[leaderboard[1].id]}
                         alt={leaderboard[1].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white"
                       />
@@ -373,12 +373,12 @@ const CompetitionLeaderboard = ({ competitionId }) => {
             {leaderboard[0] && (
               <div className="flex-1 max-w-xs transform hover:scale-105 transition-transform">
                 <div className="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-t-2xl p-8 text-center relative">
-                  <Crown className="h-12 w-12 text-yellow-200 absolute -top-6 left-1/2 transform -translate-x-1/2 animate-bounce" />
+                  <Crown className="h-12 w-12 text-yellow-200 absolute -top-6 left-1/2 transform -translate-x-1/2" />
                   <div className="text-7xl mb-3">🏆</div>
                   <div className="w-24 h-24 mx-auto mb-4">
-                    {leaderboard[0].photo ? (
+                    {(leaderboard[0].photo || photos[leaderboard[0].id]) ? (
                       <img
-                        src={leaderboard[0].photo}
+                        src={leaderboard[0].photo || photos[leaderboard[0].id]}
                         alt={leaderboard[0].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white shadow-xl"
                       />
@@ -407,9 +407,9 @@ const CompetitionLeaderboard = ({ competitionId }) => {
                 <div className="bg-gradient-to-br from-amber-600 to-amber-700 rounded-t-2xl p-6 text-center">
                   <div className="text-6xl mb-2">🥉</div>
                   <div className="w-20 h-20 mx-auto mb-3">
-                    {leaderboard[2].photo ? (
+                    {(leaderboard[2].photo || photos[leaderboard[2].id]) ? (
                       <img
-                        src={leaderboard[2].photo}
+                        src={leaderboard[2].photo || photos[leaderboard[2].id]}
                         alt={leaderboard[2].name}
                         className="w-full h-full rounded-full object-cover border-4 border-white"
                       />
