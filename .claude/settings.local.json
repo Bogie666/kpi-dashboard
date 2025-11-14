@@ -7,7 +7,19 @@
       "Bash(curl:*)",
       "Bash(python3:*)",
       "Bash(gcloud functions deploy:*)",
-      "Bash(gcloud functions logs read:*)"
+      "Bash(gcloud functions logs read:*)",
+      "Bash(npm run build:*)",
+      "Bash(chmod:*)",
+      "Bash(ls:*)",
+      "Bash(./deploy_competition_migration.sh:*)",
+      "Bash(python run_migration_directly.py:*)",
+      "Bash(./deploy.sh:*)",
+      "Bash(gcloud functions describe:*)",
+      "Bash(gcloud run services update:*)",
+      "Bash(psql:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

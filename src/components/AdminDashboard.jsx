@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import TechnicianPhotoManager from './TechnicianPhotoManager';
+import CompetitionAdmin from './CompetitionAdmin';
 
 // Helper function to format relative time
 const formatRelativeTime = (utcTimeString) => {
@@ -62,17 +63,17 @@ const formatCentralTime = (utcTimeString) => {
   }
 };
 
-import { 
-  Settings, 
-  Users, 
-  Target, 
-  Database, 
-  Bell, 
-  Save, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  ArrowUp, 
+import {
+  Settings,
+  Users,
+  Target,
+  Database,
+  Bell,
+  Save,
+  Plus,
+  Edit,
+  Trash2,
+  ArrowUp,
   ArrowDown,
   CheckCircle,
   AlertTriangle,
@@ -96,7 +97,8 @@ import {
   Shield,
   Monitor,
   UserPlus,
-  Key
+  Key,
+  Trophy
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -1156,6 +1158,7 @@ const AdminDashboard = () => {
 
   const tabs = [
     { id: 'targets', label: 'Performance Targets', icon: Target },
+    { id: 'competitions', label: 'Competitions', icon: Trophy },
     { id: 'photos', label: 'Tech Photos', icon: Camera },
     { id: 'users', label: 'User Management', icon: Users },
     { id: 'system', label: 'System Settings', icon: Database }
@@ -1559,6 +1562,13 @@ const AdminDashboard = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Competitions Tab */}
+      {activeTab === 'competitions' && (
+        <div className="bg-gray-800 rounded-lg">
+          <CompetitionAdmin />
         </div>
       )}
 

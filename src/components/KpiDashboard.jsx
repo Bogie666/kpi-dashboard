@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, ReferenceLine } from 'recharts';
 import { UserCheck, Phone, DollarSign, Wrench, Users, Settings, TrendingUp, Target, AlertTriangle, Trophy, CheckCircle, Zap, Droplets } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
+import CompetitionLeaderboard from './CompetitionLeaderboard';
 import LoginScreen from './LoginScreen';
 import { LogOut, User, Monitor } from 'lucide-react';
 import YtdTrendChart from './YtdTrendChart';
@@ -68,6 +69,7 @@ useEffect(() => {
     { id: "memberships", label: "Memberships", icon: Users },
     { id: "revenue-ttm", label: "Revenue TTM", icon: TrendingUp },
     { id: "top_performers", label: "Top Performers", icon: Trophy },
+    { id: "competition", label: "Competition", icon: Trophy },
   ];
 
   if (user?.role === 'admin') {
@@ -329,12 +331,19 @@ const startDisplayAutoRotation = () => {
       if (data.status === 'success') {
         setDashboardData(prev => ({ ...prev, hvac_maintenance: data.data }));
       }
-    } else if (activeView === 'plumbing' || activeView === 'electrical') {
-      // CHANGED: Use new hvac-tech endpoint (data will be filtered by trade in the view)
-      const response = await fetch(`${DASHBOARD_API}/hvac-tech/${timePeriod}`);
+    } else if (activeView === 'plumbing') {
+      // NEW: Use dedicated plumbing endpoint
+      const response = await fetch(`${DASHBOARD_API}/plumbing/${timePeriod}`);
       const data = await response.json();
       if (data.status === 'success') {
-        setDashboardData(prev => ({ ...prev, technician: data.data }));
+        setDashboardData(prev => ({ ...prev, plumbing: data.data }));
+      }
+    } else if (activeView === 'electrical') {
+      // NEW: Use dedicated electrical endpoint
+      const response = await fetch(`${DASHBOARD_API}/electrical/${timePeriod}`);
+      const data = await response.json();
+      if (data.status === 'success') {
+        setDashboardData(prev => ({ ...prev, electrical: data.data }));
       }
     } else if (activeView === 'financial') {
       const response = await fetch(`${DASHBOARD_API}/financial/${timePeriod}`);
@@ -1712,12 +1721,31 @@ const TechnicianView = ({
 
   // Financial View
 const FinancialView = () => {
-  const financialData = dashboardData.financial || [];
-  
+  // Fixed department order
+  const departmentOrder = [
+    'hvac_replacement',
+    'hvac_service',
+    'hvac_maintenance',
+    'commercial_hvac',
+    'plumbing',
+    'electrical',
+    'tyler'
+  ];
+
+  // Sort financial data by fixed order
+  const financialData = (dashboardData.financial || []).sort((a, b) => {
+    const indexA = departmentOrder.indexOf(a.department);
+    const indexB = departmentOrder.indexOf(b.department);
+    // If department not in order list, put it at the end
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+
   // Department labels mapping
   const departmentLabels = {
     'hvac_service': 'HVAC Service',
-    'hvac_maintenance': 'HVAC Maintenance', 
+    'hvac_maintenance': 'HVAC Maintenance',
     'hvac_replacement': 'HVAC Replacement',
     'commercial_hvac': 'Commercial HVAC',
     'plumbing': 'Plumbing',
@@ -1771,7 +1799,7 @@ const FinancialView = () => {
   const getShortDepartmentName = (department) => {
     const shortNames = {
       'hvac_service': 'Service',
-      'hvac_maintenance': 'Maintenance', 
+      'hvac_maintenance': 'Maintenance',
       'hvac_replacement': 'Replacement',
       'commercial_hvac': 'Commercial',
       'plumbing': 'Plumbing',
@@ -1779,6 +1807,96 @@ const FinancialView = () => {
       'tyler': 'Tyler'
     };
     return shortNames[department] || department;
+  };
+
+  // Get major holidays for a given year
+  const getHolidays = (year) => {
+    const holidays = [];
+
+    // Fixed date holidays
+    holidays.push(new Date(year, 0, 1));  // New Year's Day
+    holidays.push(new Date(year, 6, 4));  // Independence Day
+    holidays.push(new Date(year, 11, 25)); // Christmas
+
+    // Memorial Day - Last Monday in May
+    const memorialDay = new Date(year, 4, 31); // Start at May 31
+    while (memorialDay.getDay() !== 1) {
+      memorialDay.setDate(memorialDay.getDate() - 1);
+    }
+    holidays.push(new Date(memorialDay));
+
+    // Labor Day - First Monday in September
+    const laborDay = new Date(year, 8, 1); // September 1
+    while (laborDay.getDay() !== 1) {
+      laborDay.setDate(laborDay.getDate() + 1);
+    }
+    holidays.push(new Date(laborDay));
+
+    // Thanksgiving - Fourth Thursday in November
+    const thanksgiving = new Date(year, 10, 1); // November 1
+    let thursdayCount = 0;
+    while (thursdayCount < 4) {
+      if (thanksgiving.getDay() === 4) {
+        thursdayCount++;
+      }
+      if (thursdayCount < 4) {
+        thanksgiving.setDate(thanksgiving.getDate() + 1);
+      }
+    }
+    holidays.push(new Date(thanksgiving));
+
+    return holidays;
+  };
+
+  // Check if a date is a holiday
+  const isHoliday = (date, holidays) => {
+    return holidays.some(holiday =>
+      holiday.getFullYear() === date.getFullYear() &&
+      holiday.getMonth() === date.getMonth() &&
+      holiday.getDate() === date.getDate()
+    );
+  };
+
+  // Calculate effective working days (M-F full days, Sat 25% capacity, Sun closed, excluding holidays)
+  // countSaturdays parameter controls whether Saturdays are included (only for certain HVAC departments)
+  const getEffectiveWorkingDays = (startDate, endDate, countSaturdays = true) => {
+    let weekdays = 0;
+    let saturdays = 0;
+
+    // Get holidays for the year(s) covered by the date range
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
+    let holidays = getHolidays(startYear);
+    if (endYear !== startYear) {
+      holidays = holidays.concat(getHolidays(endYear));
+    }
+
+    // Normalize dates to start of day for accurate comparison including today
+    const normalizedStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const normalizedEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+    const current = new Date(normalizedStart);
+    while (current <= normalizedEnd) {
+      const dayOfWeek = current.getDay(); // 0=Sunday, 6=Saturday
+
+      // Skip if it's a holiday
+      if (!isHoliday(current, holidays)) {
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          weekdays++;
+        } else if (dayOfWeek === 6 && countSaturdays) {
+          saturdays++;
+        }
+      }
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return weekdays + (saturdays * 0.25);
+  };
+
+  // Check if department works on Saturdays (only residential HVAC departments)
+  const departmentWorksSaturdays = (department) => {
+    return ['hvac_replacement', 'hvac_service', 'hvac_maintenance'].includes(department);
   };
 
   // NOW calculate totals - after functions are defined
@@ -1830,6 +1948,29 @@ const totalBudget = getTotalBudgetForPeriod(timePeriod);
 
   // Get the overall revenue status
   const totalRevenueStatus = getPaceBudgetStatus(totalRevenue, totalBudget, timePeriod);
+
+  // Calculate daily average revenue based on effective working days
+  const getDailyAverageRevenue = () => {
+    const today = new Date();
+
+    if (timePeriod === 'mtd') {
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const elapsedEffectiveDays = getEffectiveWorkingDays(startOfMonth, today);
+      return elapsedEffectiveDays > 0 ? Math.round(totalRevenue / elapsedEffectiveDays) : 0;
+    } else if (timePeriod === 'last_month') {
+      const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      const effectiveDaysInLastMonth = getEffectiveWorkingDays(lastMonth, endOfLastMonth);
+      return effectiveDaysInLastMonth > 0 ? Math.round(totalRevenue / effectiveDaysInLastMonth) : 0;
+    } else if (timePeriod === 'ytd') {
+      const startOfYear = new Date(today.getFullYear(), 0, 1);
+      const elapsedEffectiveDays = getEffectiveWorkingDays(startOfYear, today);
+      return elapsedEffectiveDays > 0 ? Math.round(totalRevenue / elapsedEffectiveDays) : 0;
+    }
+    return 0;
+  };
+
+  const dailyAverageRevenue = getDailyAverageRevenue();
 
   // Enhanced Total Revenue Card Component
 const EnhancedTotalRevenueCard = () => {
@@ -2018,24 +2159,24 @@ const EnhancedTotalRevenueCard = () => {
       {/* Enhanced Summary Cards with Color-Coded Total Revenue */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
         <EnhancedTotalRevenueCard />
-        
-        <MetricCard 
-          title="Total Jobs" 
-          value={totalJobs} 
+
+        <MetricCard
+          title="Total Jobs"
+          value={totalJobs}
           unit=" jobs"
           showDetailedStatus={false}
           colorScheme="blue"
         />
-        <MetricCard 
-          title="Total Opportunities" 
-          value={totalOpportunities} 
+        <MetricCard
+          title="Total Opportunities"
+          value={totalOpportunities}
           unit=" opps"
           showDetailedStatus={false}
           colorScheme="purple"
         />
-        <MetricCard 
-          title="Membership Revenue" 
-          value={totalMembershipRevenue} 
+        <MetricCard
+          title="Daily Average Revenue"
+          value={dailyAverageRevenue}
           unit="$"
           showDetailedStatus={false}
           colorScheme="green"
@@ -2051,17 +2192,18 @@ const EnhancedTotalRevenueCard = () => {
       <div className="bg-gray-800 rounded-lg p-4 md:p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Department Performance</h3>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px]">
+          <table className="w-full min-w-[900px]">
             <thead>
               <tr className="border-b border-gray-700">
                 <th className="sticky left-0 z-10 bg-gray-800 text-left text-gray-300 pb-3 text-sm">Department</th>
                 <th className="text-center text-gray-300 pb-3 text-sm">Total Revenue</th>
                 <th className="text-center text-gray-300 pb-3 text-sm">Budget Target ($)</th>
                 <th className="text-center text-gray-300 pb-3 text-sm">Budget Status</th>
+                <th className="text-center text-gray-300 pb-3 text-sm">Daily Goal</th>
+                <th className="text-center text-gray-300 pb-3 text-sm">Adjusted Daily Target</th>
                 <th className="text-center text-gray-300 pb-3 text-sm">Tech Jobs</th>
                 <th className="text-center text-gray-300 pb-3 text-sm">Marketing Jobs</th>
                 <th className="text-center text-gray-300 pb-3 text-sm">Opportunities</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Membership Revenue</th>
               </tr>
             </thead>
             <tbody>
@@ -2101,6 +2243,80 @@ const EnhancedTotalRevenueCard = () => {
                 const budgetStatus = getPaceBudgetStatus(dept.totalRevenue, budgetTarget, timePeriod);
                 const budgetPercentage = budgetTarget > 0 ? Math.round((dept.totalRevenue / budgetTarget) * 100) : null;
 
+                // Calculate daily goal and variance for this department
+                const getDailyGoalForDept = () => {
+                  if (!budgetTarget) return null;
+                  const today = new Date();
+                  const worksSaturdays = departmentWorksSaturdays(dept.department);
+
+                  if (timePeriod === 'mtd') {
+                    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    const totalEffectiveDays = getEffectiveWorkingDays(startOfMonth, endOfMonth, worksSaturdays);
+                    return totalEffectiveDays > 0 ? Math.round(budgetTarget / totalEffectiveDays) : null;
+                  } else if (timePeriod === 'last_month') {
+                    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                    const effectiveDaysInLastMonth = getEffectiveWorkingDays(lastMonth, endOfLastMonth, worksSaturdays);
+                    return effectiveDaysInLastMonth > 0 ? Math.round(budgetTarget / effectiveDaysInLastMonth) : null;
+                  } else if (timePeriod === 'ytd') {
+                    const startOfYear = new Date(today.getFullYear(), 0, 1);
+                    const totalEffectiveDays = getEffectiveWorkingDays(startOfYear, today, worksSaturdays);
+                    return totalEffectiveDays > 0 ? Math.round(budgetTarget / totalEffectiveDays) : null;
+                  }
+                  return null;
+                };
+
+                const getAdjustedDailyTargetForDept = (originalDailyGoal) => {
+                  if (!budgetTarget || !originalDailyGoal) return null;
+                  const today = new Date();
+                  const worksSaturdays = departmentWorksSaturdays(dept.department);
+
+                  if (timePeriod === 'mtd') {
+                    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    const elapsedEffectiveDays = getEffectiveWorkingDays(startOfMonth, today, worksSaturdays);
+                    const totalEffectiveDays = getEffectiveWorkingDays(startOfMonth, endOfMonth, worksSaturdays);
+                    const remainingEffectiveDays = totalEffectiveDays - elapsedEffectiveDays;
+
+                    // Calculate how much revenue is still needed
+                    const remainingNeeded = budgetTarget - (dept.totalRevenue || 0);
+
+                    // If already at or over target, return emoji indicator
+                    if (remainingNeeded <= 0) {
+                      return 'emoji';
+                    }
+
+                    // Calculate required daily rate for remaining days
+                    if (remainingEffectiveDays > 0) {
+                      const adjustedTarget = Math.round(remainingNeeded / remainingEffectiveDays);
+
+                      // If adjusted target is less than or equal to original goal, they're on pace or ahead
+                      if (adjustedTarget <= originalDailyGoal) {
+                        return 'emoji';
+                      }
+
+                      // Otherwise they're behind, show the higher number needed
+                      return adjustedTarget;
+                    }
+
+                    // If no days remaining but still short, return null
+                    return null;
+                  } else if (timePeriod === 'last_month') {
+                    // For completed periods, show emoji if target met, otherwise show what was needed
+                    const remainingNeeded = budgetTarget - (dept.totalRevenue || 0);
+                    return remainingNeeded <= 0 ? 'emoji' : null;
+                  } else if (timePeriod === 'ytd') {
+                    // For YTD, show emoji if target met
+                    const remainingNeeded = budgetTarget - (dept.totalRevenue || 0);
+                    return remainingNeeded <= 0 ? 'emoji' : null;
+                  }
+                  return null;
+                };
+
+                const dailyGoal = getDailyGoalForDept();
+                const adjustedDailyTarget = getAdjustedDailyTargetForDept(dailyGoal);
+
                 return (
                   <tr key={index} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
                     <td className="sticky left-0 z-10 bg-gray-800 py-3 text-white font-medium text-sm truncate">
@@ -2120,12 +2336,21 @@ const EnhancedTotalRevenueCard = () => {
                         {budgetTarget && getStatusIcon(budgetStatus)}
                       </div>
                     </td>
+                    <td className="py-3 text-center text-gray-300 text-sm">
+                      {dailyGoal ? `$${dailyGoal.toLocaleString()}` : 'N/A'}
+                    </td>
+                    <td className="py-3 text-center text-sm">
+                      {adjustedDailyTarget === 'emoji' ? (
+                        <span className="text-2xl">🍆</span>
+                      ) : adjustedDailyTarget !== null ? (
+                        <span className="text-yellow-400 font-medium">
+                          ${adjustedDailyTarget.toLocaleString()}
+                        </span>
+                      ) : 'N/A'}
+                    </td>
                     <td className="py-3 text-center text-gray-300 text-sm">{dept.techLeadJobs || 0}</td>
                     <td className="py-3 text-center text-gray-300 text-sm">{dept.marketingLeadJobs || 0}</td>
                     <td className="py-3 text-center text-gray-300 text-sm">{dept.opportunities || 0}</td>
-                    <td className="py-3 text-center text-gray-300 text-sm">
-                      ${dept.membershipRevenue?.toLocaleString() || '0'}
-                    </td>
                   </tr>
                 );
               })}
@@ -2355,23 +2580,23 @@ const EnhancedTotalRevenueCard = () => {
         dataKey="hvac_maintenance"  // Uses hvac-maintenance endpoint data (separate!)
       />;  
     case "plumbing":
-      return <TechnicianView 
-        tradeFilter="Plumbing"
-        viewTitle="Plumbing Technician" 
+      return <TechnicianView
+        viewTitle="Plumbing Technician"
         targetCategory="plumbing"
-        dataKey="technician"  // Still uses old technicians endpoint with filtering
+        dataKey="plumbing"  // NEW: Uses dedicated plumbing endpoint
       />;
     case "electrical":
-      return <TechnicianView 
-        tradeFilter="Electrical"
-        viewTitle="Electrical Technician" 
+      return <TechnicianView
+        viewTitle="Electrical Technician"
         targetCategory="electrical"
-        dataKey="technician"  // Still uses old technicians endpoint with filtering
+        dataKey="electrical"  // NEW: Uses dedicated electrical endpoint
       />;
     case "memberships":
       return <MembershipsView />;
     case "top_performers":
       return <TopPerformersDashboard />;
+    case "competition":
+      return <CompetitionLeaderboard />;
     case "top_comfort_advisor":
       return <TopPerformersDashboard initialTab="comfort_advisor" />;
     case "top_hvac_tech":

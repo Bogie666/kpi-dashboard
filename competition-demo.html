@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Competition Leaderboard - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-bounce {
+            animation: bounce 2s infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .card-enter {
+            animation: slideIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 min-h-screen p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="flex items-center justify-center mb-4">
+                <div class="text-6xl mr-4 animate-bounce">🏆</div>
+                <h1 class="text-5xl md:text-6xl font-black text-white">
+                    November Hustle
+                </h1>
+                <div class="text-6xl ml-4 animate-bounce">🏆</div>
+            </div>
+
+            <div class="flex items-center justify-center space-x-8 mb-6">
+                <div class="bg-white bg-opacity-10 backdrop-blur-lg rounded-lg px-6 py-3">
+                    <div class="text-yellow-400 text-sm font-medium mb-1">Days Remaining</div>
+                    <div class="text-white text-3xl font-bold">17</div>
+                </div>
+                <div class="bg-white bg-opacity-10 backdrop-blur-lg rounded-lg px-6 py-3">
+                    <div class="text-blue-400 text-sm font-medium mb-1">Participants</div>
+                    <div class="text-white text-3xl font-bold">12</div>
+                </div>
+            </div>
+
+            <!-- Competition Metrics -->
+            <div class="flex items-center justify-center space-x-4">
+                <div class="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg px-4 py-2">
+                    <span class="text-white font-medium">🎯 Sold Flips: 25</span>
+                </div>
+                <div class="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg px-4 py-2">
+                    <span class="text-white font-medium">💡 UV Lights: 50</span>
+                </div>
+                <div class="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg px-4 py-2">
+                    <span class="text-white font-medium">⭐ Google Reviews: 40</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Podium - Top 3 -->
+        <div class="mb-8">
+            <div class="flex items-end justify-center gap-4 mb-8">
+                <!-- 2nd Place -->
+                <div class="flex-1 max-w-xs transform hover:scale-105 transition-transform">
+                    <div class="bg-gradient-to-br from-gray-400 to-gray-600 rounded-t-2xl p-6 text-center">
+                        <div class="text-6xl mb-2">🥈</div>
+                        <div class="w-20 h-20 mx-auto mb-3">
+                            <div class="w-full h-full rounded-full bg-gray-700 border-4 border-white flex items-center justify-center text-white font-bold text-xl">
+                                SW
+                            </div>
+                        </div>
+                        <h3 class="text-white font-bold text-xl mb-2">Sarah Williams</h3>
+                        <div class="bg-green-500 text-white px-3 py-1 rounded-lg mb-2 text-lg font-bold shadow-lg">
+                            💵 $300
+                        </div>
+                        <div class="text-white text-3xl font-bold">310</div>
+                        <div class="text-gray-200 text-sm">points</div>
+                    </div>
+                    <div class="bg-gray-500 h-24 rounded-b-2xl flex items-center justify-center text-white text-4xl font-bold">
+                        2
+                    </div>
+                </div>
+
+                <!-- 1st Place -->
+                <div class="flex-1 max-w-xs transform hover:scale-105 transition-transform">
+                    <div class="bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-t-2xl p-8 text-center relative">
+                        <div class="text-6xl absolute -top-8 left-1/2 transform -translate-x-1/2 animate-bounce">👑</div>
+                        <div class="text-7xl mb-3 mt-4">🏆</div>
+                        <div class="w-24 h-24 mx-auto mb-4">
+                            <div class="w-full h-full rounded-full bg-gray-700 border-4 border-white shadow-xl flex items-center justify-center text-white font-bold text-2xl">
+                                MJ
+                            </div>
+                        </div>
+                        <h3 class="text-white font-bold text-2xl mb-3">Mike Johnson</h3>
+                        <div class="bg-green-500 text-white px-4 py-2 rounded-lg mb-3 text-2xl font-black shadow-lg">
+                            💰 $500 Prize
+                        </div>
+                        <div class="text-white text-4xl font-bold">315</div>
+                        <div class="text-yellow-100 text-sm">points</div>
+                    </div>
+                    <div class="bg-yellow-500 h-32 rounded-b-2xl flex items-center justify-center text-white text-5xl font-bold">
+                        1
+                    </div>
+                </div>
+
+                <!-- 3rd Place -->
+                <div class="flex-1 max-w-xs transform hover:scale-105 transition-transform">
+                    <div class="bg-gradient-to-br from-amber-600 to-amber-700 rounded-t-2xl p-6 text-center">
+                        <div class="text-6xl mb-2">🥉</div>
+                        <div class="w-20 h-20 mx-auto mb-3">
+                            <div class="w-full h-full rounded-full bg-gray-700 border-4 border-white flex items-center justify-center text-white font-bold text-xl">
+                                DM
+                            </div>
+                        </div>
+                        <h3 class="text-white font-bold text-xl mb-2">David Martinez</h3>
+                        <div class="bg-green-500 text-white px-3 py-1 rounded-lg mb-2 text-lg font-bold shadow-lg">
+                            💵 $150
+                        </div>
+                        <div class="text-white text-3xl font-bold">285</div>
+                        <div class="text-amber-100 text-sm">points</div>
+                    </div>
+                    <div class="bg-amber-700 h-20 rounded-b-2xl flex items-center justify-center text-white text-4xl font-bold">
+                        3
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rest of Leaderboard -->
+        <div class="space-y-4">
+            <h2 class="text-2xl font-bold text-white mb-4 flex items-center">
+                <span class="mr-2">🎖️</span>
+                Rest of the Pack
+            </h2>
+
+            <!-- 4th Place -->
+            <div class="card-enter bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl p-6 shadow-xl transform hover:scale-105 transition-all" style="animation-delay: 0s">
+                <div class="relative">
+                    <div class="absolute -top-4 -left-4">
+                        <div class="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                            #4
+                        </div>
+                    </div>
+                    <div class="absolute -top-2 -right-2">
+                        <div class="px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1 bg-green-500 text-white">
+                            <span>↑</span>
+                            <span>1</span>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-4 ml-4">
+                        <div class="flex-shrink-0 w-16 h-16">
+                            <div class="w-full h-full rounded-full bg-gray-700 border-4 border-white shadow-lg flex items-center justify-center text-white font-bold text-xl">
+                                EC
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-bold text-white text-xl">Emily Chen</h3>
+                                <div class="text-right">
+                                    <div class="text-white font-bold text-2xl">270</div>
+                                    <div class="text-xs text-white opacity-75">points</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3 mb-3">
+                                <div class="bg-white bg-opacity-20 rounded-lg p-2 text-center">
+                                    <div class="text-white font-bold text-lg">18</div>
+                                    <div class="text-xs text-white opacity-75">Sold Flips</div>
+                                </div>
+                                <div class="bg-white bg-opacity-20 rounded-lg p-2 text-center">
+                                    <div class="text-white font-bold text-lg">40</div>
+                                    <div class="text-xs text-white opacity-75">UV Lights</div>
+                                </div>
+                                <div class="bg-white bg-opacity-20 rounded-lg p-2 text-center">
+                                    <div class="text-white font-bold text-lg">30</div>
+                                    <div class="text-xs text-white opacity-75">Reviews</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="bg-green-500 bg-opacity-30 rounded-full px-2 py-1 flex items-center space-x-1">
+                                    <span class="text-xs text-white font-medium">⭐ Rising Star</span>
+                                </div>
+                                <div class="bg-orange-500 rounded-full px-2 py-1 flex items-center space-x-1">
+                                    <span class="text-white">🔥</span>
+                                    <span class="text-xs text-white font-bold">4 day streak</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5th Place -->
+            <div class="card-enter bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl p-6 shadow-xl transform hover:scale-105 transition-all" style="animation-delay: 0.1s">
+                <div class="relative">
+                    <div class="absolute -top-4 -left-4">
+                        <div class="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                            #5
+                        </div>
+                    </div>
+                    <div class="absolute -top-2 -right-2">
+                        <div class="px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1 bg-red-500 text-white">
+                            <span>↓</span>
+                            <span>1</span>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-4 ml-4">
+                        <div class="flex-shrink-0 w-16 h-16">
+                            <div class="w-full h-full rounded-full bg-gray-700 border-4 border-white shadow-lg flex items-center justify-center text-white font-bold text-xl">
+                                JW
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-bold text-white text-xl">James Wilson</h3>
+                                <div class="text-right">
+                                    <div class="text-white font-bold text-2xl">255</div>
+                                    <div class="text-xs text-white opacity-75">points</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3 mb-3">
+                                <div class="bg-white bg-opacity-20 rounded-lg p-2 text-center">
+                                    <div class="text-white font-bold text-lg">17</div>
+                                    <div class="text-xs text-white opacity-75">Sold Flips</div>
+                                </div>
+                                <div class="bg-white bg-opacity-20 rounded-lg p-2 text-center">
+                                    <div class="text-white font-bold text-lg">38</div>
+                                    <div class="text-xs text-white opacity-75">UV Lights</div>
+                                </div>
+                                <div class="bg-white bg-opacity-20 rounded-lg p-2 text-center">
+                                    <div class="text-white font-bold text-lg">28</div>
+                                    <div class="text-xs text-white opacity-75">Reviews</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-12 text-center">
+            <div class="bg-white bg-opacity-10 backdrop-blur-lg rounded-lg p-6 inline-block">
+                <div class="text-4xl mb-2">⚡</div>
+                <p class="text-white text-lg font-medium">
+                    Keep pushing! The race isn't over yet!
+                </p>
+                <p class="text-gray-300 text-sm mt-2">
+                    Competition ends: November 30, 2025
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

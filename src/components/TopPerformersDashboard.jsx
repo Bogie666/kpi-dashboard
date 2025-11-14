@@ -59,22 +59,28 @@ const TopPerformersDashboard = ({ initialTab = 'comfort_advisor' }) => {
   const loadPerformanceData = async () => {
     try {
       // Fetch all data sources in parallel
-      const [comfortAdvisors, hvacTech, hvacMaintenance, callCenter] = await Promise.all([
+      const [comfortAdvisors, hvacTech, hvacMaintenance, plumbing, electrical, callCenter] = await Promise.all([
         fetch(`${API_BASE}/comfort-advisors/last_month`).then(r => r.json()),
-        fetch(`${API_BASE}/hvac-tech/last_month`).then(r => r.json()),  // Used for HVAC Tech, Plumbing, and Electrical
-        fetch(`${API_BASE}/hvac-maintenance/last_month`).then(r => r.json()),  
+        fetch(`${API_BASE}/hvac-tech/last_month`).then(r => r.json()),
+        fetch(`${API_BASE}/hvac-maintenance/last_month`).then(r => r.json()),
+        fetch(`${API_BASE}/plumbing/last_month`).then(r => r.json()),
+        fetch(`${API_BASE}/electrical/last_month`).then(r => r.json()),
         fetch(`${API_BASE}/call-center/last_month`).then(r => r.json())
       ]);
 
       console.log('Full Comfort Advisor Response:', comfortAdvisors);
       console.log('Full HVAC Tech Response:', hvacTech);
       console.log('Full HVAC Maintenance Response:', hvacMaintenance);
+      console.log('Full Plumbing Response:', plumbing);
+      console.log('Full Electrical Response:', electrical);
       console.log('Full Call Center Response:', callCenter);
 
       setPerformanceData({
         comfort_advisor: comfortAdvisors.data || [],
-        hvac_tech: hvacTech.data || [],  
-        hvac_maintenance: hvacMaintenance.data || [],  
+        hvac_tech: hvacTech.data || [],
+        hvac_maintenance: hvacMaintenance.data || [],
+        plumbing: plumbing.data || [],
+        electrical: electrical.data || [],
         call_center: callCenter.data || []
       });
     } catch (error) {
@@ -107,14 +113,12 @@ const TopPerformersDashboard = ({ initialTab = 'comfort_advisor' }) => {
       data = performanceData.hvac_maintenance || [];
       sortFunction = (a, b) => (b.totalSales || 0) - (a.totalSales || 0);
     } else if (department === 'plumbing') {
-      // UPDATED: Filter hvac_tech data by trade
-      const allTechs = performanceData.hvac_tech || [];
-      data = allTechs.filter(t => t.trade === 'Plumbing');
+      // NEW: Use dedicated plumbing endpoint data
+      data = performanceData.plumbing || [];
       sortFunction = (a, b) => (b.totalSales || 0) - (a.totalSales || 0);
     } else if (department === 'electrical') {
-      // UPDATED: Filter hvac_tech data by trade
-      const allTechs = performanceData.hvac_tech || [];
-      data = allTechs.filter(t => t.trade === 'Electrical');
+      // NEW: Use dedicated electrical endpoint data
+      data = performanceData.electrical || [];
       sortFunction = (a, b) => (b.totalSales || 0) - (a.totalSales || 0);
     }
 
