@@ -380,6 +380,11 @@ def get_leaderboard(comp_id):
                     'startDate': comp_row[2].isoformat() if comp_row[2] else None,
                     'endDate': comp_row[3].isoformat() if comp_row[3] else None,
                     'status': comp_row[4],
+                    'metrics': [
+                        {'name': 'Sold Flips', 'target': comp_row[5] or 0},
+                        {'name': 'Items Sold', 'target': comp_row[6] or 0},
+                        {'name': 'Google Reviews', 'target': comp_row[7] or 0}
+                    ],
                     'prizes': {
                         'first': float(comp_row[8]) if comp_row[8] else 500.00,
                         'second': float(comp_row[9]) if comp_row[9] else 300.00,
@@ -405,7 +410,7 @@ def get_leaderboard(comp_id):
                 for row in leaderboard_rows:
                     leaderboard.append({
                         'id': row[0],
-                        'technicianName': row[1],
+                        'name': row[1],  # Frontend expects 'name' not 'technicianName'
                         'metrics': {
                             'soldFlips': row[2],
                             'itemsSold': row[3],
@@ -413,8 +418,8 @@ def get_leaderboard(comp_id):
                         },
                         'totalPoints': row[5],
                         'rank': row[6],
-                        'previousRank': row[7],
-                        'streak': row[8],
+                        'previousRank': row[7] if row[7] else row[6],  # Default to current rank if no previous
+                        'streak': row[8] if row[8] else 0,
                         'badges': row[9] if row[9] else []
                     })
 
