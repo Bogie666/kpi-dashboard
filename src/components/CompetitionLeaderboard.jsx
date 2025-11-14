@@ -154,10 +154,13 @@ const CompetitionLeaderboard = ({ competitionId }) => {
     const minimumPoints = competition?.minimumToQualify || 25;
     const isQualified = tech.totalPoints >= minimumPoints;
 
+    // Only use special colors for qualified technicians
+    const cardColor = isQualified ? getRankColor(tech.rank) : 'from-gray-600 to-gray-700';
+
     return (
       <div
-        className={`relative bg-gradient-to-br ${getRankColor(tech.rank)} rounded-xl p-6 shadow-xl transform transition-all duration-300 hover:scale-105 ${
-          tech.rank === 1 ? 'ring-4 ring-yellow-400 ring-opacity-50' : ''
+        className={`relative bg-gradient-to-br ${cardColor} rounded-xl p-6 shadow-xl transform transition-all duration-300 hover:scale-105 ${
+          isQualified && tech.rank === 1 ? 'ring-4 ring-yellow-400 ring-opacity-50' : ''
         }`}
         style={{ animationDelay: `${index * 100}ms` }}
       >
