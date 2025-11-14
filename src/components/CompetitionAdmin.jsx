@@ -30,6 +30,14 @@ const CompetitionAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [totalParticipants, setTotalParticipants] = useState(0);
 
+  // Manual review entry state
+  const [showReviewEntry, setShowReviewEntry] = useState(false);
+  const [reviewFormData, setReviewFormData] = useState({
+    competitionId: '',
+    technicianName: '',
+    reviewCount: 0
+  });
+
   // Load competitions from API
   useEffect(() => {
     loadCompetitions();
@@ -63,6 +71,51 @@ const CompetitionAdmin = () => {
       console.error('Error loading competitions:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleManualReviewSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const { competitionId, technicianName, reviewCount } = reviewFormData;
+
+      if (!competitionId || !technicianName || reviewCount < 0) {
+        alert('Please fill in all fields correctly');
+        return;
+      }
+
+      // Call the backend API to update the reviews for this technician
+      const response = await fetch(
+        `https://us-central1-new-dashboard-2025.cloudfunctions.net/competition-api/competitions/${competitionId}/reviews`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            technician_name: technicianName,
+            review_count: parseInt(reviewCount)
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        alert('Review count updated successfully!');
+        setReviewFormData({
+          competitionId: '',
+          technicianName: '',
+          reviewCount: 0
+        });
+        setShowReviewEntry(false);
+      } else {
+        alert('Failed to update review count: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error updating review count:', error);
+      alert('Error updating review count. Please try again.');
     }
   };
 
@@ -503,6 +556,92 @@ const CompetitionAdmin = () => {
               {competitions.filter(c => c.status === 'completed').length}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Manual Review Entry Section */}
+      <div className="mb-8">
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center">
+                <Star className="h-6 w-6 text-yellow-400 mr-2" />
+                Manual Review Entry
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Manually add Google review counts for technicians
+              </p>
+            </div>
+            <button
+              onClick={() => setShowReviewEntry(!showReviewEntry)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              {showReviewEntry ? <ChevronUp className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+            </button>
+          </div>
+
+          {showReviewEntry && (
+            <form onSubmit={handleManualReviewSubmit} className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Competition
+                  </label>
+                  <select
+                    value={reviewFormData.competitionId}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, competitionId: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Competition</option>
+                    {competitions.filter(c => c.status === 'active').map(comp => (
+                      <option key={comp.id} value={comp.id}>
+                        {comp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Technician Name
+                  </label>
+                  <input
+                    type="text"
+                    value={reviewFormData.technicianName}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, technicianName: e.target.value })}
+                    placeholder="e.g., John Smith"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Review Count
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={reviewFormData.reviewCount}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, reviewCount: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+                >
+                  <Save className="h-5 w-5" />
+                  <span>Update Reviews</span>
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
 

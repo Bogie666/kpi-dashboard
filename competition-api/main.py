@@ -77,6 +77,9 @@ def competition_api(request):
         elif path.startswith('/competitions/') and path.endswith('/sync') and method == 'POST':
             comp_id = path.split('/')[2]
             response = sync_competition_data(comp_id, request)
+        elif path.startswith('/competitions/') and path.endswith('/reviews') and method == 'POST':
+            comp_id = path.split('/')[2]
+            response = update_manual_reviews(comp_id, request)
         elif path.startswith('/competitions/') and method == 'GET':
             comp_id = path.split('/')[2]
             response = get_competition(comp_id)
@@ -569,4 +572,106 @@ def sync_competition_data(comp_id, request):
 
     except Exception as e:
         logger.error(f"Error syncing competition data: {e}")
+        return ({'status': 'error', 'message': str(e)}, 500)
+
+
+def update_manual_reviews(comp_id, request):
+    """
+    Manually update review count for a technician in a competition
+    Used until automatic Google Reviews integration is implemented
+    """
+    try:
+        request_json = request.get_json(silent=True)
+        if not request_json:
+            return ({'status': 'error', 'message': 'Invalid request body'}, 400)
+
+        technician_name = request_json.get('technician_name')
+        review_count = request_json.get('review_count', 0)
+
+        if not technician_name:
+            return ({'status': 'error', 'message': 'technician_name is required'}, 400)
+
+        with db_manager.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Verify competition exists
+                cursor.execute("SELECT id FROM competitions WHERE id = %s", (comp_id,))
+                if not cursor.fetchone():
+                    return ({'status': 'error', 'message': 'Competition not found'}, 404)
+
+                # Get current leaderboard entry if exists
+                query = """
+                SELECT sold_flips, items_sold, reviews
+                FROM competition_leaderboard
+                WHERE competition_id = %s AND technician_name = %s
+                """
+                cursor.execute(query, (comp_id, technician_name))
+                row = cursor.fetchone()
+
+                if row:
+                    # Update existing entry
+                    sold_flips = row[0] or 0
+                    items_sold = row[1] or 0
+                    # Update review count
+                    reviews = review_count
+                else:
+                    # Create new entry with just reviews
+                    sold_flips = 0
+                    items_sold = 0
+                    reviews = review_count
+
+                # Calculate new total points
+                total_points = (sold_flips * 10) + (items_sold * 5) + (reviews * 8)
+
+                # Upsert the leaderboard entry
+                upsert_query = """
+                INSERT INTO competition_leaderboard (
+                    competition_id, technician_name, sold_flips, items_sold, reviews, total_points
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (competition_id, technician_name)
+                DO UPDATE SET
+                    reviews = EXCLUDED.reviews,
+                    total_points = EXCLUDED.total_points,
+                    updated_at = CURRENT_TIMESTAMP
+                """
+
+                cursor.execute(upsert_query, (
+                    comp_id,
+                    technician_name,
+                    sold_flips,
+                    items_sold,
+                    reviews,
+                    total_points
+                ))
+
+                # Update ranks
+                rank_query = """
+                UPDATE competition_leaderboard
+                SET previous_rank = rank,
+                    rank = sub.new_rank
+                FROM (
+                    SELECT id, ROW_NUMBER() OVER (ORDER BY total_points DESC, technician_name ASC) as new_rank
+                    FROM competition_leaderboard
+                    WHERE competition_id = %s
+                ) sub
+                WHERE competition_leaderboard.id = sub.id
+                """
+                cursor.execute(rank_query, (comp_id,))
+
+                conn.commit()
+
+                logger.info(f"Manually updated reviews for {technician_name} in competition {comp_id}: {review_count} reviews")
+
+                return {
+                    'status': 'success',
+                    'message': f'Successfully updated reviews for {technician_name}',
+                    'data': {
+                        'technician_name': technician_name,
+                        'review_count': reviews,
+                        'total_points': total_points
+                    }
+                }
+
+    except Exception as e:
+        logger.error(f"Error updating manual reviews: {e}")
         return ({'status': 'error', 'message': str(e)}, 500)

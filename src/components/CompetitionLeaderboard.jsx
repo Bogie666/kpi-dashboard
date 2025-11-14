@@ -27,7 +27,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
     if (competitionId) {
       loadCompetitionData();
     } else {
-      loadSampleData(); // Fallback to sample data for demo
+      setLoading(false);
     }
   }, [competitionId]);
 
@@ -40,7 +40,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
 
       if (result.status === 'success') {
         setCompetition(result.data.competition);
-        const leaderboardData = result.data.leaderboard;
+        const leaderboardData = result.data.leaderboard || [];
 
         // Load photos for all technicians
         const photoPromises = leaderboardData.map(async (tech) => {
@@ -62,99 +62,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
     } catch (error) {
       console.error('Error loading competition data:', error);
       setLoading(false);
-      // Fallback to sample data
-      loadSampleData();
     }
-  };
-
-  const loadSampleData = () => {
-    setTimeout(() => {
-      setCompetition({
-        name: 'November Hustle',
-        startDate: '2025-11-01',
-        endDate: '2025-11-30',
-        metrics: [
-          { name: 'Sold Flips', target: 25 },
-          { name: 'UV Lights', target: 50 },
-          { name: 'Google Reviews', target: 40 }
-        ]
-      });
-
-      setLeaderboard([
-        {
-          rank: 1,
-          previousRank: 2,
-          name: 'Mike Johnson',
-          photo: null,
-          metrics: {
-            soldFlips: 22,
-            uvLights: 48,
-            reviews: 35
-          },
-          totalPoints: 315,
-          streak: 5,
-          badges: ['top_performer', 'hot_streak']
-        },
-        {
-          rank: 2,
-          previousRank: 1,
-          name: 'Sarah Williams',
-          photo: null,
-          metrics: {
-            soldFlips: 20,
-            uvLights: 45,
-            reviews: 38
-          },
-          totalPoints: 310,
-          streak: 3,
-          badges: ['review_master']
-        },
-        {
-          rank: 3,
-          previousRank: 3,
-          name: 'David Martinez',
-          photo: null,
-          metrics: {
-            soldFlips: 19,
-            uvLights: 42,
-            reviews: 32
-          },
-          totalPoints: 285,
-          streak: 2,
-          badges: []
-        },
-        {
-          rank: 4,
-          previousRank: 5,
-          name: 'Emily Chen',
-          photo: null,
-          metrics: {
-            soldFlips: 18,
-            uvLights: 40,
-            reviews: 30
-          },
-          totalPoints: 270,
-          streak: 4,
-          badges: ['rising_star']
-        },
-        {
-          rank: 5,
-          previousRank: 4,
-          name: 'James Wilson',
-          photo: null,
-          metrics: {
-            soldFlips: 17,
-            uvLights: 38,
-            reviews: 28
-          },
-          totalPoints: 255,
-          streak: 1,
-          badges: []
-        }
-      ]);
-
-      setLoading(false);
-    }, 500);
   };
 
   const getRankColor = (rank) => {
@@ -326,6 +234,18 @@ const CompetitionLeaderboard = ({ competitionId }) => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-yellow-400 mx-auto mb-4" />
           <div className="text-white text-xl">Loading competition...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!competition) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
+        <div className="text-center">
+          <Trophy className="h-24 w-24 text-gray-600 mx-auto mb-6" />
+          <h2 className="text-4xl font-bold text-white mb-4">No Active Competitions</h2>
+          <p className="text-gray-400 text-lg">Check back soon for upcoming competitions!</p>
         </div>
       </div>
     );
