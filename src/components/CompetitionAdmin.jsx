@@ -19,7 +19,8 @@ import {
   Zap,
   Users,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  RefreshCw
 } from 'lucide-react';
 import { competitionApi } from '../utils/competitionApi';
 
@@ -384,6 +385,27 @@ const CompetitionAdmin = () => {
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              onClick={async () => {
+                try {
+                  // Trigger sync for this competition
+                  const result = await competitionApi.syncCompetitionData(competition.id);
+                  if (result.status === 'success') {
+                    alert(`Successfully synced data for ${result.data.techsUpdated} technicians!`);
+                    loadCompetitions(); // Reload to show updated data
+                  } else {
+                    alert('Failed to sync data: ' + result.message);
+                  }
+                } catch (error) {
+                  console.error('Error syncing competition:', error);
+                  alert('Error syncing data. Please try again.');
+                }
+              }}
+              className="p-2 text-gray-400 hover:text-blue-400 transition-colors"
+              title="Sync data from ServiceTitan"
+            >
+              <RefreshCw className="h-5 w-5" />
+            </button>
             <button
               onClick={() => {
                 setEditingCompetition(competition);
