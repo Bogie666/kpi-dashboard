@@ -581,6 +581,361 @@ class Database:
                 conn.commit()
                 logger.info(f"Inserted {len(data)} HVAC maintenance records for {period_type}")
 
+    def insert_plumbing_data(self, data, period_type):
+        """Insert Plumbing data into plumbing_tech_performance table"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Clear existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM plumbing_tech_performance
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing Plumbing '{period_type}' records")
+
+                query = """
+                INSERT INTO plumbing_tech_performance (
+                    report_date, period_type, employee_name, business_unit, trade,
+                    completed_jobs, no_charge_jobs, converted_jobs, unconverted_jobs, invoiced_jobs, jobs_on_hold,
+                    completed_revenue_cents, adjustment_revenue_cents, completed_revenue_with_adjustments_cents,
+                    invoiced_revenue_cents, converted_revenue_cents, total_sales_cents, tech_lead_sales_cents,
+                    converted_job_average_cents, opportunity_job_average_cents, total_job_average_cents,
+                    opportunities, sales_opportunities, replacement_opportunities, closed_opportunities,
+                    close_rate_percent, memberships_sold, tech_recall_percent, updated_at
+                ) VALUES (
+                    CURRENT_DATE, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s
+                )
+                ON CONFLICT (employee_name, report_date, period_type)
+                DO UPDATE SET
+                    business_unit = EXCLUDED.business_unit,
+                    trade = EXCLUDED.trade,
+                    completed_jobs = EXCLUDED.completed_jobs,
+                    no_charge_jobs = EXCLUDED.no_charge_jobs,
+                    converted_jobs = EXCLUDED.converted_jobs,
+                    unconverted_jobs = EXCLUDED.unconverted_jobs,
+                    invoiced_jobs = EXCLUDED.invoiced_jobs,
+                    jobs_on_hold = EXCLUDED.jobs_on_hold,
+                    completed_revenue_cents = EXCLUDED.completed_revenue_cents,
+                    adjustment_revenue_cents = EXCLUDED.adjustment_revenue_cents,
+                    completed_revenue_with_adjustments_cents = EXCLUDED.completed_revenue_with_adjustments_cents,
+                    invoiced_revenue_cents = EXCLUDED.invoiced_revenue_cents,
+                    converted_revenue_cents = EXCLUDED.converted_revenue_cents,
+                    total_sales_cents = EXCLUDED.total_sales_cents,
+                    tech_lead_sales_cents = EXCLUDED.tech_lead_sales_cents,
+                    converted_job_average_cents = EXCLUDED.converted_job_average_cents,
+                    opportunity_job_average_cents = EXCLUDED.opportunity_job_average_cents,
+                    total_job_average_cents = EXCLUDED.total_job_average_cents,
+                    opportunities = EXCLUDED.opportunities,
+                    sales_opportunities = EXCLUDED.sales_opportunities,
+                    replacement_opportunities = EXCLUDED.replacement_opportunities,
+                    closed_opportunities = EXCLUDED.closed_opportunities,
+                    close_rate_percent = EXCLUDED.close_rate_percent,
+                    memberships_sold = EXCLUDED.memberships_sold,
+                    tech_recall_percent = EXCLUDED.tech_recall_percent,
+                    updated_at = EXCLUDED.updated_at
+                """
+
+                for record in data:
+                    cursor.execute(query, (
+                        record["period_type"],
+                        record["employee_name"],
+                        record["business_unit"],
+                        record["trade"],
+                        record["completed_jobs"],
+                        record["no_charge_jobs"],
+                        record["converted_jobs"],
+                        record["unconverted_jobs"],
+                        record["invoiced_jobs"],
+                        record["jobs_on_hold"],
+                        record["completed_revenue_cents"],
+                        record["adjustment_revenue_cents"],
+                        record["completed_revenue_with_adjustments_cents"],
+                        record["invoiced_revenue_cents"],
+                        record["converted_revenue_cents"],
+                        record["total_sales_cents"],
+                        record["tech_lead_sales_cents"],
+                        record["converted_job_average_cents"],
+                        record["opportunity_job_average_cents"],
+                        record["total_job_average_cents"],
+                        record["opportunities"],
+                        record["sales_opportunities"],
+                        record["replacement_opportunities"],
+                        record["closed_opportunities"],
+                        record["close_rate_percent"],
+                        record["memberships_sold"],
+                        record["tech_recall_percent"],
+                        record["updated_at"]
+                    ))
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} Plumbing records for {period_type}")
+
+    def insert_electrical_data(self, data, period_type):
+        """Insert Electrical data into electrical_tech_performance table"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Clear existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM electrical_tech_performance
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing Electrical '{period_type}' records")
+
+                query = """
+                INSERT INTO electrical_tech_performance (
+                    report_date, period_type, employee_name, business_unit, trade,
+                    completed_jobs, no_charge_jobs, converted_jobs, unconverted_jobs, invoiced_jobs, jobs_on_hold,
+                    completed_revenue_cents, adjustment_revenue_cents, completed_revenue_with_adjustments_cents,
+                    invoiced_revenue_cents, converted_revenue_cents, total_sales_cents, tech_lead_sales_cents,
+                    converted_job_average_cents, opportunity_job_average_cents, total_job_average_cents,
+                    opportunities, sales_opportunities, replacement_opportunities, closed_opportunities,
+                    close_rate_percent, memberships_sold, tech_recall_percent, updated_at
+                ) VALUES (
+                    CURRENT_DATE, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s
+                )
+                ON CONFLICT (employee_name, report_date, period_type)
+                DO UPDATE SET
+                    business_unit = EXCLUDED.business_unit,
+                    trade = EXCLUDED.trade,
+                    completed_jobs = EXCLUDED.completed_jobs,
+                    no_charge_jobs = EXCLUDED.no_charge_jobs,
+                    converted_jobs = EXCLUDED.converted_jobs,
+                    unconverted_jobs = EXCLUDED.unconverted_jobs,
+                    invoiced_jobs = EXCLUDED.invoiced_jobs,
+                    jobs_on_hold = EXCLUDED.jobs_on_hold,
+                    completed_revenue_cents = EXCLUDED.completed_revenue_cents,
+                    adjustment_revenue_cents = EXCLUDED.adjustment_revenue_cents,
+                    completed_revenue_with_adjustments_cents = EXCLUDED.completed_revenue_with_adjustments_cents,
+                    invoiced_revenue_cents = EXCLUDED.invoiced_revenue_cents,
+                    converted_revenue_cents = EXCLUDED.converted_revenue_cents,
+                    total_sales_cents = EXCLUDED.total_sales_cents,
+                    tech_lead_sales_cents = EXCLUDED.tech_lead_sales_cents,
+                    converted_job_average_cents = EXCLUDED.converted_job_average_cents,
+                    opportunity_job_average_cents = EXCLUDED.opportunity_job_average_cents,
+                    total_job_average_cents = EXCLUDED.total_job_average_cents,
+                    opportunities = EXCLUDED.opportunities,
+                    sales_opportunities = EXCLUDED.sales_opportunities,
+                    replacement_opportunities = EXCLUDED.replacement_opportunities,
+                    closed_opportunities = EXCLUDED.closed_opportunities,
+                    close_rate_percent = EXCLUDED.close_rate_percent,
+                    memberships_sold = EXCLUDED.memberships_sold,
+                    tech_recall_percent = EXCLUDED.tech_recall_percent,
+                    updated_at = EXCLUDED.updated_at
+                """
+
+                for record in data:
+                    cursor.execute(query, (
+                        record["period_type"],
+                        record["employee_name"],
+                        record["business_unit"],
+                        record["trade"],
+                        record["completed_jobs"],
+                        record["no_charge_jobs"],
+                        record["converted_jobs"],
+                        record["unconverted_jobs"],
+                        record["invoiced_jobs"],
+                        record["jobs_on_hold"],
+                        record["completed_revenue_cents"],
+                        record["adjustment_revenue_cents"],
+                        record["completed_revenue_with_adjustments_cents"],
+                        record["invoiced_revenue_cents"],
+                        record["converted_revenue_cents"],
+                        record["total_sales_cents"],
+                        record["tech_lead_sales_cents"],
+                        record["converted_job_average_cents"],
+                        record["opportunity_job_average_cents"],
+                        record["total_job_average_cents"],
+                        record["opportunities"],
+                        record["sales_opportunities"],
+                        record["replacement_opportunities"],
+                        record["closed_opportunities"],
+                        record["close_rate_percent"],
+                        record["memberships_sold"],
+                        record["tech_recall_percent"],
+                        record["updated_at"]
+                    ))
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} Electrical records for {period_type}")
+
+    def insert_items_sold_data(self, data, period_type):
+        """Insert items sold report data"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Delete existing data for this period to avoid duplicates
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM servicetitan_items_sold
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing Items Sold '{period_type}' records")
+
+                query = """
+                INSERT INTO servicetitan_items_sold (
+                    invoice_date, sold_by_technician, code, quantity,
+                    invoice_number, job_business_unit, job_type, period_type
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (invoice_number, code, sold_by_technician, period_type)
+                DO UPDATE SET
+                    invoice_date = EXCLUDED.invoice_date,
+                    quantity = EXCLUDED.quantity,
+                    job_business_unit = EXCLUDED.job_business_unit,
+                    job_type = EXCLUDED.job_type,
+                    synced_at = CURRENT_TIMESTAMP
+                """
+
+                for record in data:
+                    cursor.execute(query, (
+                        record.get("invoice_date"),
+                        record.get("sold_by_technician"),
+                        record.get("code"),
+                        record.get("quantity", 0),
+                        record.get("invoice_number"),
+                        record.get("job_business_unit"),
+                        record.get("job_type"),
+                        period_type
+                    ))
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} Items Sold records for {period_type}")
+
+    def insert_sold_flips_data(self, data, period_type):
+        """Insert sold flips (technician leads sold) report data"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Delete existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM servicetitan_sold_flips
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing Sold Flips '{period_type}' records")
+
+                query = """
+                INSERT INTO servicetitan_sold_flips (
+                    technician_name, completed_jobs, completed_revenue_cents, total_job_average_cents,
+                    adjustment_revenue_cents, completed_revenue_with_adjustments_cents, total_sales_cents,
+                    close_rate, closed_average_sale_cents, total_lead_sales_cents, leads_set, leads_sold,
+                    average_lead_sale_cents, recall_percentage, recall_jobs, no_charge_jobs, converted_jobs,
+                    unconverted_jobs, invoiced_jobs, jobs_on_hold, opportunity, sales_opportunity,
+                    replacement_opportunity, closed_opportunities, converted_job_average_cents,
+                    opportunity_job_average_cents, opportunity_conversion_rate, invoiced_revenue_cents,
+                    converted_revenue_cents, memberships_sold, membership_opportunities, warranty_jobs,
+                    completed_non_opportunities, total_conversion_rate, options_per_opportunity,
+                    lead_conversion_rate, billable_efficiency, first_call_arrival_time,
+                    technician_division, technician_business_unit, technician_trade, period_type
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (technician_name, period_type)
+                DO UPDATE SET
+                    completed_jobs = EXCLUDED.completed_jobs,
+                    completed_revenue_cents = EXCLUDED.completed_revenue_cents,
+                    total_job_average_cents = EXCLUDED.total_job_average_cents,
+                    adjustment_revenue_cents = EXCLUDED.adjustment_revenue_cents,
+                    completed_revenue_with_adjustments_cents = EXCLUDED.completed_revenue_with_adjustments_cents,
+                    total_sales_cents = EXCLUDED.total_sales_cents,
+                    close_rate = EXCLUDED.close_rate,
+                    closed_average_sale_cents = EXCLUDED.closed_average_sale_cents,
+                    total_lead_sales_cents = EXCLUDED.total_lead_sales_cents,
+                    leads_set = EXCLUDED.leads_set,
+                    leads_sold = EXCLUDED.leads_sold,
+                    average_lead_sale_cents = EXCLUDED.average_lead_sale_cents,
+                    recall_percentage = EXCLUDED.recall_percentage,
+                    recall_jobs = EXCLUDED.recall_jobs,
+                    no_charge_jobs = EXCLUDED.no_charge_jobs,
+                    converted_jobs = EXCLUDED.converted_jobs,
+                    unconverted_jobs = EXCLUDED.unconverted_jobs,
+                    invoiced_jobs = EXCLUDED.invoiced_jobs,
+                    jobs_on_hold = EXCLUDED.jobs_on_hold,
+                    opportunity = EXCLUDED.opportunity,
+                    sales_opportunity = EXCLUDED.sales_opportunity,
+                    replacement_opportunity = EXCLUDED.replacement_opportunity,
+                    closed_opportunities = EXCLUDED.closed_opportunities,
+                    converted_job_average_cents = EXCLUDED.converted_job_average_cents,
+                    opportunity_job_average_cents = EXCLUDED.opportunity_job_average_cents,
+                    opportunity_conversion_rate = EXCLUDED.opportunity_conversion_rate,
+                    invoiced_revenue_cents = EXCLUDED.invoiced_revenue_cents,
+                    converted_revenue_cents = EXCLUDED.converted_revenue_cents,
+                    memberships_sold = EXCLUDED.memberships_sold,
+                    membership_opportunities = EXCLUDED.membership_opportunities,
+                    warranty_jobs = EXCLUDED.warranty_jobs,
+                    completed_non_opportunities = EXCLUDED.completed_non_opportunities,
+                    total_conversion_rate = EXCLUDED.total_conversion_rate,
+                    options_per_opportunity = EXCLUDED.options_per_opportunity,
+                    lead_conversion_rate = EXCLUDED.lead_conversion_rate,
+                    billable_efficiency = EXCLUDED.billable_efficiency,
+                    first_call_arrival_time = EXCLUDED.first_call_arrival_time,
+                    technician_division = EXCLUDED.technician_division,
+                    technician_business_unit = EXCLUDED.technician_business_unit,
+                    technician_trade = EXCLUDED.technician_trade,
+                    synced_at = CURRENT_TIMESTAMP
+                """
+
+                for record in data:
+                    cursor.execute(query, (
+                        record.get("technician_name"),
+                        record.get("completed_jobs", 0),
+                        record.get("completed_revenue_cents", 0),
+                        record.get("total_job_average_cents", 0),
+                        record.get("adjustment_revenue_cents", 0),
+                        record.get("completed_revenue_with_adjustments_cents", 0),
+                        record.get("total_sales_cents", 0),
+                        record.get("close_rate", 0),
+                        record.get("closed_average_sale_cents", 0),
+                        record.get("total_lead_sales_cents", 0),
+                        record.get("leads_set", 0),
+                        record.get("leads_sold", 0),
+                        record.get("average_lead_sale_cents", 0),
+                        record.get("recall_percentage", 0),
+                        record.get("recall_jobs", 0),
+                        record.get("no_charge_jobs", 0),
+                        record.get("converted_jobs", 0),
+                        record.get("unconverted_jobs", 0),
+                        record.get("invoiced_jobs", 0),
+                        record.get("jobs_on_hold", 0),
+                        record.get("opportunity", 0),
+                        record.get("sales_opportunity", 0),
+                        record.get("replacement_opportunity", 0),
+                        record.get("closed_opportunities", 0),
+                        record.get("converted_job_average_cents", 0),
+                        record.get("opportunity_job_average_cents", 0),
+                        record.get("opportunity_conversion_rate", 0),
+                        record.get("invoiced_revenue_cents", 0),
+                        record.get("converted_revenue_cents", 0),
+                        record.get("memberships_sold", 0),
+                        record.get("membership_opportunities", 0),
+                        record.get("warranty_jobs", 0),
+                        record.get("completed_non_opportunities", 0),
+                        record.get("total_conversion_rate", 0),
+                        record.get("options_per_opportunity", 0),
+                        record.get("lead_conversion_rate", 0),
+                        record.get("billable_efficiency", 0),
+                        record.get("first_call_arrival_time"),
+                        record.get("technician_division"),
+                        record.get("technician_business_unit"),
+                        record.get("technician_trade"),
+                        period_type
+                    ))
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} Sold Flips records for {period_type}")
+
     def get_hvac_tech_data(self, period_type):
         """Get HVAC tech performance data"""
         with self.get_connection() as conn:
@@ -1090,7 +1445,7 @@ def fetch_hvac_maintenance_data(period_type):
     payload = {
         "parameters": [
             {"name": "IncludeInactive", "value": "true"},
-            {"name": "BusinessUnitId", "value": "124468396,7831,154681497"},
+            {"name": "BusinessUnitId", "value": "7831,154681497,8087"},
             {"name": "From", "value": from_date},
             {"name": "To", "value": to_date}
         ]
@@ -1175,6 +1530,402 @@ def fetch_hvac_maintenance_data(period_type):
             if attempt < max_retries - 1:
                 continue
             raise
+
+def fetch_plumbing_data(period_type):
+    """Fetch Plumbing technician data from ServiceTitan"""
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/392071756/data"
+    today = datetime.now()
+
+    if period_type == "today":
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = from_date
+    elif period_type == "week":
+        from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "mtd":
+        from_date = today.replace(day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "ytd":
+        from_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "last_month":
+        last_month = today.replace(day=1) - timedelta(days=1)
+        from_date = last_month.replace(day=1).strftime("%Y-%m-%d")
+        to_date = last_month.strftime("%Y-%m-%d")
+    else:
+        raise ValueError("Invalid period_type")
+
+    payload = {
+        "parameters": [
+            {"name": "IncludeInactive", "value": "true"},
+            {"name": "BusinessUnitId", "value": "124468396,124467371,124692394"},
+            {"name": "From", "value": from_date},
+            {"name": "To", "value": to_date}
+        ]
+    }
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 429:
+                logger.info(f"Rate limited on attempt {attempt + 1}, waiting before retry...")
+                time.sleep(120)
+                continue
+            response.raise_for_status()
+
+            data = response.json()
+            fields = data.get("fields", [])
+            rows = data.get("data", [])
+
+            processed_data = []
+            for row in rows:
+                # Array mapping (same format as HVAC Tech/Maintenance)
+                completed_jobs = safe_int(row[2] if len(row) > 2 else 0)
+                total_sales = safe_float(row[24] if len(row) > 24 else 0)
+                opportunities = safe_int(row[15] if len(row) > 15 else 0)
+                close_rate = safe_float(row[25] if len(row) > 25 else 0) * 100
+                recall_rate = safe_float(row[7] if len(row) > 7 else 0) * 100
+                divisor = safe_float(row[17] if len(row) > 17 else 0)
+                avg_sale = (total_sales / divisor) if divisor > 0 else 0
+                memberships_sold = safe_int(row[26] if len(row) > 26 else 0)
+
+                record = {
+                    "period_type": period_type,
+                    "employee_name": str(row[0]) if len(row) > 0 and row[0] else "Unknown",
+                    "business_unit": str(row[1]) if len(row) > 1 and row[1] else "Unknown",
+                    "trade": str(row[6]) if len(row) > 6 and row[6] else "Unknown",
+                    "completed_jobs": completed_jobs,
+                    "no_charge_jobs": safe_int(row[8] if len(row) > 8 else 0),
+                    "converted_jobs": safe_int(row[9] if len(row) > 9 else 0),
+                    "unconverted_jobs": safe_int(row[10] if len(row) > 10 else 0),
+                    "invoiced_jobs": safe_int(row[11] if len(row) > 11 else 0),
+                    "jobs_on_hold": safe_int(row[12] if len(row) > 12 else 0),
+                    "completed_revenue_cents": safe_int(safe_float(row[3] if len(row) > 3 else 0) * 100),
+                    "adjustment_revenue_cents": safe_int(safe_float(row[4] if len(row) > 4 else 0) * 100),
+                    "completed_revenue_with_adjustments_cents": safe_int(safe_float(row[5] if len(row) > 5 else 0) * 100),
+                    "invoiced_revenue_cents": safe_int(safe_float(row[21] if len(row) > 21 else 0) * 100),
+                    "converted_revenue_cents": safe_int(safe_float(row[22] if len(row) > 22 else 0) * 100),
+                    "total_sales_cents": safe_int(total_sales * 100),
+                    "tech_lead_sales_cents": safe_int(safe_float(row[28] if len(row) > 28 else 0) * 100),
+                    "converted_job_average_cents": safe_int(safe_float(row[18] if len(row) > 18 else 0) * 100),
+                    "opportunity_job_average_cents": safe_int(safe_float(row[19] if len(row) > 19 else 0) * 100),
+                    "total_job_average_cents": safe_int(avg_sale * 100),
+                    "opportunities": opportunities,
+                    "sales_opportunities": safe_int(row[15] if len(row) > 15 else 0),
+                    "replacement_opportunities": safe_int(row[16] if len(row) > 16 else 0),
+                    "closed_opportunities": safe_int(row[17] if len(row) > 17 else 0),
+                    "close_rate_percent": close_rate,
+                    "memberships_sold": memberships_sold,
+                    "tech_recall_percent": recall_rate,
+                    "updated_at": datetime.now()
+                }
+                processed_data.append(record)
+
+            logger.info(f"Successfully fetched {len(processed_data)} Plumbing records for {period_type}")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_plumbing_data: {str(e)}")
+            if attempt < max_retries - 1:
+                continue
+            raise
+
+def fetch_electrical_data(period_type):
+    """Fetch Electrical technician data from ServiceTitan"""
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/392071757/data"
+    today = datetime.now()
+
+    if period_type == "today":
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = from_date
+    elif period_type == "week":
+        from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "mtd":
+        from_date = today.replace(day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "ytd":
+        from_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "last_month":
+        last_month = today.replace(day=1) - timedelta(days=1)
+        from_date = last_month.replace(day=1).strftime("%Y-%m-%d")
+        to_date = last_month.strftime("%Y-%m-%d")
+    else:
+        raise ValueError("Invalid period_type")
+
+    payload = {
+        "parameters": [
+            {"name": "IncludeInactive", "value": "true"},
+            {"name": "BusinessUnitId", "value": "455,161649734"},
+            {"name": "From", "value": from_date},
+            {"name": "To", "value": to_date}
+        ]
+    }
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 429:
+                logger.info(f"Rate limited on attempt {attempt + 1}, waiting before retry...")
+                time.sleep(120)
+                continue
+            response.raise_for_status()
+
+            data = response.json()
+            fields = data.get("fields", [])
+            rows = data.get("data", [])
+
+            processed_data = []
+            for row in rows:
+                # Array mapping (same format as HVAC Tech/Maintenance)
+                completed_jobs = safe_int(row[2] if len(row) > 2 else 0)
+                total_sales = safe_float(row[24] if len(row) > 24 else 0)
+                opportunities = safe_int(row[15] if len(row) > 15 else 0)
+                close_rate = safe_float(row[25] if len(row) > 25 else 0) * 100
+                recall_rate = safe_float(row[7] if len(row) > 7 else 0) * 100
+                divisor = safe_float(row[17] if len(row) > 17 else 0)
+                avg_sale = (total_sales / divisor) if divisor > 0 else 0
+                memberships_sold = safe_int(row[26] if len(row) > 26 else 0)
+
+                record = {
+                    "period_type": period_type,
+                    "employee_name": str(row[0]) if len(row) > 0 and row[0] else "Unknown",
+                    "business_unit": str(row[1]) if len(row) > 1 and row[1] else "Unknown",
+                    "trade": str(row[6]) if len(row) > 6 and row[6] else "Unknown",
+                    "completed_jobs": completed_jobs,
+                    "no_charge_jobs": safe_int(row[8] if len(row) > 8 else 0),
+                    "converted_jobs": safe_int(row[9] if len(row) > 9 else 0),
+                    "unconverted_jobs": safe_int(row[10] if len(row) > 10 else 0),
+                    "invoiced_jobs": safe_int(row[11] if len(row) > 11 else 0),
+                    "jobs_on_hold": safe_int(row[12] if len(row) > 12 else 0),
+                    "completed_revenue_cents": safe_int(safe_float(row[3] if len(row) > 3 else 0) * 100),
+                    "adjustment_revenue_cents": safe_int(safe_float(row[4] if len(row) > 4 else 0) * 100),
+                    "completed_revenue_with_adjustments_cents": safe_int(safe_float(row[5] if len(row) > 5 else 0) * 100),
+                    "invoiced_revenue_cents": safe_int(safe_float(row[21] if len(row) > 21 else 0) * 100),
+                    "converted_revenue_cents": safe_int(safe_float(row[22] if len(row) > 22 else 0) * 100),
+                    "total_sales_cents": safe_int(total_sales * 100),
+                    "tech_lead_sales_cents": safe_int(safe_float(row[28] if len(row) > 28 else 0) * 100),
+                    "converted_job_average_cents": safe_int(safe_float(row[18] if len(row) > 18 else 0) * 100),
+                    "opportunity_job_average_cents": safe_int(safe_float(row[19] if len(row) > 19 else 0) * 100),
+                    "total_job_average_cents": safe_int(avg_sale * 100),
+                    "opportunities": opportunities,
+                    "sales_opportunities": safe_int(row[15] if len(row) > 15 else 0),
+                    "replacement_opportunities": safe_int(row[16] if len(row) > 16 else 0),
+                    "closed_opportunities": safe_int(row[17] if len(row) > 17 else 0),
+                    "close_rate_percent": close_rate,
+                    "memberships_sold": memberships_sold,
+                    "tech_recall_percent": recall_rate,
+                    "updated_at": datetime.now()
+                }
+                processed_data.append(record)
+
+            logger.info(f"Successfully fetched {len(processed_data)} Electrical records for {period_type}")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_electrical_data: {str(e)}")
+            if attempt < max_retries - 1:
+                continue
+            raise
+
+
+def fetch_items_sold_data(period_type):
+    """Fetch Items Sold Report from ServiceTitan - Report ID: 394027220"""
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    # Report ID for Item Sold Report
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/marketing/reports/394027220/data"
+    today = datetime.now()
+
+    if period_type == "today":
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = from_date
+    elif period_type == "week":
+        from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "mtd":
+        from_date = today.replace(day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "ytd":
+        from_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "last_month":
+        last_month = today.replace(day=1) - timedelta(days=1)
+        from_date = last_month.replace(day=1).strftime("%Y-%m-%d")
+        to_date = last_month.strftime("%Y-%m-%d")
+    else:
+        raise ValueError("Invalid period_type")
+
+    payload = {
+        "parameters": [
+            {"name": "DateType", "value": "0"},  # Custom date range
+            {"name": "IncludeInactive", "value": "false"},
+            {"name": "From", "value": from_date},
+            {"name": "To", "value": to_date}
+        ]
+    }
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 429:
+                logger.info(f"Rate limited on attempt {attempt + 1}, waiting before retry...")
+                time.sleep(120)
+                continue
+            response.raise_for_status()
+
+            data = response.json()
+            rows = data.get("data", [])
+
+            processed_data = []
+            for row in rows:
+                # Parse quantity - handle both string and numeric formats
+                quantity_raw = row[3] if len(row) > 3 else 0
+                try:
+                    if isinstance(quantity_raw, str):
+                        # Remove $ and commas
+                        quantity = int(float(quantity_raw.replace('$', '').replace(',', '')))
+                    else:
+                        quantity = int(quantity_raw)
+                except (ValueError, AttributeError):
+                    quantity = 0
+
+                record = {
+                    "invoice_date": row[0] if len(row) > 0 else None,  # InvoiceDate
+                    "sold_by_technician": str(row[1]) if len(row) > 1 and row[1] else None,  # SoldByTechnician
+                    "code": str(row[2]) if len(row) > 2 and row[2] else None,  # Code
+                    "quantity": quantity,  # Quantity
+                    "invoice_number": str(row[4]) if len(row) > 4 and row[4] else None,  # InvoiceNumber
+                    "job_business_unit": str(row[5]) if len(row) > 5 and row[5] else None,  # JobBusinessUnit
+                    "job_type": str(row[6]) if len(row) > 6 and row[6] else None  # JobType
+                }
+                processed_data.append(record)
+
+            logger.info(f"Successfully fetched {len(processed_data)} Items Sold records for {period_type}")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_items_sold_data: {str(e)}")
+            if attempt < max_retries - 1:
+                continue
+            raise
+
+
+def fetch_sold_flips_data(period_type):
+    """Fetch Technician Leads Sold Report from ServiceTitan - Report ID: 394041816"""
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    # Technician Leads Sold Report
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/394041816/data"
+    today = datetime.now()
+
+    if period_type == "today":
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = from_date
+    elif period_type == "week":
+        from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "mtd":
+        from_date = today.replace(day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "ytd":
+        from_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "last_month":
+        last_month = today.replace(day=1) - timedelta(days=1)
+        from_date = last_month.replace(day=1).strftime("%Y-%m-%d")
+        to_date = last_month.strftime("%Y-%m-%d")
+    else:
+        raise ValueError("Invalid period_type")
+
+    payload = {
+        "parameters": [
+            {"name": "DateType", "value": "0"},
+            {"name": "IncludeInactive", "value": "false"},
+            {"name": "From", "value": from_date},
+            {"name": "To", "value": to_date}
+        ]
+    }
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 429:
+                logger.info(f"Rate limited on attempt {attempt + 1}, waiting before retry...")
+                time.sleep(120)
+                continue
+            response.raise_for_status()
+
+            data = response.json()
+            rows = data.get("data", [])
+
+            processed_data = []
+            for row in rows:
+                # Based on "Technician Leads Sold" CSV structure - Report 394041816
+                # Maps all 41 columns from the report
+                record = {
+                    "technician_name": str(row[0]) if len(row) > 0 and row[0] else None,
+                    "completed_jobs": safe_int(row[1] if len(row) > 1 else 0),
+                    "completed_revenue_cents": safe_int(safe_float(row[2] if len(row) > 2 else 0) * 100),
+                    "total_job_average_cents": safe_int(safe_float(row[3] if len(row) > 3 else 0) * 100),
+                    "adjustment_revenue_cents": safe_int(safe_float(row[4] if len(row) > 4 else 0) * 100),
+                    "completed_revenue_with_adjustments_cents": safe_int(safe_float(row[5] if len(row) > 5 else 0) * 100),
+                    "total_sales_cents": safe_int(safe_float(row[6] if len(row) > 6 else 0) * 100),
+                    "close_rate": safe_float(row[7] if len(row) > 7 else 0),
+                    "closed_average_sale_cents": safe_int(safe_float(row[8] if len(row) > 8 else 0) * 100),
+                    "total_lead_sales_cents": safe_int(safe_float(row[9] if len(row) > 9 else 0) * 100),
+                    "leads_set": safe_int(row[10] if len(row) > 10 else 0),
+                    "leads_sold": safe_int(row[11] if len(row) > 11 else 0),
+                    "average_lead_sale_cents": safe_int(safe_float(row[12] if len(row) > 12 else 0) * 100),
+                    "recall_percentage": safe_float(row[13] if len(row) > 13 else 0),
+                    "recall_jobs": safe_int(row[14] if len(row) > 14 else 0),
+                    "no_charge_jobs": safe_int(row[15] if len(row) > 15 else 0),
+                    "converted_jobs": safe_int(row[16] if len(row) > 16 else 0),  # KEY FIELD for competition
+                    "unconverted_jobs": safe_int(row[17] if len(row) > 17 else 0),
+                    "invoiced_jobs": safe_int(row[18] if len(row) > 18 else 0),
+                    "jobs_on_hold": safe_int(row[19] if len(row) > 19 else 0),
+                    "opportunity": safe_int(row[20] if len(row) > 20 else 0),
+                    "sales_opportunity": safe_int(row[21] if len(row) > 21 else 0),
+                    "replacement_opportunity": safe_int(row[22] if len(row) > 22 else 0),
+                    "closed_opportunities": safe_int(row[23] if len(row) > 23 else 0),
+                    "converted_job_average_cents": safe_int(safe_float(row[24] if len(row) > 24 else 0) * 100),
+                    "opportunity_job_average_cents": safe_int(safe_float(row[25] if len(row) > 25 else 0) * 100),
+                    "opportunity_conversion_rate": safe_float(row[26] if len(row) > 26 else 0),
+                    "invoiced_revenue_cents": safe_int(safe_float(row[27] if len(row) > 27 else 0) * 100),
+                    "converted_revenue_cents": safe_int(safe_float(row[28] if len(row) > 28 else 0) * 100),
+                    "memberships_sold": safe_int(row[29] if len(row) > 29 else 0),
+                    "membership_opportunities": safe_int(row[30] if len(row) > 30 else 0),
+                    "warranty_jobs": safe_int(row[31] if len(row) > 31 else 0),
+                    "completed_non_opportunities": safe_int(row[32] if len(row) > 32 else 0),
+                    "total_conversion_rate": safe_float(row[33] if len(row) > 33 else 0),
+                    "options_per_opportunity": safe_float(row[34] if len(row) > 34 else 0),
+                    "lead_conversion_rate": safe_float(row[35] if len(row) > 35 else 0),
+                    "billable_efficiency": safe_float(row[36] if len(row) > 36 else 0),
+                    "first_call_arrival_time": str(row[37]) if len(row) > 37 and row[37] else None,
+                    "technician_division": str(row[38]) if len(row) > 38 and row[38] else None,
+                    "technician_business_unit": str(row[39]) if len(row) > 39 and row[39] else None,
+                    "technician_trade": str(row[40]) if len(row) > 40 and row[40] else None
+                }
+                processed_data.append(record)
+
+            logger.info(f"Successfully fetched {len(processed_data)} Sold Flips records for {period_type}")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_sold_flips_data: {str(e)}")
+            if attempt < max_retries - 1:
+                continue
+            raise
+
 
 def fetch_call_center_data(period_type, retry_count=0, max_retries=2):
     headers = get_auth_headers()
@@ -2291,6 +3042,51 @@ def sync_servicetitan_data(request):
                         logger.info("No HVAC maintenance data returned")
                 except Exception as e:
                     logger.error(f"Failed to sync HVAC maintenance data: {str(e)}")
+
+                # Plumbing
+                try:
+                    plumbing_data = fetch_plumbing_data(period)
+                    if plumbing_data:
+                        db.insert_plumbing_data(plumbing_data, period)
+                        logger.info(f"Inserted {len(plumbing_data)} Plumbing records")
+                    else:
+                        logger.info("No Plumbing data returned")
+                except Exception as e:
+                    logger.error(f"Failed to sync Plumbing data: {str(e)}")
+
+                # Electrical
+                try:
+                    electrical_data = fetch_electrical_data(period)
+                    if electrical_data:
+                        db.insert_electrical_data(electrical_data, period)
+                        logger.info(f"Inserted {len(electrical_data)} Electrical records")
+                    else:
+                        logger.info("No Electrical data returned")
+                except Exception as e:
+                    logger.error(f"Failed to sync Electrical data: {str(e)}")
+
+                # Items Sold (Competition Data)
+                try:
+                    items_sold_data = fetch_items_sold_data(period)
+                    if items_sold_data:
+                        db.insert_items_sold_data(items_sold_data, period)
+                        logger.info(f"Inserted {len(items_sold_data)} Items Sold records")
+                    else:
+                        logger.info("No Items Sold data returned")
+                except Exception as e:
+                    logger.error(f"Failed to sync Items Sold data: {str(e)}")
+
+                # Sold Flips (Competition Data)
+                try:
+                    sold_flips_data = fetch_sold_flips_data(period)
+                    if sold_flips_data:
+                        db.insert_sold_flips_data(sold_flips_data, period)
+                        logger.info(f"Inserted {len(sold_flips_data)} Sold Flips records")
+                    else:
+                        logger.info("No Sold Flips data returned")
+                except Exception as e:
+                    logger.error(f"Failed to sync Sold Flips data: {str(e)}")
+
                 # Financial data: supports mtd, ytd, last_month
                 try:
                     financial_data = fetch_financial_data(period)
