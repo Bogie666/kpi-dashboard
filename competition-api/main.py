@@ -72,6 +72,8 @@ def competition_api(request):
             response = get_competitions()
         elif path == '/competitions' and method == 'POST':
             response = create_competition(request)
+        elif path == '/sync-active-competitions' and method == 'POST':
+            response = sync_all_active_competitions(request)
         elif path.startswith('/competitions/') and path.endswith('/leaderboard') and method == 'GET':
             comp_id = path.split('/')[2]
             response = get_leaderboard(comp_id)
@@ -697,4 +699,103 @@ def update_manual_reviews(comp_id, request):
 
     except Exception as e:
         logger.error(f"Error updating manual reviews: {e}")
+        return ({'status': 'error', 'message': str(e)}, 500)
+
+
+def sync_all_active_competitions(request):
+    """
+    Automatically sync all active competitions
+    Called by Cloud Scheduler hourly to keep competition data up to date
+    """
+    try:
+        logger.info("Starting automatic sync for all active competitions")
+
+        with db_manager.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Get all active competitions
+                query = """
+                SELECT id, name, start_date, end_date
+                FROM competitions
+                WHERE status = 'active'
+                ORDER BY created_at DESC
+                """
+                cursor.execute(query)
+                active_comps = cursor.fetchall()
+
+                if not active_comps:
+                    logger.info("No active competitions to sync")
+                    return {
+                        'status': 'success',
+                        'message': 'No active competitions to sync',
+                        'synced': 0,
+                        'timestamp': datetime.now().isoformat()
+                    }
+
+                sync_results = []
+                total_techs_updated = 0
+
+                for comp_row in active_comps:
+                    comp_id = comp_row[0]
+                    comp_name = comp_row[1]
+
+                    try:
+                        logger.info(f"Syncing competition: {comp_name} (ID: {comp_id})")
+
+                        # Use the existing sync_competition_data function
+                        # Pass a mock request object with empty body
+                        class MockRequest:
+                            def get_json(self, silent=True):
+                                return {}
+
+                        result = sync_competition_data(comp_id, MockRequest())
+
+                        if isinstance(result, tuple):
+                            result_data = result[0]
+                        else:
+                            result_data = result
+
+                        if result_data.get('status') == 'success':
+                            techs_updated = result_data.get('data', {}).get('techsUpdated', 0)
+                            total_techs_updated += techs_updated
+                            sync_results.append({
+                                'competition_id': comp_id,
+                                'competition_name': comp_name,
+                                'status': 'success',
+                                'technicians_updated': techs_updated
+                            })
+                            logger.info(f"✅ Synced {comp_name}: {techs_updated} technicians updated")
+                        else:
+                            error_msg = result_data.get('message', 'Unknown error')
+                            sync_results.append({
+                                'competition_id': comp_id,
+                                'competition_name': comp_name,
+                                'status': 'error',
+                                'error': error_msg
+                            })
+                            logger.error(f"❌ Failed to sync {comp_name}: {error_msg}")
+
+                    except Exception as e:
+                        logger.error(f"Error syncing competition {comp_name}: {str(e)}")
+                        sync_results.append({
+                            'competition_id': comp_id,
+                            'competition_name': comp_name,
+                            'status': 'error',
+                            'error': str(e)
+                        })
+
+                logger.info(f"Completed automatic sync: {len(active_comps)} competitions processed, {total_techs_updated} total technicians updated")
+
+                return {
+                    'status': 'success',
+                    'message': f'Synced {len(active_comps)} active competition(s)',
+                    'data': {
+                        'competitions_synced': len(active_comps),
+                        'total_technicians_updated': total_techs_updated,
+                        'results': sync_results
+                    },
+                    'timestamp': datetime.now().isoformat()
+                }
+
+    except Exception as e:
+        logger.error(f"Error in sync_all_active_competitions: {e}")
         return ({'status': 'error', 'message': str(e)}, 500)
