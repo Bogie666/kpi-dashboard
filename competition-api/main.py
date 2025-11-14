@@ -11,6 +11,7 @@ from datetime import datetime
 import functions_framework
 import logging
 from decimal import Decimal
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -475,45 +476,43 @@ def sync_competition_data(comp_id, request):
 
                 logger.info(f"Found {len(items_sold_data)} technicians with items sold for item code {item_code}")
 
-                # Query sold flips from ServiceTitan data
-                # Using leads_sold column as the sold flips metric
-                # NOTE: servicetitan_sold_flips stores aggregated data by period_type (MTD, YTD, Last Month)
-                # For now, we'll use MTD for current month competitions
-                # TODO: Add date range support by storing start_date/end_date in servicetitan_sold_flips
+                # Fetch sold flips from ServiceTitan for exact competition date range
+                # Using custom date range API endpoint from servicetitan-sync
+                # This gives us precise data for the competition period
+                servicetitan_sync_url = os.environ.get('SERVICETITAN_SYNC_URL',
+                    'https://us-central1-new-dashboard-2025.cloudfunctions.net/servicetitan-sync')
 
-                # Determine which period_type to use based on competition dates
-                from datetime import datetime
-                comp_start = datetime.strptime(str(start_date), '%Y-%m-%d')
-                comp_end = datetime.strptime(str(end_date), '%Y-%m-%d')
-                today = datetime.now()
+                fetch_url = f"{servicetitan_sync_url}/fetch-sold-flips-custom"
+                params = {
+                    'start_date': str(start_date),
+                    'end_date': str(end_date)
+                }
 
-                # Use MTD if competition covers current month
-                if comp_start.year == today.year and comp_start.month == today.month:
-                    period_filter = 'mtd'
-                # Use Last Month if competition is previous month
-                elif comp_start.year == today.year and comp_start.month == today.month - 1:
-                    period_filter = 'last_month'
-                # Use YTD if competition covers multiple months in current year
-                elif comp_start.year == today.year and comp_start.month < today.month:
-                    period_filter = 'ytd'
-                else:
-                    # Default to MTD as best approximation
-                    period_filter = 'mtd'
-                    logger.warning(f"Competition date range doesn't match available period types. Using MTD as approximation.")
+                logger.info(f"Fetching sold flips data from ServiceTitan API for date range: {start_date} to {end_date}")
 
-                sold_flips_query = """
-                SELECT technician_name, leads_sold
-                FROM servicetitan_sold_flips
-                WHERE period_type = %s
-                  AND technician_name IS NOT NULL
-                  AND technician_name != ''
-                """
+                try:
+                    response = requests.get(fetch_url, params=params, timeout=120)
+                    response.raise_for_status()
+                    api_result = response.json()
 
-                cursor.execute(sold_flips_query, (period_filter,))
-                sold_flips_rows = cursor.fetchall()
-                sold_flips_data = {row[0]: row[1] for row in sold_flips_rows}
+                    if api_result.get('status') == 'success':
+                        sold_flips_records = api_result.get('data', [])
+                        sold_flips_data = {
+                            record['technician_name']: record['leads_sold']
+                            for record in sold_flips_records
+                            if record.get('technician_name')
+                        }
+                        logger.info(f"Successfully fetched {len(sold_flips_data)} technicians with sold flips data for custom date range")
+                    else:
+                        logger.warning(f"Failed to fetch sold flips from API: {api_result.get('message')}")
+                        sold_flips_data = {}
 
-                logger.info(f"Found {len(sold_flips_data)} technicians with sold flips data (leads_sold) using period_type={period_filter}")
+                except requests.exceptions.Timeout:
+                    logger.error("Timeout fetching sold flips data from ServiceTitan API")
+                    sold_flips_data = {}
+                except Exception as e:
+                    logger.error(f"Error fetching sold flips from API: {e}")
+                    sold_flips_data = {}
 
                 # Get all unique technician names
                 all_techs = set(list(items_sold_data.keys()) + list(sold_flips_data.keys()))

@@ -1927,6 +1927,70 @@ def fetch_sold_flips_data(period_type):
             raise
 
 
+def fetch_sold_flips_custom_date_range(start_date, end_date):
+    """
+    Fetch Technician Leads Sold Report from ServiceTitan for a custom date range
+    Used by competition tracking to get data for specific competition periods
+    Report ID: 394041816
+    """
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/394041816/data"
+
+    payload = {
+        "parameters": [
+            {"name": "DateType", "value": "0"},  # Custom date range
+            {"name": "IncludeInactive", "value": "false"},
+            {"name": "From", "value": start_date},
+            {"name": "To", "value": end_date}
+        ]
+    }
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Fetching Sold Flips data from ServiceTitan API for {start_date} to {end_date}")
+            response = requests.post(url, headers=headers, json=payload)
+
+            if response.status_code == 429:
+                logger.info(f"Rate limited on attempt {attempt + 1}, waiting before retry...")
+                time.sleep(120)
+                continue
+
+            response.raise_for_status()
+
+            data = response.json()
+            rows = data.get("data", [])
+
+            processed_data = []
+            for row in rows:
+                # Return simplified data with just the fields needed for competition
+                # technician_name and leads_sold are the key fields
+                record = {
+                    "technician_name": str(row[0]) if len(row) > 0 and row[0] else None,
+                    "leads_sold": safe_int(row[11] if len(row) > 11 else 0),  # Column 11 is leads_sold
+                    "leads_set": safe_int(row[10] if len(row) > 10 else 0),  # Column 10 for reference
+                    "converted_jobs": safe_int(row[16] if len(row) > 16 else 0),
+                    "completed_jobs": safe_int(row[1] if len(row) > 1 else 0),
+                    "total_sales_cents": safe_int(safe_float(row[6] if len(row) > 6 else 0) * 100),
+                }
+
+                # Only include technicians with data
+                if record["technician_name"]:
+                    processed_data.append(record)
+
+            logger.info(f"Successfully fetched {len(processed_data)} Sold Flips records for custom date range")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_sold_flips_custom_date_range: {str(e)}")
+            logger.error(traceback.format_exc())
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying... (attempt {attempt + 2}/{max_retries})")
+                continue
+            raise
+
+
 def fetch_call_center_data(period_type, retry_count=0, max_retries=2):
     headers = get_auth_headers()
     tenant_id = "1498628772"
@@ -2949,6 +3013,62 @@ def sync_servicetitan_data(request):
                 response = {
                     'status': 'error',
                     'message': f'Monthly cleanup failed: {str(e)}',
+                    'timestamp': datetime.now().isoformat()
+                }
+                return (json.dumps(response, default=str, indent=2), 500, headers)
+
+        # Custom date range sold flips endpoint for competition tracking
+        if request.path and '/fetch-sold-flips-custom' in request.path:
+            start_date = request.args.get('start_date')
+            end_date = request.args.get('end_date')
+
+            if not start_date or not end_date:
+                response = {
+                    'status': 'error',
+                    'message': 'start_date and end_date parameters are required',
+                    'timestamp': datetime.now().isoformat()
+                }
+                return (json.dumps(response), 400, headers)
+
+            logger.info(f"Fetching sold flips for custom date range: {start_date} to {end_date}")
+
+            try:
+                # Fetch sold flips data for custom date range
+                sold_flips_records = fetch_sold_flips_custom_date_range(start_date, end_date)
+
+                if sold_flips_records:
+                    # Return the data without storing it
+                    # Competition API will use this data directly
+                    response = {
+                        'status': 'success',
+                        'message': f'Fetched {len(sold_flips_records)} technician records',
+                        'data': sold_flips_records,
+                        'date_range': {
+                            'start': start_date,
+                            'end': end_date
+                        },
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, default=str, indent=2), 200, headers)
+                else:
+                    response = {
+                        'status': 'success',
+                        'message': 'No data found for the specified date range',
+                        'data': [],
+                        'date_range': {
+                            'start': start_date,
+                            'end': end_date
+                        },
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, default=str, indent=2), 200, headers)
+
+            except Exception as e:
+                logger.error(f"Error fetching custom date range sold flips: {str(e)}")
+                logger.error(traceback.format_exc())
+                response = {
+                    'status': 'error',
+                    'message': f'Failed to fetch sold flips data: {str(e)}',
                     'timestamp': datetime.now().isoformat()
                 }
                 return (json.dumps(response, default=str, indent=2), 500, headers)
