@@ -27,9 +27,54 @@ const CompetitionLeaderboard = ({ competitionId }) => {
     if (competitionId) {
       loadCompetitionData();
     } else {
-      setLoading(false);
+      // If no competitionId provided, fetch the active competition
+      loadActiveCompetition();
     }
   }, [competitionId]);
+
+  const loadActiveCompetition = async () => {
+    try {
+      setLoading(true);
+
+      // Get all competitions
+      const result = await competitionApi.getCompetitions();
+
+      if (result.status === 'success' && result.data) {
+        // Find the first active competition
+        const activeComp = result.data.find(comp => comp.status === 'active');
+
+        if (activeComp) {
+          // Load this competition's leaderboard
+          const leaderboardResult = await competitionApi.getLeaderboard(activeComp.id);
+
+          if (leaderboardResult.status === 'success') {
+            setCompetition(leaderboardResult.data.competition);
+            const leaderboardData = leaderboardResult.data.leaderboard || [];
+
+            // Load photos for all technicians
+            const photoPromises = leaderboardData.map(async (tech) => {
+              const photoUrl = await technicianPhotoApi.getPhotoByName(tech.name);
+              return { techId: tech.id, photoUrl };
+            });
+
+            const photoResults = await Promise.all(photoPromises);
+            const photoMap = {};
+            photoResults.forEach(({ techId, photoUrl }) => {
+              if (photoUrl) photoMap[techId] = photoUrl;
+            });
+
+            setPhotos(photoMap);
+            setLeaderboard(leaderboardData);
+          }
+        }
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading active competition:', error);
+      setLoading(false);
+    }
+  };
 
   const loadCompetitionData = async () => {
     try {
