@@ -1,10 +1,11 @@
 // src/lib/google-reviews-cache.ts
 import { Pool } from 'pg';
 
-const pool = new Pool({
+// Only create pool if DATABASE_URL is configured
+const pool = process.env.DATABASE_URL ? new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+}) : null;
 
 export interface CachedReview {
   id: number;
@@ -46,6 +47,11 @@ export class GoogleReviewsCacheService {
    * Get all cached reviews
    */
   async getCachedReviews(): Promise<{ reviews: ReviewData[], locationStats: Record<string, number> }> {
+    if (!pool) {
+      console.warn('⚠️ DATABASE_URL not configured - returning empty reviews');
+      return { reviews: [], locationStats: {} };
+    }
+
     const client = await pool.connect();
 
     try {
@@ -92,6 +98,11 @@ export class GoogleReviewsCacheService {
    * Sync reviews from Google API to cache
    */
   async syncReviews(reviews: ReviewData[], locationStats: Record<string, number>): Promise<void> {
+    if (!pool) {
+      console.warn('⚠️ DATABASE_URL not configured - skipping sync');
+      return;
+    }
+
     const client = await pool.connect();
 
     try {
@@ -184,6 +195,10 @@ export class GoogleReviewsCacheService {
    * Get sync status
    */
   async getSyncStatus(): Promise<SyncStatus | null> {
+    if (!pool) {
+      return null;
+    }
+
     const client = await pool.connect();
 
     try {

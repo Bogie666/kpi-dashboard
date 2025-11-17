@@ -98,7 +98,8 @@ import {
   Monitor,
   UserPlus,
   Key,
-  Trophy
+  Trophy,
+  MessageCircle
 } from 'lucide-react';
 
 const AdminDashboard = () => {
