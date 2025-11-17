@@ -28,7 +28,9 @@
       "Bash(timeout 30 psql:*)",
       "Bash(gcloud sql connect:*)",
       "Bash(gcloud sql databases list:*)",
-      "Bash(gcloud sql instances describe:*)"
+      "Bash(gcloud sql instances describe:*)",
+      "Bash(npm install:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

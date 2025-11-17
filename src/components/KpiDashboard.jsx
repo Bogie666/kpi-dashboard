@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, ReferenceLine } from 'recharts';
-import { UserCheck, Phone, DollarSign, Wrench, Users, Settings, TrendingUp, Target, AlertTriangle, Trophy, CheckCircle, Zap, Droplets } from 'lucide-react';
+import { UserCheck, Phone, DollarSign, Wrench, Users, Settings, TrendingUp, Target, AlertTriangle, Trophy, CheckCircle, Zap, Droplets, MessageSquare } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
 import CompetitionLeaderboard from './CompetitionLeaderboard';
 import LoginScreen from './LoginScreen';
@@ -10,6 +10,7 @@ import { LogOut, User, Monitor } from 'lucide-react';
 import YtdTrendChart from './YtdTrendChart';
 import TopPerformersDashboard from './TopPerformersDashboard';
 import RevenueTTMDashboard from './RevenueTTMDashboard';
+import GoogleReviews from './GoogleReviews';
 
 const KpiDashboard = () => {
   const [activeView, setActiveView] = useState('financial');
@@ -60,6 +61,7 @@ useEffect(() => {
   const getTabsForUser = (user) => {
   const allTabs = [
     { id: "financial", label: "Financial", icon: DollarSign },
+    { id: "revenue-ttm", label: "Revenue TTM", icon: TrendingUp },
     { id: "comfort_advisor", label: "Comfort Advisor", icon: UserCheck },
     { id: "technician", label: "HVAC Tech", icon: Wrench },
     { id: "hvac_maintenance", label: "HVAC Maint", icon: Wrench },
@@ -67,14 +69,12 @@ useEffect(() => {
     { id: "electrical", label: "Electrical", icon: Zap },
     { id: "call_center", label: "Call Center", icon: Phone },
     { id: "memberships", label: "Memberships", icon: Users },
-    { id: "revenue-ttm", label: "Revenue TTM", icon: TrendingUp },
+    { id: "reviews", label: "Reviews", icon: MessageSquare },
     { id: "top_performers", label: "Top Performers", icon: Trophy },
-    { id: "competition", label: "Competition", icon: Trophy },
+    { id: "competition", label: "Competition", icon: Target },
   ];
 
-  if (user?.role === 'admin') {
-    return [...allTabs, { id: "admin", label: "Admin", icon: Settings }];
-  }
+  // Admin tab is now in the header, not in the main tabs
   return allTabs;
 };
 
@@ -2593,6 +2593,8 @@ const EnhancedTotalRevenueCard = () => {
       />;
     case "memberships":
       return <MembershipsView />;
+    case "reviews":
+      return <GoogleReviews />;
     case "top_performers":
       return <TopPerformersDashboard />;
     case "competition":
@@ -2671,7 +2673,23 @@ if (!isAuthenticated) {
               {currentUser?.role}
             </span>
           </div>
-          
+
+          {/* Admin Button - Only show for admin users */}
+          {currentUser?.role === 'admin' && (
+            <button
+              onClick={() => setActiveView('admin')}
+              className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                activeView === 'admin'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+              title="Admin Dashboard"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Admin</span>
+            </button>
+          )}
+
           <button
             onClick={handleLogout}
             className="flex items-center space-x-1 text-gray-400 hover:text-white transition-colors"
@@ -2707,7 +2725,7 @@ if (!isAuthenticated) {
 )}
 
         {/* Time Period Selector (only for data views) */}
-        {!['admin'].includes(activeView) && currentUser?.role !== 'display' && (
+        {!['admin', 'competition', 'reviews'].includes(activeView) && currentUser?.role !== 'display' && (
           <div className="flex flex-wrap space-x-1 md:space-x-2 mb-4 md:mb-6">
             {periods.map((period) => (
               <button

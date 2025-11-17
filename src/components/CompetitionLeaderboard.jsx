@@ -282,7 +282,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
+      <div className="flex items-center justify-center h-screen bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-yellow-400 mx-auto mb-4" />
           <div className="text-white text-xl">Loading competition...</div>
@@ -293,7 +293,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
 
   if (!competition) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
+      <div className="flex items-center justify-center h-screen bg-gray-900">
         <div className="text-center">
           <Trophy className="h-24 w-24 text-gray-600 mx-auto mb-6" />
           <h2 className="text-4xl font-bold text-white mb-4">No Active Competitions</h2>
@@ -308,16 +308,23 @@ const CompetitionLeaderboard = ({ competitionId }) => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 p-3 md:p-6">
+    <div className="min-h-screen bg-gray-900 p-3 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-6 md:mb-8">
+          {/* Logo */}
+          <div className="flex justify-center mb-4">
+            <img
+              src="/thunderdome2.png"
+              alt="Competition Logo"
+              className="h-40 md:h-48 lg:h-56 w-auto"
+            />
+          </div>
+
           <div className="flex items-center justify-center mb-4">
-            <Trophy className="hidden sm:block h-12 md:h-16 w-12 md:w-16 text-yellow-400 mr-2 md:mr-4" />
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white">
               {competition.name}
             </h1>
-            <Trophy className="hidden sm:block h-12 md:h-16 w-12 md:w-16 text-yellow-400 ml-2 md:ml-4" />
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mb-6">
@@ -336,7 +343,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
             {competition.metrics.map((metric, index) => (
               <div key={index} className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg px-4 py-2">
                 <Target className="h-5 w-5 text-purple-200 inline mr-2" />
-                <span className="text-white font-medium text-sm md:text-base">{metric.name}: {metric.target}</span>
+                <span className="text-white font-medium text-sm md:text-base">{metric.name}</span>
               </div>
             ))}
           </div>
