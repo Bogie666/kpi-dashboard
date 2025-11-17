@@ -295,7 +295,14 @@ const CompetitionLeaderboard = ({ competitionId }) => {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
         <div className="text-center">
-          <Trophy className="h-24 w-24 text-gray-600 mx-auto mb-6" />
+          {/* Thunderdome Logo */}
+          <div className="flex justify-center mb-8">
+            <img
+              src="/thunderdome2.png"
+              alt="Competition Logo"
+              className="h-40 md:h-48 lg:h-56 w-auto"
+            />
+          </div>
           <h2 className="text-4xl font-bold text-white mb-4">No Active Competitions</h2>
           <p className="text-gray-400 text-lg">Check back soon for upcoming competitions!</p>
         </div>
