@@ -226,7 +226,9 @@ const startDisplayAutoRotation = () => {
 
     'memberships',                 // Memberships
 
-    'reviews'                      // Google Reviews
+    'reviews',                     // Google Reviews
+
+    'competition'                  // Competition Leaderboard
   ];
   
   let currentIndex = 0;
