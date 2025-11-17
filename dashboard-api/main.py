@@ -500,14 +500,14 @@ class DatabaseManager:
                     
                     result.append({
                         'department': financial_data['department_name'],
-                        'invoicedRevenue': financial_data['invoiced_revenue_cents'] // 100,
-                        'completedRevenue': financial_data['completed_revenue_cents'] // 100,
-                        'totalRevenue': financial_data['total_revenue_cents'] // 100,
-                        'adjustmentRevenue': financial_data['adjustment_revenue_cents'] // 100,
+                        'invoicedRevenue': round(financial_data['invoiced_revenue_cents'] / 100),
+                        'completedRevenue': round(financial_data['completed_revenue_cents'] / 100),
+                        'totalRevenue': round(financial_data['total_revenue_cents'] / 100),
+                        'adjustmentRevenue': round(financial_data['adjustment_revenue_cents'] / 100),
                         'techLeadJobs': financial_data['tech_lead_jobs'],
                         'marketingLeadJobs': financial_data['marketing_lead_jobs'],
                         'opportunities': financial_data['opportunities'],
-                        'membershipRevenue': financial_data['membership_revenue_cents'] // 100,
+                        'membershipRevenue': round(financial_data['membership_revenue_cents'] / 100),
                         'updatedAt': financial_data['updated_at'].isoformat() if financial_data['updated_at'] else datetime.now().isoformat()
                     })
                 
@@ -535,12 +535,12 @@ class DatabaseManager:
                 if row:
                     return {
                         'totalDepartments': row[0],
-                        'totalRevenue': row[1] // 100 if row[1] else 0,
+                        'totalRevenue': round(row[1] / 100) if row[1] else 0,
                         'totalTechJobs': row[2],
                         'totalMarketingJobs': row[3],
                         'totalOpportunities': row[4],
-                        'totalMembershipRevenue': row[5] // 100 if row[5] else 0,
-                        'averageRevenuePerDepartment': (row[1] // row[0]) // 100 if row[0] and row[1] else 0
+                        'totalMembershipRevenue': round(row[5] / 100) if row[5] else 0,
+                        'averageRevenuePerDepartment': round(row[1] / row[0] / 100) if row[0] and row[1] else 0
                     }
                 return {}
 
@@ -580,7 +580,7 @@ class DatabaseManager:
 
                     # Get monthly budget target for this month
                     budget_target = self.get_monthly_budget_target(int(year_val), int(month_val))
-                    revenue_dollars = int(total_revenue_cents) // 100 if total_revenue_cents else 0
+                    revenue_dollars = round(int(total_revenue_cents) / 100) if total_revenue_cents else 0
                     budget_percent = (revenue_dollars / budget_target * 100) if budget_target > 0 else 0
 
                     trend_data.append({
@@ -589,8 +589,8 @@ class DatabaseManager:
                         'monthNum': int(month_val),
                         'monthName': month_date.strftime('%B'),
                         'revenue': revenue_dollars,
-                        'invoicedRevenue': int(invoiced_revenue_cents) // 100 if invoiced_revenue_cents else 0,
-                        'completedRevenue': int(completed_revenue_cents) // 100 if completed_revenue_cents else 0,
+                        'invoicedRevenue': round(int(invoiced_revenue_cents) / 100) if invoiced_revenue_cents else 0,
+                        'completedRevenue': round(int(completed_revenue_cents) / 100) if completed_revenue_cents else 0,
                         'techLeadJobs': int(tech_lead_jobs) if tech_lead_jobs else 0,
                         'marketingLeadJobs': int(marketing_lead_jobs) if marketing_lead_jobs else 0,
                         'opportunities': int(opportunities) if opportunities else 0,
@@ -773,7 +773,7 @@ class DatabaseManager:
                         last_updated = row[10]
                         is_complete = row[11]
 
-                        revenue = total_revenue_cents // 100 if total_revenue_cents else 0
+                        revenue = round(total_revenue_cents / 100) if total_revenue_cents else 0
 
                         result.append({
                             'month': month_key,
@@ -781,8 +781,8 @@ class DatabaseManager:
                             'year': int(year),
                             'monthNumber': int(month),
                             'revenue': revenue,
-                            'invoicedRevenue': invoiced_revenue_cents // 100 if invoiced_revenue_cents else 0,
-                            'completedRevenue': completed_revenue_cents // 100 if completed_revenue_cents else 0,
+                            'invoicedRevenue': round(invoiced_revenue_cents / 100) if invoiced_revenue_cents else 0,
+                            'completedRevenue': round(completed_revenue_cents / 100) if completed_revenue_cents else 0,
                             'techJobs': tech_jobs or 0,
                             'marketingJobs': marketing_jobs or 0,
                             'opportunities': opportunities or 0,
@@ -889,7 +889,7 @@ class DatabaseManager:
                         }
 
                     # Convert revenue to dollars
-                    revenue = total_revenue_cents // 100 if total_revenue_cents else 0
+                    revenue = round(total_revenue_cents / 100) if total_revenue_cents else 0
 
                     # Add to total
                     months_dict[month_key]['total'] += revenue

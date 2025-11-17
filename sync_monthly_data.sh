@@ -53,8 +53,11 @@ sync_all() {
     sync_months 4 6 "Q2 2025 (Apr-Jun)" 
     sleep 30
     
-    sync_months 7 8 "Jul-Aug 2025"
-    
+    sync_months 7 9 "Q3 2025 (Jul-Sep)"
+    sleep 30
+
+    sync_months 10 10 "Oct 2025"
+
     echo ""
     echo "🎉 All chunks completed! Check your database for monthly data."
 }
@@ -68,7 +71,36 @@ case $1 in
         sync_months 4 6 "Q2 2025 (Apr-Jun)"
         ;;
     "q3"|"3")
-        sync_months 7 8 "Jul-Aug 2025"
+        sync_months 7 9 "Q3 2025 (Jul-Sep)"
+        ;;
+    "q4"|"4")
+        sync_months 10 10 "Oct 2025"
+        ;;
+    "oct"|"october"|"10")
+        sync_months 10 10 "Oct 2025"
+        ;;
+    "month")
+        # Sync a specific month
+        if [ -z "$2" ]; then
+            echo "❌ Error: Please specify a month number (1-12)"
+            echo "Example: $0 month 6"
+            exit 1
+        fi
+
+        MONTH_NUM=$2
+
+        # Validate month number
+        if ! [[ "$MONTH_NUM" =~ ^[0-9]+$ ]] || [ "$MONTH_NUM" -lt 1 ] || [ "$MONTH_NUM" -gt 12 ]; then
+            echo "❌ Error: Invalid month number. Must be between 1 and 12."
+            echo "Example: $0 month 6"
+            exit 1
+        fi
+
+        # Month names for display
+        MONTH_NAMES=("" "Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec")
+        MONTH_NAME=${MONTH_NAMES[$MONTH_NUM]}
+
+        sync_months $MONTH_NUM $MONTH_NUM "$MONTH_NAME $YEAR (Month $MONTH_NUM)"
         ;;
     "all"|"")
         sync_all
@@ -78,18 +110,24 @@ case $1 in
         curl -s "$FUNCTION_URL?year=$YEAR" | head -200
         ;;
     *)
-        echo "Usage: $0 [q1|q2|q3|all|test]"
+        echo "Usage: $0 [q1|q2|q3|q4|oct|month <num>|all|test]"
         echo ""
         echo "Options:"
-        echo "  q1 or 1  - Sync Jan-Mar 2025"  
-        echo "  q2 or 2  - Sync Apr-Jun 2025"
-        echo "  q3 or 3  - Sync Jul-Aug 2025"
-        echo "  all      - Sync all months (default)"
-        echo "  test     - Test connection to function"
+        echo "  q1 or 1           - Sync Jan-Mar 2025"
+        echo "  q2 or 2           - Sync Apr-Jun 2025"
+        echo "  q3 or 3           - Sync Jul-Sep 2025"
+        echo "  q4 or 4           - Sync Oct 2025"
+        echo "  oct or 10         - Sync Oct 2025"
+        echo "  month <1-12>      - Sync specific month (1=Jan, 2=Feb, etc.)"
+        echo "  all               - Sync all months (default)"
+        echo "  test              - Test connection to function"
         echo ""
         echo "Examples:"
-        echo "  $0 q1    # Sync just Q1"
-        echo "  $0 all   # Sync everything"
-        echo "  $0       # Same as 'all'"
+        echo "  $0 q1             # Sync just Q1"
+        echo "  $0 oct            # Sync just October"
+        echo "  $0 month 6        # Sync just June"
+        echo "  $0 month 11       # Sync just November"
+        echo "  $0 all            # Sync everything"
+        echo "  $0                # Same as 'all'"
         ;;
 esac

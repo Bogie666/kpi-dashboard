@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/sync-competition",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/google/reviews/sync",
+      "schedule": "0 */2 * * *"
     }
   ]
 }

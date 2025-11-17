@@ -115,6 +115,10 @@ const AdminDashboard = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSyncPeriods, setSelectedSyncPeriods] = useState(['today', 'mtd']);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [syncingMonthly, setSyncingMonthly] = useState(false);
+  const [syncingReviews, setSyncingReviews] = useState(false);
+  const [reviewsSyncStatus, setReviewsSyncStatus] = useState(null);
   
   // 1. Set all sections collapsed by default
   const [collapsedSections, setCollapsedSections] = useState({
@@ -350,6 +354,7 @@ const AdminDashboard = () => {
   // Load data functions
   useEffect(() => {
     loadAllData();
+    loadReviewsSyncStatus();
   }, []);
 
   const loadAllData = async () => {
@@ -470,6 +475,68 @@ const AdminDashboard = () => {
         return [...prev, period];
       }
     });
+  };
+
+  // Trigger monthly financial sync
+  const triggerMonthlySync = async () => {
+    setSyncingMonthly(true);
+    try {
+      const year = 2025;
+      const response = await fetch(`${SYNC_API}/yearly-financial?year=${year}&start_month=${selectedMonth}&end_month=${selectedMonth}`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        const monthName = MONTHS[selectedMonth - 1];
+        alert(`✅ ${monthName} 2025 financial data sync completed successfully!\n\nMonths synced: ${data.months_synced || 1}\nTotal revenue synced: $${(data.total_revenue || 0).toLocaleString()}\n\nDashboard will update momentarily.`);
+        await loadSystemStatus();
+      } else {
+        alert('❌ Monthly sync failed: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error triggering monthly sync:', error);
+      alert('❌ Error triggering monthly sync: ' + error.message);
+    } finally {
+      setSyncingMonthly(false);
+    }
+  };
+
+  // Load Google Reviews sync status
+  const loadReviewsSyncStatus = async () => {
+    try {
+      const response = await fetch('/api/google/reviews');
+      const data = await response.json();
+
+      if (data.success && data.syncStatus) {
+        setReviewsSyncStatus(data.syncStatus);
+      }
+    } catch (error) {
+      console.error('Error loading reviews sync status:', error);
+    }
+  };
+
+  // Trigger Google Reviews sync
+  const triggerReviewsSync = async () => {
+    setSyncingReviews(true);
+    try {
+      const response = await fetch('/api/google/reviews/sync', {
+        method: 'POST'
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`✅ Google Reviews synced successfully!\n\nTotal reviews: ${data.totalReviews}\n\nLocation breakdown:\n${Object.entries(data.locationStats).map(([loc, count]) => `  ${loc}: ${count} reviews`).join('\n')}\n\nReviews page will now load instantly!`);
+        await loadReviewsSyncStatus();
+      } else {
+        alert('❌ Reviews sync failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error triggering reviews sync:', error);
+      alert('❌ Error triggering reviews sync: ' + error.message);
+    } finally {
+      setSyncingReviews(false);
+    }
   };
 
   const saveTarget = async (targetData) => {
@@ -1869,6 +1936,175 @@ const AdminDashboard = () => {
                 Choose which time periods to sync (today, week, mtd, ytd, or last_month) and click the sync button.
                 This will update all dashboard metrics with the latest information for the selected periods.
               </p>
+            </div>
+          </div>
+
+          {/* Monthly Financial Data Sync */}
+          <div className="bg-gray-700 rounded-lg p-4 md:p-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
+              <h3 className="text-white font-medium flex items-center">
+                <Calendar className="h-5 w-5 text-green-400 mr-2" />
+                Monthly Financial Data Sync
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              {/* Month Selection */}
+              <div className="p-4 bg-gray-800 rounded-lg border border-gray-600">
+                <label className="block text-sm text-gray-300 mb-3 font-medium">Select Month to Sync:</label>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {MONTHS.map((month, index) => {
+                    const monthNum = index + 1;
+                    const currentMonth = new Date().getMonth() + 1;
+                    const isCurrentMonth = monthNum === currentMonth;
+                    const isFutureMonth = monthNum > currentMonth;
+
+                    return (
+                      <button
+                        key={month}
+                        onClick={() => setSelectedMonth(monthNum)}
+                        disabled={isFutureMonth}
+                        className={`px-3 py-2 rounded border text-sm font-medium transition-all ${
+                          selectedMonth === monthNum
+                            ? 'bg-green-900 bg-opacity-40 border-green-500 text-green-100'
+                            : isFutureMonth
+                            ? 'bg-gray-700 border-gray-600 text-gray-500 cursor-not-allowed'
+                            : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-500 hover:bg-gray-650'
+                        } ${isCurrentMonth && selectedMonth === monthNum ? 'ring-2 ring-blue-500' : ''}`}
+                      >
+                        {month.slice(0, 3)}
+                        {isCurrentMonth && <span className="block text-xs text-blue-400 mt-0.5">Current</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 text-xs text-gray-400">
+                  <strong>Selected:</strong> {MONTHS[selectedMonth - 1]} 2025
+                  {selectedMonth === new Date().getMonth() + 1 && ' (Current Month - will sync up to today)'}
+                </div>
+              </div>
+
+              {/* Sync Button and Info */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
+                <div className="text-sm text-gray-300">
+                  <p>Syncs complete financial data for <strong className="text-white">{MONTHS[selectedMonth - 1]} 2025</strong></p>
+                  <p className="text-xs text-gray-400 mt-1">Updates YTD Performance Trend and TTM Revenue screens</p>
+                </div>
+
+                <button
+                  onClick={triggerMonthlySync}
+                  disabled={syncingMonthly}
+                  className={`px-4 py-2 rounded-lg flex items-center space-x-2 text-sm transition-colors whitespace-nowrap ${
+                    syncingMonthly
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                >
+                  {syncingMonthly ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Syncing {MONTHS[selectedMonth - 1]}...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="h-4 w-4" />
+                      <span>Sync {MONTHS[selectedMonth - 1]}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Info Box */}
+              <div className="p-3 bg-green-900 bg-opacity-20 border border-green-500 rounded">
+                <p className="text-green-200 text-sm">
+                  <strong>Monthly Sync:</strong> Use this to re-sync specific months when you notice discrepancies
+                  or when late revenue entries are added to ServiceTitan. This ensures your historical financial
+                  reports (YTD and TTM) show accurate data with proper rounding.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Google Reviews Sync */}
+          <div className="bg-gray-700 rounded-lg p-4 md:p-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
+              <h3 className="text-white font-medium flex items-center">
+                <MessageCircle className="h-5 w-5 text-yellow-400 mr-2" />
+                Google Reviews Cache
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              {/* Sync Status */}
+              {reviewsSyncStatus && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-800 p-3 rounded border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-300 text-sm">Last Sync</span>
+                      <Clock className="h-4 w-4 text-yellow-400" />
+                    </div>
+                    <div className="text-white text-sm font-medium">
+                      {formatRelativeTime(reviewsSyncStatus.lastSync)}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {formatCentralTime(reviewsSyncStatus.lastSync)}
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-800 p-3 rounded border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-300 text-sm">Sync Status</span>
+                      {reviewsSyncStatus.status === 'success' ? (
+                        <CheckCircle className="h-4 w-4 text-green-400" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-400" />
+                      )}
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      reviewsSyncStatus.status === 'success'
+                        ? 'bg-green-600 text-green-100'
+                        : 'bg-red-600 text-red-100'
+                    }`}>
+                      {reviewsSyncStatus.status === 'success' ? 'Success' : 'Failed'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Sync Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={triggerReviewsSync}
+                  disabled={syncingReviews}
+                  className={`px-4 py-2 rounded-lg flex items-center space-x-2 text-sm transition-colors ${
+                    syncingReviews
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                  }`}
+                >
+                  {syncingReviews ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Syncing Reviews...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      <span>Refresh Reviews Cache</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Info Box */}
+              <div className="p-3 bg-yellow-900 bg-opacity-20 border border-yellow-500 rounded">
+                <p className="text-yellow-200 text-sm">
+                  <strong>Reviews Cache:</strong> Reviews are cached in the database for fast loading.
+                  Click "Refresh Reviews Cache" to fetch the latest reviews from Google Business Profile API.
+                  This typically takes 30-60 seconds depending on how many reviews you have. Cache refreshes
+                  automatically every 24 hours, but you can manually refresh anytime.
+                </p>
+              </div>
             </div>
           </div>
 

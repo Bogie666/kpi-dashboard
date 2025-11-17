@@ -1,38 +1,34 @@
 // src/app/api/google/reviews/route.ts
 import { NextResponse } from 'next/server'
-import { GoogleBusinessService } from '@/lib/google-business'
-import { getTokenManager } from '@/lib/google-token-manager'
+import { GoogleReviewsCacheService } from '@/lib/google-reviews-cache'
 
 export async function GET() {
   try {
-    console.log('🔍 Fetching reviews using server-side token...')
+    console.log('📖 Fetching reviews from cache...')
 
-    // Get access token from token manager (no user session required)
-    const tokenManager = getTokenManager()
-    const accessToken = await tokenManager.getAccessToken()
+    const cacheService = new GoogleReviewsCacheService()
 
-    // Create service instance with access token
-    const googleService = new GoogleBusinessService(accessToken)
+    // Get cached reviews (fast!)
+    const { reviews, locationStats } = await cacheService.getCachedReviews()
 
-    // Fetch all reviews
-    const result = await googleService.getAllReviews()
+    // Get sync status
+    const syncStatus = await cacheService.getSyncStatus()
 
-    if (!result.success) {
-      return NextResponse.json({
-        success: false,
-        error: result.error
-      }, { status: 500 })
-    }
+    console.log(`✅ Returned ${reviews.length} cached reviews`)
 
     return NextResponse.json({
       success: true,
-      reviews: result.reviews,
-      totalCount: result.totalCount,
-      locationStats: result.locationStats
+      reviews,
+      totalCount: reviews.length,
+      locationStats,
+      syncStatus: syncStatus ? {
+        lastSync: syncStatus.last_sync_at,
+        status: syncStatus.sync_status
+      } : null
     })
 
   } catch (error) {
-    console.error('💥 Fatal error fetching reviews:', error)
+    console.error('💥 Error fetching cached reviews:', error)
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

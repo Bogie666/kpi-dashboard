@@ -2314,14 +2314,14 @@ def fetch_financial_data(period_type):
                             }
                         
                         # Aggregate the financial data
-                        department_totals[department]["invoiced_revenue_cents"] += safe_int(safe_float(safe_get(record, "InvoicedRevenue")) * 100)
-                        department_totals[department]["completed_revenue_cents"] += safe_int(safe_float(safe_get(record, "CompletedRevenue")) * 100)
-                        department_totals[department]["total_revenue_cents"] += safe_int(safe_float(safe_get(record, "TotalRevenue")) * 100)
-                        department_totals[department]["adjustment_revenue_cents"] += safe_int(safe_float(safe_get(record, "AdjustmentRevenue")) * 100)
+                        department_totals[department]["invoiced_revenue_cents"] += round(safe_float(safe_get(record, "InvoicedRevenue")) * 100)
+                        department_totals[department]["completed_revenue_cents"] += round(safe_float(safe_get(record, "CompletedRevenue")) * 100)
+                        department_totals[department]["total_revenue_cents"] += round(safe_float(safe_get(record, "TotalRevenue")) * 100)
+                        department_totals[department]["adjustment_revenue_cents"] += round(safe_float(safe_get(record, "AdjustmentRevenue")) * 100)
                         department_totals[department]["tech_lead_jobs"] += safe_int(safe_get(record, "TechLeadJobs"))
                         department_totals[department]["marketing_lead_jobs"] += safe_int(safe_get(record, "MarketingLeadJobs"))
                         department_totals[department]["opportunities"] += safe_int(safe_get(record, "Opportunity"))
-                        department_totals[department]["membership_revenue_cents"] += safe_int(safe_float(safe_get(record, "MembershipTotalInvoicedRevenue")) * 100)
+                        department_totals[department]["membership_revenue_cents"] += round(safe_float(safe_get(record, "MembershipTotalInvoicedRevenue")) * 100)
                         
                     elif isinstance(record, list) and len(record) >= 10:
                         # Handle array format
@@ -2347,14 +2347,14 @@ def fetch_financial_data(period_type):
                             }
                         
                         # Aggregate the financial data from array
-                        department_totals[department]["invoiced_revenue_cents"] += safe_int(safe_float(record[1]) * 100) if len(record) > 1 else 0
-                        department_totals[department]["completed_revenue_cents"] += safe_int(safe_float(record[2]) * 100) if len(record) > 2 else 0
-                        department_totals[department]["total_revenue_cents"] += safe_int(safe_float(record[4]) * 100) if len(record) > 4 else 0
-                        department_totals[department]["adjustment_revenue_cents"] += safe_int(safe_float(record[3]) * 100) if len(record) > 3 else 0
+                        department_totals[department]["invoiced_revenue_cents"] += round(safe_float(record[1]) * 100) if len(record) > 1 else 0
+                        department_totals[department]["completed_revenue_cents"] += round(safe_float(record[2]) * 100) if len(record) > 2 else 0
+                        department_totals[department]["total_revenue_cents"] += round(safe_float(record[4]) * 100) if len(record) > 4 else 0
+                        department_totals[department]["adjustment_revenue_cents"] += round(safe_float(record[3]) * 100) if len(record) > 3 else 0
                         department_totals[department]["tech_lead_jobs"] += safe_int(record[6]) if len(record) > 6 else 0
                         department_totals[department]["marketing_lead_jobs"] += safe_int(record[7]) if len(record) > 7 else 0
                         department_totals[department]["opportunities"] += safe_int(record[8]) if len(record) > 8 else 0
-                        department_totals[department]["membership_revenue_cents"] += safe_int(safe_float(record[9]) * 100) if len(record) > 9 else 0
+                        department_totals[department]["membership_revenue_cents"] += round(safe_float(record[9]) * 100) if len(record) > 9 else 0
                         
                 except Exception as e:
                     logger.error(f"Error processing financial record {i}: {str(e)}")
@@ -2541,24 +2541,24 @@ def process_monthly_financial_data(raw_data, period_identifier):
             
             # Aggregate financial data
             if isinstance(record, dict):
-                department_totals[department]["invoiced_revenue_cents"] += safe_int(safe_float(safe_get(record, "InvoicedRevenue")) * 100)
-                department_totals[department]["completed_revenue_cents"] += safe_int(safe_float(safe_get(record, "CompletedRevenue")) * 100)
-                department_totals[department]["total_revenue_cents"] += safe_int(safe_float(safe_get(record, "TotalRevenue")) * 100)
-                department_totals[department]["adjustment_revenue_cents"] += safe_int(safe_float(safe_get(record, "AdjustmentRevenue")) * 100)
+                department_totals[department]["invoiced_revenue_cents"] += round(safe_float(safe_get(record, "InvoicedRevenue")) * 100)
+                department_totals[department]["completed_revenue_cents"] += round(safe_float(safe_get(record, "CompletedRevenue")) * 100)
+                department_totals[department]["total_revenue_cents"] += round(safe_float(safe_get(record, "TotalRevenue")) * 100)
+                department_totals[department]["adjustment_revenue_cents"] += round(safe_float(safe_get(record, "AdjustmentRevenue")) * 100)
                 department_totals[department]["tech_lead_jobs"] += safe_int(safe_get(record, "TechLeadJobs"))
                 department_totals[department]["marketing_lead_jobs"] += safe_int(safe_get(record, "MarketingLeadJobs"))
                 department_totals[department]["opportunities"] += safe_int(safe_get(record, "Opportunity"))
-                department_totals[department]["membership_revenue_cents"] += safe_int(safe_float(safe_get(record, "MembershipTotalInvoicedRevenue")) * 100)
-            
+                department_totals[department]["membership_revenue_cents"] += round(safe_float(safe_get(record, "MembershipTotalInvoicedRevenue")) * 100)
+
             elif isinstance(record, list) and len(record) >= 10:
-                department_totals[department]["invoiced_revenue_cents"] += safe_int(safe_float(record[1]) * 100) if len(record) > 1 else 0
-                department_totals[department]["completed_revenue_cents"] += safe_int(safe_float(record[2]) * 100) if len(record) > 2 else 0
-                department_totals[department]["total_revenue_cents"] += safe_int(safe_float(record[4]) * 100) if len(record) > 4 else 0
-                department_totals[department]["adjustment_revenue_cents"] += safe_int(safe_float(record[3]) * 100) if len(record) > 3 else 0
+                department_totals[department]["invoiced_revenue_cents"] += round(safe_float(record[1]) * 100) if len(record) > 1 else 0
+                department_totals[department]["completed_revenue_cents"] += round(safe_float(record[2]) * 100) if len(record) > 2 else 0
+                department_totals[department]["total_revenue_cents"] += round(safe_float(record[4]) * 100) if len(record) > 4 else 0
+                department_totals[department]["adjustment_revenue_cents"] += round(safe_float(record[3]) * 100) if len(record) > 3 else 0
                 department_totals[department]["tech_lead_jobs"] += safe_int(record[6]) if len(record) > 6 else 0
                 department_totals[department]["marketing_lead_jobs"] += safe_int(record[7]) if len(record) > 7 else 0
                 department_totals[department]["opportunities"] += safe_int(record[8]) if len(record) > 8 else 0
-                department_totals[department]["membership_revenue_cents"] += safe_int(safe_float(record[9]) * 100) if len(record) > 9 else 0
+                department_totals[department]["membership_revenue_cents"] += round(safe_float(record[9]) * 100) if len(record) > 9 else 0
                 
         except Exception as e:
             logger.error(f"Error processing financial record {i} for {period_identifier}: {str(e)}")
