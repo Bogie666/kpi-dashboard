@@ -205,26 +205,28 @@ const startDisplayAutoRotation = () => {
   const rotationInterval = parseInt(urlParams.get('interval')) * 1000 || 30000;
   const views = [
     'financial',                    // Financial Overview
-    
+
     'comfort_advisor',              // Comfort Advisor Metrics
     'top_comfort_advisor',          // Top Comfort Advisors
-    
+
     'technician',                   // HVAC Tech Metrics
     'top_hvac_tech',               // Top HVAC Techs
-    
+
     'hvac_maintenance',            // HVAC Maintenance Metrics
     'top_hvac_maintenance',        // Top HVAC Maintenance
-    
+
     'plumbing',                    // Plumbing Metrics
     'top_plumbing',                // Top Plumbers
-    
+
     'electrical',                  // Electrical Metrics
     'top_electrical',              // Top Electricians
-    
+
     'call_center',                 // Call Center Metrics
     'top_call_center',             // Top Call Center
-    
-    'memberships'                  // Memberships
+
+    'memberships',                 // Memberships
+
+    'reviews'                      // Google Reviews
   ];
   
   let currentIndex = 0;
