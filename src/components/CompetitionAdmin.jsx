@@ -39,11 +39,43 @@ const CompetitionAdmin = () => {
     technicianName: '',
     reviewCount: 0
   });
+  const [currentReviewCount, setCurrentReviewCount] = useState(null);
+  const [loadingCurrentCount, setLoadingCurrentCount] = useState(false);
 
   // Load competitions from API
   useEffect(() => {
     loadCompetitions();
   }, []);
+
+  // Fetch current review count when competition and technician are selected
+  useEffect(() => {
+    const fetchCurrentReviewCount = async () => {
+      if (!reviewFormData.competitionId || !reviewFormData.technicianName) {
+        setCurrentReviewCount(null);
+        return;
+      }
+
+      setLoadingCurrentCount(true);
+      try {
+        const leaderboard = await competitionApi.getLeaderboard(reviewFormData.competitionId);
+        if (leaderboard.status === 'success') {
+          const techEntry = leaderboard.data?.leaderboard?.find(
+            entry => entry.name === reviewFormData.technicianName
+          );
+          setCurrentReviewCount(techEntry?.reviews ?? 0);
+        } else {
+          setCurrentReviewCount(null);
+        }
+      } catch (error) {
+        console.error('Error fetching current review count:', error);
+        setCurrentReviewCount(null);
+      } finally {
+        setLoadingCurrentCount(false);
+      }
+    };
+
+    fetchCurrentReviewCount();
+  }, [reviewFormData.competitionId, reviewFormData.technicianName]);
 
   const loadCompetitions = async () => {
     try {
@@ -124,6 +156,7 @@ const CompetitionAdmin = () => {
           technicianName: '',
           reviewCount: 0
         });
+        setCurrentReviewCount(null);
         setShowReviewEntry(false);
       } else {
         alert('Failed to update review count: ' + result.message);
@@ -612,7 +645,7 @@ const CompetitionAdmin = () => {
 
           {showReviewEntry && (
             <form onSubmit={handleManualReviewSubmit} className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Competition
@@ -653,7 +686,22 @@ const CompetitionAdmin = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Review Count
+                    Current Count
+                  </label>
+                  <div className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white">
+                    {loadingCurrentCount ? (
+                      <span className="text-gray-400">Loading...</span>
+                    ) : currentReviewCount !== null ? (
+                      <span className="font-bold text-yellow-400">{currentReviewCount}</span>
+                    ) : (
+                      <span className="text-gray-400">Select technician</span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    New Review Count
                   </label>
                   <input
                     type="number"
