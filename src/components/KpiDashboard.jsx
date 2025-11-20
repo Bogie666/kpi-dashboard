@@ -109,7 +109,8 @@ useEffect(() => {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const displayMode = urlParams.get('display');
-    
+    const singlePage = urlParams.get('page');
+
     if (displayMode === 'true' || displayMode === '1') {
       // Auto-login as display user
       const displayUser = {
@@ -119,11 +120,28 @@ useEffect(() => {
         role: 'display',
         status: 'active'
       };
-      
+
       setCurrentUser(displayUser);
       setIsAuthenticated(true);
-      setActiveView('financial');
-      startDisplayAutoRotation();
+
+      // Valid pages for single-page display mode
+      const validPages = [
+        'financial', 'revenue-ttm', 'comfort_advisor', 'technician',
+        'hvac_maintenance', 'plumbing', 'electrical', 'call_center',
+        'memberships', 'reviews', 'top_performers', 'competition',
+        'top_comfort_advisor', 'top_hvac_tech', 'top_hvac_maintenance',
+        'top_plumbing', 'top_electrical', 'top_call_center'
+      ];
+
+      if (singlePage && validPages.includes(singlePage)) {
+        // Single page mode - show only the specified page without rotation
+        setActiveView(singlePage);
+      } else {
+        // Auto-rotation mode
+        setActiveView('financial');
+        startDisplayAutoRotation();
+      }
+
       setAuthLoading(false);
     }
   }, []);
@@ -775,205 +793,6 @@ const startDisplayAutoRotation = () => {
     );
   };
 
-  // Dashboard Summary - checks individual performance
-  const DashboardSummary = ({ advisorData, targets, viewType = 'comfort_advisor' }) => {
-    const alerts = [];
-    if (viewType === 'comfort_advisor') {
-      const avgTicketTarget = targets.avgTicket;
-      const closeRateTarget = targets.closeRate;
-      
-      // Check each individual advisor against targets
-      advisorData.forEach((advisor, index) => {
-        
-        // Check average ticket
-        if (avgTicketTarget && advisor.averageDollar < avgTicketTarget) {
-          const percentage = (advisor.averageDollar / avgTicketTarget) * 100;
-          alerts.push({
-            person: advisor.name,
-            metric: 'Average Ticket',
-            value: advisor.averageDollar,
-            target: avgTicketTarget,
-            percentage: Math.round(percentage),
-            severity: percentage < 70 ? 'high' : 'medium'
-          });
-        }
-        
-        // Check close rate
-        if (closeRateTarget && advisor.closingPercent < closeRateTarget) {
-          const percentage = (advisor.closingPercent / closeRateTarget) * 100;
-          alerts.push({
-            person: advisor.name,
-            metric: 'Close Rate',
-            value: advisor.closingPercent,
-            target: closeRateTarget,
-            percentage: Math.round(percentage),
-            severity: percentage < 70 ? 'high' : 'medium'
-          });
-        }
-      });
-    } else if (viewType === 'call_center') {
-      const bookingRateTarget = targets.bookingRate;
-      const membershipsTarget = targets.memberships;
-      
-      // Check each individual agent against targets
-      advisorData.forEach((agent, index) => {
-        
-        // Check booking rate
-        if (bookingRateTarget && agent.bookingPercent < bookingRateTarget) {
-          const percentage = (agent.bookingPercent / bookingRateTarget) * 100;
-          alerts.push({
-            person: agent.name,
-            metric: 'Booking Rate',
-            value: agent.bookingPercent,
-            target: bookingRateTarget,
-            percentage: Math.round(percentage),
-            severity: percentage < 70 ? 'high' : 'medium'
-          });
-        }
-        
-        // Check memberships (per person target)
-        if (membershipsTarget && agent.coolClubMemberships < membershipsTarget) {
-          const percentage = (agent.coolClubMemberships / membershipsTarget) * 100;
-          alerts.push({
-            person: agent.name,
-            metric: 'Memberships Sold',
-            value: agent.coolClubMemberships,
-            target: membershipsTarget,
-            percentage: Math.round(percentage),
-            severity: percentage < 70 ? 'high' : 'medium'
-          });
-        }
-      });
-    } else if (viewType === 'technician' || viewType === 'plumbing' || viewType === 'electrical') {
-      const avgTicketTarget = targets.avgTicket;
-      const closeRateTarget = targets.closeRate;
-      const recallRateTarget = targets.recallRate;
-      const membershipsTarget = targets.memberships;
-      
-      // Check each individual technician against targets
-      advisorData.forEach((tech, index) => {
-        
-        // Check average ticket
-        if (avgTicketTarget && tech.totalJobAverage < avgTicketTarget) {
-          const percentage = (tech.totalJobAverage / avgTicketTarget) * 100;
-          alerts.push({
-            person: tech.name,
-            metric: 'Average Ticket',
-            value: tech.totalJobAverage,
-            target: avgTicketTarget,
-            percentage: Math.round(percentage),
-            severity: percentage < 70 ? 'high' : 'medium'
-          });
-        }
-        
-        // Check close rate
-        if (closeRateTarget && tech.closeRatePercent < closeRateTarget) {
-          const percentage = (tech.closeRatePercent / closeRateTarget) * 100;
-          alerts.push({
-            person: tech.name,
-            metric: 'Close Rate',
-            value: tech.closeRatePercent,
-            target: closeRateTarget,
-            percentage: Math.round(percentage),
-            severity: percentage < 70 ? 'high' : 'medium'
-          });
-        }
-        
-        // Check recall rate (lower is better)
-        if (recallRateTarget && tech.techRecallPercent > recallRateTarget) {
-          const percentage = (recallRateTarget / tech.techRecallPercent) * 100; // Inverted for lower is better
-          alerts.push({
-            person: tech.name,
-            metric: 'Recall Rate',
-            value: tech.techRecallPercent,
-            target: recallRateTarget,
-            percentage: Math.round(percentage),
-            severity: percentage < 70 ? 'high' : 'medium',
-            isReverse: true
-          });
-        }
-        
-        // Check memberships
-        if (membershipsTarget && tech.membershipsSold < membershipsTarget) {
-          const percentage = (tech.membershipsSold / membershipsTarget) * 100;
-          alerts.push({
-            person: tech.name,
-            metric: 'Memberships Sold',
-            value: tech.membershipsSold,
-            target: membershipsTarget,
-            percentage: Math.round(percentage),
-            severity: percentage < 70 ? 'high' : 'medium'
-          });
-        }
-      });
-    }
-
-    // Sort alerts by severity (high first)
-    alerts.sort((a, b) => {
-      if (a.severity === 'high' && b.severity === 'medium') return -1;
-      if (a.severity === 'medium' && b.severity === 'high') return 1;
-      return 0;
-    });
-
-    if (alerts.length === 0) {
-      return (
-        <div className="bg-green-900 bg-opacity-20 border border-green-500 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
-          <div className="flex items-center space-x-2">
-            <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-green-400 flex-shrink-0" />
-            <span className="text-green-400 font-medium text-sm md:text-base">All team members meeting individual targets!</span>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-2 mb-4 md:mb-6">
-        <div className="bg-gray-800 rounded-lg p-3 md:p-4 border border-gray-600">
-          <h4 className="text-white font-medium mb-3 flex items-center text-sm md:text-base">
-            <AlertTriangle className="h-4 w-4 text-yellow-400 mr-2 flex-shrink-0" />
-            Individual Performance Alerts ({alerts.length} {alerts.length === 1 ? 'person' : 'people'} below targets)
-          </h4>
-          <div className="space-y-2 max-h-32 overflow-y-auto">
-            {alerts.slice(0, 5).map((alert, index) => (
-              <div 
-                key={index}
-                className={`border rounded-lg p-2 text-xs md:text-sm ${
-                  alert.severity === 'high' 
-                    ? 'bg-red-900 bg-opacity-20 border-red-500' 
-                    : 'bg-yellow-900 bg-opacity-20 border-yellow-500'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 min-w-0 flex-1">
-                    <span className={`font-medium truncate ${
-                      alert.severity === 'high' ? 'text-red-400' : 'text-yellow-400'
-                    }`}>
-                      {alert.person}
-                    </span>
-                    <span className="text-gray-300 truncate">
-                      {alert.metric}: {alert.value}{alert.metric.includes('Rate') ? '%' : alert.metric.includes('Ticket') ? '' : ''}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-400 flex-shrink-0">
-                    {alert.isReverse ? 
-                      `Target: ≤${alert.target} (${alert.value > alert.target ? 'Over' : 'Under'})` :
-                      `${alert.percentage}% of target (${alert.target})`
-                    }
-                  </span>
-                </div>
-              </div>
-            ))}
-            {alerts.length > 5 && (
-              <div className="text-xs text-gray-400 text-center mt-2">
-                ... and {alerts.length - 5} more people below targets
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Enhanced Performance Table with Color-Coded Performance
 const PerformanceTable = ({ data, targetValues, title }) => {
   const getValueColor = (value, target, isReverse = false) => {
@@ -997,7 +816,7 @@ const PerformanceTable = ({ data, targetValues, title }) => {
               <th className="text-center text-gray-300 pb-3 text-sm">Jobs</th>
               <th className="text-center text-gray-300 pb-3 text-sm">Opportunities</th>
               <th className="text-center text-gray-300 pb-3 text-sm">Close Rate</th>
-              <th className="text-center text-gray-300 pb-3 text-sm">Avg Ticket</th>
+              <th className="text-center text-gray-300 pb-3 text-sm">Avg Sale</th>
               <th className="text-center text-gray-300 pb-3 text-sm">Options/Opp</th>
               <th className="text-center text-gray-300 pb-3 text-sm">Total Sales</th>
             </tr>
@@ -1132,21 +951,12 @@ const PerformanceTable = ({ data, targetValues, title }) => {
 
     return (
   <div className="space-y-4 md:space-y-6">
-    
-    {/* Individual Performance Alerts - Hide in display mode */}
-    {currentUser?.role !== 'display' && (
-      <DashboardSummary 
-        advisorData={advisorData} 
-        targets={targetValues} 
-        viewType="comfort_advisor" 
-      />
-    )}
-        
+
         {/* Company Summary Cards - Now show individual target achievement */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <div className="bg-gray-800 rounded-lg p-3 md:p-4 border-l-4 border-blue-500">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs md:text-sm font-medium text-gray-300">Avg Ticket (Company)</h4>
+            <h4 className="text-xs md:text-sm font-medium text-gray-300">Avg Sale (Company)</h4>
             <Target className="h-3 w-3 md:h-4 md:w-4 text-blue-400" />
           </div>
           <div className="flex items-baseline space-x-1 md:space-x-2 mb-2">
@@ -1155,8 +965,8 @@ const PerformanceTable = ({ data, targetValues, title }) => {
             </span>
           </div>
           <div className="text-xs text-gray-400">
-            Individual Target: ${avgTicketTarget?.toLocaleString() || 'Not Set'} • 
-            {individualTargetStatus.avgTicket.meeting}/{individualTargetStatus.avgTicket.total} meeting target 
+            Individual Target: ${avgTicketTarget?.toLocaleString() || 'Not Set'} •
+            {individualTargetStatus.avgTicket.meeting}/{individualTargetStatus.avgTicket.total} meeting target
             ({Math.round(individualTargetStatus.avgTicket.percentage)}%)
           </div>
         </div>
@@ -1262,15 +1072,6 @@ const PerformanceTable = ({ data, targetValues, title }) => {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      
-      {/* Individual Performance Alerts - Hide in display mode */}
-      {currentUser?.role !== 'display' && (
-        <DashboardSummary 
-          advisorData={callCenterData} 
-          targets={targetValues} 
-          viewType="call_center" 
-        />
-      )}
 
       {/* Company Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -1522,16 +1323,7 @@ const TechnicianView = ({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      
-      {/* Individual Performance Alerts - Hide in display mode */}
-      {currentUser?.role !== 'display' && (
-        <DashboardSummary 
-          advisorData={technicianData} 
-          targets={targetValues} 
-          viewType="technician" 
-        />
-      )}
-        
+
       {/* Company Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <div className="bg-gray-800 rounded-lg p-3 md:p-4 border-l-4 border-blue-500">

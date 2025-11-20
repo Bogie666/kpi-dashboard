@@ -1386,7 +1386,7 @@ def fetch_technician_data(period_type):
                             "tech_lead_sales_cents": safe_int(safe_float(record[28] if len(record) > 28 else 0) * 100),
                             "converted_job_average_cents": safe_int(safe_float(record[18] if len(record) > 18 else 0) * 100),
                             "opportunity_job_average_cents": safe_int(safe_float(record[19] if len(record) > 19 else 0) * 100),
-                            "total_job_average_cents": safe_int(avg_sale * 100),  # [24] / [17]
+                            "total_job_average_cents": safe_int(safe_float(record[23] if len(record) > 23 else 0) * 100),  # TotalJobAverage
                             "opportunities": opportunities,  # [15]
                             "sales_opportunities": safe_int(record[15] if len(record) > 15 else 0),
                             "replacement_opportunities": safe_int(record[16] if len(record) > 16 else 0),
@@ -1509,7 +1509,7 @@ def fetch_hvac_maintenance_data(period_type):
                     "tech_lead_sales_cents": safe_int(safe_float(row[15] if len(row) > 15 else 0) * 100),
                     "converted_job_average_cents": safe_int(safe_float(row[16] if len(row) > 16 else 0) * 100),
                     "opportunity_job_average_cents": safe_int(safe_float(row[19] if len(row) > 19 else 0) * 100),
-                    "total_job_average_cents": safe_int(avg_sale * 100),  # [24] / [17]
+                    "total_job_average_cents": safe_int(safe_float(row[23] if len(row) > 23 else 0) * 100),  # TotalJobAverage
                     "opportunities": opportunities,  # [15]
                     "sales_opportunities": safe_int(row[20] if len(row) > 20 else 0),
                     "replacement_opportunities": safe_int(row[21] if len(row) > 21 else 0),
@@ -1612,7 +1612,7 @@ def fetch_plumbing_data(period_type):
                     "tech_lead_sales_cents": safe_int(safe_float(row[28] if len(row) > 28 else 0) * 100),
                     "converted_job_average_cents": safe_int(safe_float(row[18] if len(row) > 18 else 0) * 100),
                     "opportunity_job_average_cents": safe_int(safe_float(row[19] if len(row) > 19 else 0) * 100),
-                    "total_job_average_cents": safe_int(avg_sale * 100),
+                    "total_job_average_cents": safe_int(safe_float(row[23] if len(row) > 23 else 0) * 100),  # TotalJobAverage
                     "opportunities": opportunities,
                     "sales_opportunities": safe_int(row[15] if len(row) > 15 else 0),
                     "replacement_opportunities": safe_int(row[16] if len(row) > 16 else 0),
@@ -1714,7 +1714,7 @@ def fetch_electrical_data(period_type):
                     "tech_lead_sales_cents": safe_int(safe_float(row[28] if len(row) > 28 else 0) * 100),
                     "converted_job_average_cents": safe_int(safe_float(row[18] if len(row) > 18 else 0) * 100),
                     "opportunity_job_average_cents": safe_int(safe_float(row[19] if len(row) > 19 else 0) * 100),
-                    "total_job_average_cents": safe_int(avg_sale * 100),
+                    "total_job_average_cents": safe_int(safe_float(row[23] if len(row) > 23 else 0) * 100),  # TotalJobAverage
                     "opportunities": opportunities,
                     "sales_opportunities": safe_int(row[15] if len(row) > 15 else 0),
                     "replacement_opportunities": safe_int(row[16] if len(row) > 16 else 0),

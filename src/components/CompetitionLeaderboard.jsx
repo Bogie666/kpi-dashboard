@@ -298,7 +298,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
           {/* Thunderdome Logo */}
           <div className="flex justify-center mb-8">
             <img
-              src="/thunderdome2.png"
+              src="/thunderdome4.png"
               alt="Competition Logo"
               className="h-40 md:h-48 lg:h-56 w-auto"
             />
@@ -322,7 +322,7 @@ const CompetitionLeaderboard = ({ competitionId }) => {
           {/* Logo */}
           <div className="flex justify-center mb-4">
             <img
-              src="/thunderdome2.png"
+              src="/thunderdome4.png"
               alt="Competition Logo"
               className="h-40 md:h-48 lg:h-56 w-auto"
             />

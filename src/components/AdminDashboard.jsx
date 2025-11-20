@@ -1800,13 +1800,94 @@ const AdminDashboard = () => {
       {activeTab === 'system' && (
         <div className="bg-gray-800 rounded-lg p-4 md:p-6 space-y-6">
           <h2 className="text-lg md:text-xl font-semibold text-white mb-4">System Settings</h2>
-          
-          {/* ServiceTitan Sync Status */}
+
+          {/* Automated Sync Schedule */}
+          <div className="bg-gray-700 rounded-lg p-4 md:p-6">
+            <div className="flex items-center mb-4">
+              <Clock className="h-5 w-5 text-purple-400 mr-2" />
+              <h3 className="text-white font-medium">Automated Sync Schedule</h3>
+              <span className="ml-2 text-xs bg-purple-600 text-purple-100 px-2 py-0.5 rounded">America/Chicago</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-gray-800 p-3 rounded border border-gray-600">
+                <div className="text-sm font-medium text-blue-400 mb-2">High Frequency</div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Financial MTD</span>
+                    <span className="text-gray-400">:00, :15, :30, :45 (6am-7pm)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Call Center</span>
+                    <span className="text-gray-400">:00, :30 (6am-7pm)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 p-3 rounded border border-gray-600">
+                <div className="text-sm font-medium text-green-400 mb-2">Hourly (Staggered)</div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Comfort Advisor</span>
+                    <span className="text-gray-400">:05 (6am-7pm)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Technician</span>
+                    <span className="text-gray-400">:10 (6am-7pm)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Competition</span>
+                    <span className="text-gray-400">:20 (6am-7pm)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 p-3 rounded border border-gray-600">
+                <div className="text-sm font-medium text-yellow-400 mb-2">Daily</div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">YTD Summary</span>
+                    <span className="text-gray-400">6:00 AM</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Membership</span>
+                    <span className="text-gray-400">9:00 AM, 3:00 PM</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Smart Monthly</span>
+                    <span className="text-gray-400">11:00 PM</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 p-3 rounded border border-gray-600">
+                <div className="text-sm font-medium text-gray-400 mb-2">Weekly/Monthly</div>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Last Month</span>
+                    <span className="text-gray-400">2:00 AM (1st-7th only)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Cleanup</span>
+                    <span className="text-gray-400">1st of month, 1:00 AM</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 p-2 bg-purple-900 bg-opacity-20 border border-purple-500 rounded">
+              <p className="text-purple-200 text-xs">
+                Data syncs automatically based on the schedule above. Use the manual sync options below only when you need immediate updates.
+              </p>
+            </div>
+          </div>
+
+          {/* Manual Data Sync */}
           <div className="bg-gray-700 rounded-lg p-4 md:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
               <h3 className="text-white font-medium flex items-center">
                 <Activity className="h-5 w-5 text-blue-400 mr-2" />
-                ServiceTitan Integration
+                Manual Data Sync
               </h3>
             </div>
 
@@ -1933,19 +2014,17 @@ const AdminDashboard = () => {
 
             <div className="mt-4 p-3 bg-blue-900 bg-opacity-20 border border-blue-500 rounded">
               <p className="text-blue-200 text-sm">
-                <strong>Manual Sync:</strong> Triggers immediate data refresh from ServiceTitan for the selected periods.
-                Choose which time periods to sync (today, week, mtd, ytd, or last_month) and click the sync button.
-                This will update all dashboard metrics with the latest information for the selected periods.
+                <strong>Note:</strong> Use manual sync for immediate updates. Select periods and click sync to refresh dashboard metrics from ServiceTitan.
               </p>
             </div>
           </div>
 
-          {/* Monthly Financial Data Sync */}
+          {/* Historical Monthly Financial Data Sync */}
           <div className="bg-gray-700 rounded-lg p-4 md:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
               <h3 className="text-white font-medium flex items-center">
                 <Calendar className="h-5 w-5 text-green-400 mr-2" />
-                Monthly Financial Data Sync
+                Historical Monthly Financial Data Sync
               </h3>
             </div>
 
@@ -2195,83 +2274,100 @@ const AdminDashboard = () => {
   </div>
 </div>
 
-          {/* Display Settings for TVs */}
+          {/* TV Display URLs */}
           <div className="bg-gray-700 rounded-lg p-4 md:p-6">
-  <h3 className="text-white font-medium mb-4 flex items-center">
-    <Monitor className="h-5 w-5 text-purple-400 mr-2" />
-    TV Display Settings
-  </h3>
-  
-  <div className="space-y-4">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Auto-cycle interval - FIXED */}
-      <div>
-        <label className="block text-sm text-gray-300 mb-2">Auto-cycle Interval (for TV displays)</label>
-        <select 
-          value={settings.display_cycle_interval?.value || 30}
-          onChange={async (e) => {
-            console.log('Changing cycle interval to:', e.target.value);
-            try {
-              await updateSettings({ display_cycle_interval: parseInt(e.target.value) });
-            } catch (error) {
-              console.error('Failed to update cycle interval:', error);
-            }
-          }}
-          className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm"
-        >
-          <option value={15}>15 seconds</option>
-          <option value={30}>30 seconds</option>
-          <option value={60}>1 minute</option>
-          <option value={120}>2 minutes</option>
-          <option value={300}>5 minutes</option>
-        </select>
-        <div className="text-xs text-gray-400 mt-1">
-          Current: {settings.display_cycle_interval?.value || 30} seconds
-        </div>
-      </div>
+            <h3 className="text-white font-medium mb-4 flex items-center">
+              <Monitor className="h-5 w-5 text-purple-400 mr-2" />
+              TV Display URLs
+            </h3>
 
-      {/* Default dashboard for TVs - FIXED */}
-      <div>
-        <label className="block text-sm text-gray-300 mb-2">Default Dashboard for TVs</label>
-        <select 
-          value={settings.default_tv_dashboard?.value || 'financial'}
-          onChange={async (e) => {
-            console.log('Changing default dashboard to:', e.target.value);
-            try {
-              await updateSettings({ default_tv_dashboard: e.target.value });
-            } catch (error) {
-              console.error('Failed to update default dashboard:', error);
-            }
-          }}
-          className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm"
-        >
-          <option value="financial">Financial Overview</option>
-          <option value="comfort_advisor">Comfort Advisors</option>
-          <option value="technician">Technicians</option>
-          <option value="call_center">Call Center</option>
-        </select>
-        <div className="text-xs text-gray-400 mt-1">
-          Current: {settings.default_tv_dashboard?.value || 'financial'}
-        </div>
-      </div>
-    </div>
+            <div className="space-y-4">
+              <div className="p-3 bg-purple-900 bg-opacity-20 border border-purple-500 rounded">
+                <p className="text-purple-200 text-sm">
+                  Use these URLs on office TVs for automatic display without login.
+                </p>
+              </div>
 
-    <div className="p-3 bg-purple-900 bg-opacity-20 border border-purple-500 rounded">
-      <p className="text-purple-200 text-sm">
-        <strong>TV Display Mode:</strong> Create users with "Display" role for dedicated TV screens. 
-        These accounts will automatically cycle through dashboard views and hide admin controls.
-      </p>
-    </div>
-    
-    {/* Debug info - remove after testing */}
-    <div className="p-2 bg-gray-800 rounded text-xs text-gray-400">
-      <strong>Debug:</strong> Settings: {JSON.stringify({
-        cycle: settings.display_cycle_interval,
-        dashboard: settings.default_tv_dashboard
-      }, null, 2)}
-    </div>
-  </div>
-</div>
+              {/* URL Examples */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Auto-Rotation (all screens)</label>
+                  <code className="block bg-gray-800 text-green-400 px-3 py-2 rounded text-xs break-all">
+                    {window.location.origin}/?display=true
+                  </code>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Custom Interval (seconds)</label>
+                  <code className="block bg-gray-800 text-green-400 px-3 py-2 rounded text-xs break-all">
+                    {window.location.origin}/?display=true&interval=45
+                  </code>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Single Page (no rotation)</label>
+                  <code className="block bg-gray-800 text-green-400 px-3 py-2 rounded text-xs break-all">
+                    {window.location.origin}/?display=true&page=competition
+                  </code>
+                </div>
+              </div>
+
+              {/* Valid Page IDs */}
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Valid Page Values</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">financial</span>
+                    <span className="text-gray-400 ml-1">- Financial</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">revenue-ttm</span>
+                    <span className="text-gray-400 ml-1">- Revenue TTM</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">comfort_advisor</span>
+                    <span className="text-gray-400 ml-1">- Comfort Advisor</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">technician</span>
+                    <span className="text-gray-400 ml-1">- HVAC Tech</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">hvac_maintenance</span>
+                    <span className="text-gray-400 ml-1">- HVAC Maint</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">plumbing</span>
+                    <span className="text-gray-400 ml-1">- Plumbing</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">electrical</span>
+                    <span className="text-gray-400 ml-1">- Electrical</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">call_center</span>
+                    <span className="text-gray-400 ml-1">- Call Center</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">memberships</span>
+                    <span className="text-gray-400 ml-1">- Memberships</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">reviews</span>
+                    <span className="text-gray-400 ml-1">- Reviews</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">top_performers</span>
+                    <span className="text-gray-400 ml-1">- Top Performers</span>
+                  </div>
+                  <div className="bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-green-400">competition</span>
+                    <span className="text-gray-400 ml-1">- Competition</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* System Information */}
           <div className="bg-gray-700 rounded-lg p-4 md:p-6">
