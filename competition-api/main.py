@@ -372,7 +372,7 @@ def get_leaderboard(comp_id):
                 SELECT
                     id, name, start_date, end_date, status,
                     sold_flips_target, items_sold_target, reviews_target,
-                    first_prize, second_prize, third_prize, item_code
+                    first_prize, second_prize, third_prize, item_code, minimum_to_qualify
                 FROM competitions
                 WHERE id = %s
                 """
@@ -399,7 +399,8 @@ def get_leaderboard(comp_id):
                         'second': float(comp_row[9]) if comp_row[9] else 300.00,
                         'third': float(comp_row[10]) if comp_row[10] else 150.00
                     },
-                    'itemCode': comp_row[11]
+                    'itemCode': comp_row[11],
+                    'minimumToQualify': comp_row[12] if comp_row[12] else 25
                 }
 
                 # Get leaderboard entries
@@ -567,7 +568,15 @@ def sync_competition_data(comp_id, request):
                 for tech_name in all_techs:
                     sold_flips = sold_flips_data.get(tech_name, 0)  # This is LeadsSet
                     items_sold = items_sold_data.get(tech_name, 0)
-                    reviews = 0  # TODO: Add reviews integration
+
+                    # Preserve existing review count - reviews are manually managed
+                    # Get current review count from database if entry exists
+                    cursor.execute("""
+                        SELECT reviews FROM competition_leaderboard
+                        WHERE competition_id = %s AND technician_name = %s
+                    """, (comp_id, tech_name))
+                    existing_row = cursor.fetchone()
+                    reviews = existing_row[0] if existing_row else 0
 
                     # Calculate points: 1:1 ratio - each flip, item, and review = 1 point
                     total_points = sold_flips + items_sold + reviews
@@ -584,7 +593,6 @@ def sync_competition_data(comp_id, request):
                     DO UPDATE SET
                         sold_flips = EXCLUDED.sold_flips,
                         items_sold = EXCLUDED.items_sold,
-                        reviews = EXCLUDED.reviews,
                         total_points = EXCLUDED.total_points,
                         updated_at = CURRENT_TIMESTAMP
                     """

@@ -1,13 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Star, MapPin, Calendar, User, TrendingUp, Award, MessageCircle } from 'lucide-react';
+import { Star, MapPin, Calendar, User, TrendingUp, Award, MessageCircle, Sparkles } from 'lucide-react';
+import ReviewInsightsModal from './ReviewInsightsModal';
 
 const GoogleReviews = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [locationStats, setLocationStats] = useState({});
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
+
+  // Check if in display mode (hide admin features)
+  const isDisplayMode = typeof window !== 'undefined' &&
+    (new URLSearchParams(window.location.search).get('display') === 'true' ||
+     new URLSearchParams(window.location.search).get('display') === '1');
 
   // Three locations
   const locations = [
@@ -18,6 +25,15 @@ const GoogleReviews = () => {
 
   useEffect(() => {
     loadReviews();
+  }, []);
+
+  // Auto-refresh reviews every hour
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      loadReviews();
+    }, 60 * 60 * 1000); // 1 hour in milliseconds
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const loadReviews = async () => {
@@ -304,11 +320,24 @@ const GoogleReviews = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 flex items-center">
-            <MessageCircle className="h-8 w-8 mr-3 text-blue-400" />
-            Google Reviews
-          </h1>
-          <p className="text-gray-400">Track and monitor customer feedback across all locations</p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 flex items-center">
+                <MessageCircle className="h-8 w-8 mr-3 text-blue-400" />
+                Google Reviews
+              </h1>
+              <p className="text-gray-400">Track and monitor customer feedback across all locations</p>
+            </div>
+            {!isDisplayMode && (
+              <button
+                onClick={() => setShowInsightsModal(true)}
+                className="mt-4 md:mt-0 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg flex items-center space-x-2 transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <Sparkles className="h-5 w-5" />
+                <span>Analyze Reviews</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Location Cards */}
@@ -372,6 +401,14 @@ const GoogleReviews = () => {
           </div>
         )}
       </div>
+
+      {/* Insights Modal */}
+      <ReviewInsightsModal
+        isOpen={showInsightsModal}
+        onClose={() => setShowInsightsModal(false)}
+        locations={locations}
+        reviews={reviews}
+      />
     </div>
   );
 };

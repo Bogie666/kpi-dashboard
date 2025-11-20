@@ -116,7 +116,26 @@ const YtdTrendChart = () => {
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6">
+    <>
+      {/* Pulse animation for MTD dot */}
+      <style>{`
+        @keyframes mtd-pulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.6;
+            transform: scale(1.2);
+          }
+        }
+        .mtd-pulse {
+          animation: mtd-pulse 2s ease-in-out infinite;
+        }
+      `}</style>
+
+      <div className="bg-gray-800 rounded-lg p-6">
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-2">
@@ -193,25 +212,27 @@ const YtdTrendChart = () => {
           />
           
           {/* Revenue Line (Blue) */}
-          <Line 
-            type="monotone" 
-            dataKey="revenue" 
-            stroke="#3B82F6" 
+          <Line
+            type="monotone"
+            dataKey="revenue"
+            stroke="#3B82F6"
             strokeWidth={3}
             dot={(props) => {
               const { payload, cx, cy, key, ...circleProps } = props;
               // Remove non-DOM props that shouldn't be spread to circle element
               const { dataKey, value, index, ...validProps } = circleProps;
-              
+
               return (
-                <circle 
+                <circle
                   key={key}
                   cx={cx}
                   cy={cy}
-                  fill={payload.isComplete ? '#3B82F6' : '#F59E0B'} 
-                  strokeWidth={2} 
+                  fill={payload.isComplete ? '#3B82F6' : '#F59E0B'}
+                  strokeWidth={2}
                   r={5}
                   opacity={payload.isComplete ? 1 : 0.8}
+                  className={!payload.isComplete ? 'mtd-pulse' : ''}
+                  style={{ transformOrigin: `${cx}px ${cy}px` }}
                 />
               );
             }}
@@ -253,6 +274,7 @@ const YtdTrendChart = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 
