@@ -7,6 +7,7 @@ const YtdTrendChart = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [showPriorYear, setShowPriorYear] = useState(true);
 
   // Mock data for development (will be replaced with real API data)
   const mockTrendData = [
@@ -25,20 +26,70 @@ const YtdTrendChart = () => {
   const loadTrendData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const API_BASE = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/dashboard_api';
-      const response = await fetch(`${API_BASE}/financial-trend/2025`);
-      const data = await response.json();
-      
-      console.log('API Response:', data); // Debug log
-      
-      if (data.status === 'success' && data.data && data.data.length > 0) {
-        // Use real data from API
-        setTrendData(data.data);
+
+      // Fetch current year, prior year, AND live MTD financial data
+      const [currentResponse, priorResponse, mtdResponse] = await Promise.all([
+        fetch(`${API_BASE}/financial-trend/2025`),
+        fetch(`${API_BASE}/financial-trend/2024`),
+        fetch(`${API_BASE}/financial/mtd`)
+      ]);
+
+      const currentData = await currentResponse.json();
+      const priorData = await priorResponse.json();
+      const mtdData = await mtdResponse.json();
+
+      console.log('Current Year API Response:', currentData);
+      console.log('Prior Year API Response:', priorData);
+      console.log('Live MTD Financial Response:', mtdData);
+
+      if (currentData.status === 'success' && currentData.data && currentData.data.length > 0) {
+        // Create a map of prior year revenue by month number
+        const priorYearMap = {};
+        if (priorData.status === 'success' && priorData.data) {
+          priorData.data.forEach(item => {
+            priorYearMap[item.monthNum] = item.revenue;
+          });
+        }
+
+        // Calculate live MTD total revenue from financial endpoint
+        let liveMtdRevenue = null;
+        if (mtdData.status === 'success' && mtdData.data) {
+          liveMtdRevenue = mtdData.data.reduce((sum, dept) => sum + (dept.totalRevenue || 0), 0);
+          console.log('📊 Live MTD Revenue calculated:', liveMtdRevenue);
+        }
+
+        // Merge prior year data into current year data
+        // Also update the current month with live MTD revenue
+        const currentMonth = new Date().getMonth() + 1; // 1-12
+        const mergedData = currentData.data.map(item => {
+          const baseData = {
+            ...item,
+            priorYearRevenue: priorYearMap[item.monthNum] || null
+          };
+
+          // If this is the current month and we have live MTD data, use it
+          if (item.monthNum === currentMonth && liveMtdRevenue !== null) {
+            const updatedBudgetPercent = item.budgetTarget > 0
+              ? (liveMtdRevenue / item.budgetTarget) * 100
+              : 0;
+            console.log(`📊 Updating ${item.monthName} with live MTD: $${liveMtdRevenue} (was $${item.revenue})`);
+            return {
+              ...baseData,
+              revenue: liveMtdRevenue,
+              budgetPercent: updatedBudgetPercent,
+              isComplete: false
+            };
+          }
+
+          return baseData;
+        });
+
+        setTrendData(mergedData);
         setLastUpdated(new Date().toLocaleTimeString());
-        console.log(`✅ Loaded ${data.data.length} months of real financial data`);
-        console.log('Sample data point:', data.data[0]); // Debug log
+        console.log(`✅ Loaded ${mergedData.length} months of real financial data with prior year comparison and live MTD`);
       } else {
         // Fall back to mock data if no real data available yet
         console.log('No real trend data available, using mock data');
@@ -66,24 +117,41 @@ const YtdTrendChart = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      const yoyChange = data.priorYearRevenue
+        ? ((data.revenue - data.priorYearRevenue) / data.priorYearRevenue * 100)
+        : null;
       return (
         <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
           <p className="text-white font-medium mb-2">{data.monthName} 2025</p>
           <div className="space-y-1 text-sm">
             <div className="flex items-center justify-between space-x-4">
               <span className="text-blue-400">Revenue:</span>
-              <span className="text-white font-medium">${(data.revenue / 1000000).toFixed(1)}M</span>
+              <span className="text-white font-medium">${(data.revenue / 1000000).toFixed(3)}M</span>
             </div>
             <div className="flex items-center justify-between space-x-4">
               <span className="text-green-400">Target:</span>
-              <span className="text-white font-medium">${(data.budgetTarget / 1000000).toFixed(1)}M</span>
+              <span className="text-white font-medium">${(data.budgetTarget / 1000000).toFixed(3)}M</span>
             </div>
+            {data.priorYearRevenue && (
+              <div className="flex items-center justify-between space-x-4">
+                <span className="text-gray-400">2024:</span>
+                <span className="text-gray-300 font-medium">${(data.priorYearRevenue / 1000000).toFixed(3)}M</span>
+              </div>
+            )}
             <div className="flex items-center justify-between space-x-4">
-              <span className="text-orange-400">Performance:</span>
+              <span className="text-orange-400">vs Target:</span>
               <span className={`font-medium ${data.budgetPercent >= 100 ? 'text-green-400' : data.budgetPercent >= 80 ? 'text-yellow-400' : 'text-red-400'}`}>
-                {data.budgetPercent.toFixed(1)}%
+                {data.budgetPercent.toFixed(2)}%
               </span>
             </div>
+            {yoyChange !== null && (
+              <div className="flex items-center justify-between space-x-4">
+                <span className="text-purple-400">vs 2024:</span>
+                <span className={`font-medium ${yoyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {yoyChange >= 0 ? '+' : ''}{yoyChange.toFixed(2)}%
+                </span>
+              </div>
+            )}
             {!data.isComplete && (
               <div className="text-xs text-gray-400 mt-1">
                 * Month-to-date data
@@ -193,24 +261,38 @@ const YtdTrendChart = () => {
               return date.toLocaleDateString('en-US', { month: 'short' });
             }}
           />
-          <YAxis 
-            stroke="#9CA3AF" 
+          <YAxis
+            stroke="#9CA3AF"
             fontSize={12}
-            tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
+            tickFormatter={(value) => `$${(value / 1000000).toFixed(2)}M`}
           />
           <Tooltip content={<CustomTooltip />} />
           
+          {/* Prior Year Revenue Line (Gray, dashed) - render first so it's behind */}
+          {showPriorYear && (
+            <Line
+              type="monotone"
+              dataKey="priorYearRevenue"
+              stroke="#6B7280"
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={{ fill: '#6B7280', strokeWidth: 1, r: 3 }}
+              connectNulls={false}
+              name="2024 Revenue"
+            />
+          )}
+
           {/* Budget Target Line (Green) */}
-          <Line 
-            type="monotone" 
-            dataKey="budgetTarget" 
-            stroke="#10B981" 
+          <Line
+            type="monotone"
+            dataKey="budgetTarget"
+            stroke="#10B981"
             strokeWidth={3}
             dot={{ fill: '#10B981', strokeWidth: 2, r: 5 }}
             connectNulls={false}
             name="Budget Target"
           />
-          
+
           {/* Revenue Line (Blue) */}
           <Line
             type="monotone"
@@ -243,18 +325,28 @@ const YtdTrendChart = () => {
       </ResponsiveContainer>
       
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap items-center justify-center space-x-6 text-sm">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+        <div className="flex items-center space-x-2">
+          <div className="w-4 h-0.5 bg-blue-400"></div>
+          <span className="text-gray-400">2025 Revenue</span>
+        </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-0.5 bg-green-400"></div>
           <span className="text-gray-400">Budget Target</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-4 h-0.5 bg-blue-400"></div>
-          <span className="text-gray-400">Actual Revenue</span>
-        </div>
+        <button
+          onClick={() => setShowPriorYear(!showPriorYear)}
+          className={`flex items-center space-x-2 px-2 py-1 rounded transition-colors ${
+            showPriorYear ? 'bg-gray-700' : 'bg-gray-800 opacity-50'
+          }`}
+          title="Toggle prior year comparison"
+        >
+          <div className="w-4 h-0.5 bg-gray-400" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #9CA3AF 0, #9CA3AF 3px, transparent 3px, transparent 6px)' }}></div>
+          <span className="text-gray-400">2024 Revenue</span>
+        </button>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-blue-400"></div>
-          <span className="text-gray-400">Completed Month</span>
+          <span className="text-gray-400">Completed</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-orange-400 opacity-80"></div>

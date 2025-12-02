@@ -116,6 +116,7 @@ const AdminDashboard = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSyncPeriods, setSelectedSyncPeriods] = useState(['today', 'mtd']);
+  const [selectedSyncYear, setSelectedSyncYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [syncingMonthly, setSyncingMonthly] = useState(false);
   const [syncingReviews, setSyncingReviews] = useState(false);
@@ -482,15 +483,14 @@ const AdminDashboard = () => {
   const triggerMonthlySync = async () => {
     setSyncingMonthly(true);
     try {
-      const year = 2025;
-      const response = await fetch(`${SYNC_API}/yearly-financial?year=${year}&start_month=${selectedMonth}&end_month=${selectedMonth}`, {
+      const response = await fetch(`${SYNC_API}/yearly-financial?year=${selectedSyncYear}&start_month=${selectedMonth}&end_month=${selectedMonth}`, {
         method: 'POST'
       });
       const data = await response.json();
 
       if (data.status === 'success') {
         const monthName = MONTHS[selectedMonth - 1];
-        alert(`✅ ${monthName} 2025 financial data sync completed successfully!\n\nMonths synced: ${data.months_synced || 1}\nTotal revenue synced: $${(data.total_revenue || 0).toLocaleString()}\n\nDashboard will update momentarily.`);
+        alert(`✅ ${monthName} ${selectedSyncYear} financial data sync completed successfully!\n\nMonths synced: ${data.months_synced || 1}\nTotal revenue synced: $${(data.total_revenue || 0).toLocaleString()}\n\nDashboard will update momentarily.`);
         await loadSystemStatus();
       } else {
         alert('❌ Monthly sync failed: ' + (data.message || 'Unknown error'));
@@ -2029,15 +2029,43 @@ const AdminDashboard = () => {
             </div>
 
             <div className="space-y-4">
-              {/* Month Selection */}
+              {/* Year and Month Selection */}
               <div className="p-4 bg-gray-800 rounded-lg border border-gray-600">
+                {/* Year Selection */}
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-300 mb-2 font-medium">Select Year:</label>
+                  <div className="flex gap-2">
+                    {[2024, 2025].map((year) => (
+                      <button
+                        key={year}
+                        onClick={() => {
+                          setSelectedSyncYear(year);
+                          // Reset to valid month when switching years
+                          if (year === new Date().getFullYear() && selectedMonth > new Date().getMonth() + 1) {
+                            setSelectedMonth(new Date().getMonth() + 1);
+                          }
+                        }}
+                        className={`px-4 py-2 rounded border text-sm font-medium transition-all ${
+                          selectedSyncYear === year
+                            ? 'bg-blue-900 bg-opacity-40 border-blue-500 text-blue-100'
+                            : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-500 hover:bg-gray-650'
+                        }`}
+                      >
+                        {year}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Month Selection */}
                 <label className="block text-sm text-gray-300 mb-3 font-medium">Select Month to Sync:</label>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                   {MONTHS.map((month, index) => {
                     const monthNum = index + 1;
+                    const currentYear = new Date().getFullYear();
                     const currentMonth = new Date().getMonth() + 1;
-                    const isCurrentMonth = monthNum === currentMonth;
-                    const isFutureMonth = monthNum > currentMonth;
+                    const isCurrentMonth = selectedSyncYear === currentYear && monthNum === currentMonth;
+                    const isFutureMonth = selectedSyncYear === currentYear && monthNum > currentMonth;
 
                     return (
                       <button
@@ -2059,15 +2087,15 @@ const AdminDashboard = () => {
                   })}
                 </div>
                 <div className="mt-3 text-xs text-gray-400">
-                  <strong>Selected:</strong> {MONTHS[selectedMonth - 1]} 2025
-                  {selectedMonth === new Date().getMonth() + 1 && ' (Current Month - will sync up to today)'}
+                  <strong>Selected:</strong> {MONTHS[selectedMonth - 1]} {selectedSyncYear}
+                  {selectedSyncYear === new Date().getFullYear() && selectedMonth === new Date().getMonth() + 1 && ' (Current Month - will sync up to today)'}
                 </div>
               </div>
 
               {/* Sync Button and Info */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
                 <div className="text-sm text-gray-300">
-                  <p>Syncs complete financial data for <strong className="text-white">{MONTHS[selectedMonth - 1]} 2025</strong></p>
+                  <p>Syncs complete financial data for <strong className="text-white">{MONTHS[selectedMonth - 1]} {selectedSyncYear}</strong></p>
                   <p className="text-xs text-gray-400 mt-1">Updates YTD Performance Trend and TTM Revenue screens</p>
                 </div>
 
@@ -2083,12 +2111,12 @@ const AdminDashboard = () => {
                   {syncingMonthly ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      <span>Syncing {MONTHS[selectedMonth - 1]}...</span>
+                      <span>Syncing {MONTHS[selectedMonth - 1]} {selectedSyncYear}...</span>
                     </>
                   ) : (
                     <>
                       <Calendar className="h-4 w-4" />
-                      <span>Sync {MONTHS[selectedMonth - 1]}</span>
+                      <span>Sync {MONTHS[selectedMonth - 1]} {selectedSyncYear}</span>
                     </>
                   )}
                 </button>
@@ -2099,7 +2127,7 @@ const AdminDashboard = () => {
                 <p className="text-green-200 text-sm">
                   <strong>Monthly Sync:</strong> Use this to re-sync specific months when you notice discrepancies
                   or when late revenue entries are added to ServiceTitan. This ensures your historical financial
-                  reports (YTD and TTM) show accurate data with proper rounding.
+                  reports (YTD and TTM) show accurate data with proper rounding. Syncing 2024 months updates the prior year comparison line on the YTD chart.
                 </p>
               </div>
             </div>
