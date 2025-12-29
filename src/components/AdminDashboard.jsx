@@ -837,15 +837,18 @@ const AdminDashboard = () => {
 
     const handleSubmit = (e) => {
       e.preventDefault();
-      
+
       // For financial monthly budgets, create targets for all 12 months
-      if (formData.category === 'financial' && formData.isMonthly) {
+      // Use isMonthly flag directly - if true, we know it's a financial budget
+      if (formData.isMonthly) {
         const monthlyTargets = [];
         for (let month = 1; month <= 12; month++) {
           monthlyTargets.push({
             ...formData,
+            category: 'financial',  // Ensure category is set correctly
+            target_key: 'monthly_budget',  // Ensure target_key is set correctly
             month,
-            target_name: `${formData.target_key}_${formData.department}_${month}`,
+            target_name: `monthly_budget_${formData.department}_${month}`,
             name: `${MONTHS[month-1]} Budget - ${TARGET_DEFINITIONS.financial.departments.find(d => d.key === formData.department)?.label}`
           });
         }
