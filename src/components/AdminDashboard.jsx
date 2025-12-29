@@ -548,25 +548,30 @@ const AdminDashboard = () => {
 
   const saveTarget = async (targetData) => {
     try {
+      console.log('saveTarget called with:', targetData);
       const method = editingTarget ? 'PUT' : 'POST';
-      const url = editingTarget 
-        ? `${API_BASE}/targets/${editingTarget.id}` 
+      const url = editingTarget
+        ? `${API_BASE}/targets/${editingTarget.id}`
         : `${API_BASE}/targets`;
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(targetData)
       });
-      
+
       const data = await response.json();
+      console.log('saveTarget response:', data);
       if (data.status === 'success') {
-        await loadTargets();
+        await loadTargets(selectedTargetYear);
         setShowTargetModal(false);
         setEditingTarget(null);
+      } else {
+        alert('Error saving target: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error saving target:', error);
+      alert('Error saving target: ' + error.message);
     }
   };
 
