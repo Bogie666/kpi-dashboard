@@ -972,7 +972,7 @@ const AdminDashboard = () => {
             )}
 
             {/* Target Value */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+            <div className={formData.category === 'financial' ? '' : 'grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4'}>
               <div>
                 <label className="block text-xs md:text-sm font-medium text-gray-300 mb-2">Target Value</label>
                 <input
@@ -983,17 +983,20 @@ const AdminDashboard = () => {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-300 mb-2">Alert Threshold</label>
-                <input
-                  type="number"
-                  value={formData.alertThreshold || ''}
-                  onChange={(e) => setFormData({...formData, alertThreshold: parseFloat(e.target.value)})}
-                  className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm md:text-base"
-                  placeholder="Warning level"
-                  required
-                />
-              </div>
+              {/* Hide alert threshold for financial targets */}
+              {formData.category !== 'financial' && (
+                <div>
+                  <label className="block text-xs md:text-sm font-medium text-gray-300 mb-2">Alert Threshold</label>
+                  <input
+                    type="number"
+                    value={formData.alertThreshold || ''}
+                    onChange={(e) => setFormData({...formData, alertThreshold: parseFloat(e.target.value)})}
+                    className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm md:text-base"
+                    placeholder="Warning level"
+                    required
+                  />
+                </div>
+              )}
             </div>
 
             {/* Monthly Budget Checkbox - Only for Financial category */}
