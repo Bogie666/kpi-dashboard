@@ -118,6 +118,7 @@ const AdminDashboard = () => {
   const [selectedSyncPeriods, setSelectedSyncPeriods] = useState(['today', 'mtd']);
   const [selectedSyncYear, setSelectedSyncYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedBudgetYear, setSelectedBudgetYear] = useState(new Date().getFullYear());
   const [syncingMonthly, setSyncingMonthly] = useState(false);
   const [syncingReviews, setSyncingReviews] = useState(false);
   const [reviewsSyncStatus, setReviewsSyncStatus] = useState(null);
@@ -925,6 +926,21 @@ const AdminDashboard = () => {
               </div>
             )}
 
+            {/* Year Selection */}
+            <div>
+              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-2">Year</label>
+              <select
+                value={formData.year || new Date().getFullYear()}
+                onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})}
+                className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm md:text-base"
+                required
+              >
+                {[new Date().getFullYear(), new Date().getFullYear() + 1].map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Target Value */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               <div>
@@ -1372,22 +1388,44 @@ const AdminDashboard = () => {
                 sectionKey="financial"
                 title="Financial - Monthly Department Budgets"
                 icon={TARGET_DEFINITIONS.financial.icon}
-                targetCount={Object.values(targets.financial.monthly).reduce((sum, dept) => sum + dept.length, 0)}
+                targetCount={Object.values(targets.financial.monthly).reduce((sum, dept) => sum + dept.filter(t => t.year === selectedBudgetYear).length, 0)}
               >
+                {/* Year Selector */}
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <label className="text-sm text-gray-300">Budget Year:</label>
+                    <div className="flex space-x-2">
+                      {[new Date().getFullYear(), new Date().getFullYear() + 1].map((year) => (
+                        <button
+                          key={year}
+                          onClick={() => setSelectedBudgetYear(year)}
+                          className={`px-3 py-1 rounded text-sm transition-colors ${
+                            selectedBudgetYear === year
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                          }`}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Company Total Row - Auto-calculated */}
                 <div className="mb-4 md:mb-6 p-3 md:p-4 bg-blue-900 bg-opacity-50 rounded-lg">
                   <h4 className="text-blue-200 font-medium mb-3 flex items-center text-sm md:text-base">
-                    Total Company Budget (Auto-calculated)
+                    Total Company Budget {selectedBudgetYear} (Auto-calculated)
                   </h4>
-                  
+
                   {/* Mobile-responsive grid for months */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                     {MONTHS.slice(0, 6).map((month, index) => {
                       const monthNum = index + 1;
                       let monthlyTotal = 0;
-                      
+
                       Object.values(targets.financial.monthly).forEach(departmentTargets => {
-                        const monthTarget = departmentTargets.find(t => t.month === monthNum);
+                        const monthTarget = departmentTargets.find(t => t.month === monthNum && t.year === selectedBudgetYear);
                         if (monthTarget) {
                           monthlyTotal += monthTarget.value || 0;
                         }
@@ -1407,9 +1445,9 @@ const AdminDashboard = () => {
                     {MONTHS.slice(6, 12).map((month, index) => {
                       const monthNum = index + 7;
                       let monthlyTotal = 0;
-                      
+
                       Object.values(targets.financial.monthly).forEach(departmentTargets => {
-                        const monthTarget = departmentTargets.find(t => t.month === monthNum);
+                        const monthTarget = departmentTargets.find(t => t.month === monthNum && t.year === selectedBudgetYear);
                         if (monthTarget) {
                           monthlyTotal += monthTarget.value || 0;
                         }
@@ -1429,9 +1467,9 @@ const AdminDashboard = () => {
 
                 {/* Individual Department Budgets */}
                 {['hvac_service', 'hvac_maintenance', 'hvac_replacement', 'commercial_hvac', 'plumbing', 'electrical', 'tyler']
-                  .filter(deptKey => targets.financial.monthly[deptKey])
+                  .filter(deptKey => targets.financial.monthly[deptKey]?.some(t => t.year === selectedBudgetYear))
                   .map(deptKey => {
-                    const monthlyTargets = targets.financial.monthly[deptKey];
+                    const monthlyTargets = targets.financial.monthly[deptKey].filter(t => t.year === selectedBudgetYear);
                     return (
                       <div key={deptKey} className="mb-4 md:mb-6 p-3 md:p-4 bg-gray-700 rounded-lg border border-gray-600">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 space-y-2 sm:space-y-0">
@@ -1439,12 +1477,13 @@ const AdminDashboard = () => {
                             {TARGET_DEFINITIONS.financial.departments.find(d => d.key === deptKey)?.label}
                           </h4>
                           <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                            <button 
+                            <button
                               onClick={() => {
                                 setEditingTarget({
                                   category: 'financial',
                                   department: deptKey,
                                   isMonthly: true,
+                                  year: selectedBudgetYear,
                                   value: monthlyTargets[0]?.value || 0
                                 });
                                 setShowTargetModal(true);
@@ -1453,9 +1492,9 @@ const AdminDashboard = () => {
                             >
                               Edit All Months
                             </button>
-                            <button 
+                            <button
                               onClick={() => {
-                                if (confirm(`Delete all monthly targets for ${TARGET_DEFINITIONS.financial.departments.find(d => d.key === deptKey)?.label}?`)) {
+                                if (confirm(`Delete all ${selectedBudgetYear} monthly targets for ${TARGET_DEFINITIONS.financial.departments.find(d => d.key === deptKey)?.label}?`)) {
                                   monthlyTargets.forEach(target => deleteTarget(target.id));
                                 }
                               }}
@@ -1465,7 +1504,7 @@ const AdminDashboard = () => {
                             </button>
                           </div>
                         </div>
-                        
+
                         {/* Mobile-responsive month grid */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3">
                           {MONTHS.slice(0, 6).map((month, index) => {
@@ -1595,13 +1634,14 @@ const AdminDashboard = () => {
                       setEditingTarget({
                         category: 'financial',
                         target_key: 'monthly_budget',
-                        isMonthly: true
+                        isMonthly: true,
+                        year: selectedBudgetYear
                       });
                       setShowTargetModal(true);
                     }}
                     className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm md:text-base"
                   >
-                    Add New Department Budget (12 months)
+                    Add New Department Budget for {selectedBudgetYear} (12 months)
                   </button>
                 </div>
               </CollapsibleSection>
