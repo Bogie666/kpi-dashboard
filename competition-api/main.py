@@ -7,11 +7,12 @@ Uses PostgreSQL (Cloud SQL) - matches existing dashboard infrastructure
 import os
 import json
 import psycopg2
-from datetime import datetime
+from datetime import datetime, timedelta
 import functions_framework
 import logging
 from decimal import Decimal
 import requests
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +26,54 @@ class CustomEncoder(json.JSONEncoder):
         if isinstance(obj, datetime):
             return obj.isoformat()
         return super().default(obj)
+
+
+def get_date_chunks(start_date, end_date, chunk_days=7):
+    """
+    Split a date range into smaller chunks to avoid ServiceTitan API truncation.
+
+    The ServiceTitan Reporting API truncates results when querying long date ranges.
+    This function splits ranges longer than chunk_days into smaller windows.
+
+    Args:
+        start_date: Start date (datetime.date or datetime)
+        end_date: End date (datetime.date or datetime)
+        chunk_days: Maximum days per chunk (default 7)
+
+    Returns:
+        List of (chunk_start, chunk_end) tuples as date objects
+    """
+    # Convert to date objects if datetime
+    if hasattr(start_date, 'date'):
+        start_date = start_date.date() if isinstance(start_date, datetime) else start_date
+    if hasattr(end_date, 'date'):
+        end_date = end_date.date() if isinstance(end_date, datetime) else end_date
+
+    # Convert from datetime.date to allow timedelta arithmetic
+    from datetime import date
+    if isinstance(start_date, date) and not isinstance(start_date, datetime):
+        start_date = datetime.combine(start_date, datetime.min.time()).date()
+    if isinstance(end_date, date) and not isinstance(end_date, datetime):
+        end_date = datetime.combine(end_date, datetime.min.time()).date()
+
+    chunks = []
+    current_start = start_date
+
+    while current_start <= end_date:
+        # Calculate chunk end (chunk_days - 1 to make inclusive ranges)
+        chunk_end = current_start + timedelta(days=chunk_days - 1)
+
+        # Don't go past the overall end date
+        if chunk_end > end_date:
+            chunk_end = end_date
+
+        chunks.append((current_start, chunk_end))
+
+        # Move to next chunk (next day after current chunk end)
+        current_start = chunk_end + timedelta(days=1)
+
+    return chunks
+
 
 class DatabaseManager:
     def __init__(self):
@@ -80,6 +129,10 @@ def competition_api(request):
         elif path.startswith('/competitions/') and path.endswith('/sync') and method == 'POST':
             comp_id = path.split('/')[2]
             response = sync_competition_data(comp_id, request)
+        elif path.startswith('/competitions/') and path.endswith('/backfill') and method == 'POST':
+            # Full historical backfill - fetches entire competition date range
+            comp_id = path.split('/')[2]
+            response = sync_competition_data(comp_id, request, full_backfill=True)
         elif path.startswith('/competitions/') and path.endswith('/reviews') and method == 'POST':
             comp_id = path.split('/')[2]
             response = update_manual_reviews(comp_id, request)
@@ -446,10 +499,17 @@ def get_leaderboard(comp_id):
         return ({'status': 'error', 'message': str(e)}, 500)
 
 
-def sync_competition_data(comp_id, request):
+def sync_competition_data(comp_id, request, full_backfill=False):
     """
-    Sync competition data from ServiceTitan API
-    Fetches items sold and sold flips data for the competition's custom date range
+    Sync competition data from ServiceTitan API using incremental approach.
+
+    This uses an incremental strategy to handle ServiceTitan API data truncation:
+    1. Store individual item records in competition_items_sold table with deduplication
+    2. On regular syncs, only fetch the last 3 days to avoid API truncation issues
+    3. Use full_backfill=True to do a complete historical sync with chunked fetching
+    4. Recalculate totals from the stored records table
+
+    This approach ensures we never lose data due to API quirks.
     """
     try:
         with db_manager.get_connection() as conn:
@@ -467,8 +527,8 @@ def sync_competition_data(comp_id, request):
                 if not comp_row:
                     return ({'status': 'error', 'message': 'Competition not found'}, 404)
 
-                start_date = comp_row[0]
-                end_date = comp_row[1]
+                comp_start_date = comp_row[0]
+                comp_end_date = comp_row[1]
                 status = comp_row[2]
                 item_code = comp_row[3]
 
@@ -479,86 +539,167 @@ def sync_competition_data(comp_id, request):
                 servicetitan_sync_url = os.environ.get('SERVICETITAN_SYNC_URL',
                     'https://us-central1-new-dashboard-2025.cloudfunctions.net/servicetitan-sync')
 
-                # Fetch items sold from ServiceTitan for exact competition date range
-                # Using custom date range API endpoint from servicetitan-sync
-                # This gives us precise data for the competition period
-                logger.info(f"Fetching items sold data from ServiceTitan API for item code '{item_code}', date range: {start_date} to {end_date}")
+                # Cap end date at today to avoid querying future dates
+                today = datetime.now().date()
+                # Convert dates to date objects
+                if hasattr(comp_start_date, 'date') and callable(comp_start_date.date):
+                    start_date_obj = comp_start_date.date()
+                elif hasattr(comp_start_date, 'year'):
+                    start_date_obj = comp_start_date
+                else:
+                    start_date_obj = comp_start_date
 
+                if hasattr(comp_end_date, 'date') and callable(comp_end_date.date):
+                    end_date_obj = comp_end_date.date()
+                elif hasattr(comp_end_date, 'year'):
+                    end_date_obj = comp_end_date
+                else:
+                    end_date_obj = comp_end_date
+
+                effective_end_date = min(end_date_obj, today)
+
+                # Determine fetch date range based on sync mode
+                if full_backfill:
+                    # Full backfill: fetch entire competition range in chunks
+                    fetch_start = start_date_obj
+                    fetch_end = effective_end_date
+                    date_chunks = get_date_chunks(fetch_start, fetch_end, chunk_days=5)
+                    logger.info(f"FULL BACKFILL: Fetching {fetch_start} to {fetch_end} in {len(date_chunks)} chunks")
+                else:
+                    # Incremental: only fetch last 3 days (ServiceTitan API works reliably for short ranges)
+                    fetch_start = max(start_date_obj, today - timedelta(days=3))
+                    fetch_end = effective_end_date
+                    date_chunks = [(fetch_start, fetch_end)]
+                    logger.info(f"INCREMENTAL SYNC: Fetching {fetch_start} to {fetch_end}")
+
+                # Fetch and store items sold records
                 items_fetch_url = f"{servicetitan_sync_url}/fetch-items-sold-custom"
-                params = {
-                    'start_date': str(start_date),
-                    'end_date': str(end_date)
-                }
+                items_inserted = 0
+                items_duplicates = 0
 
-                try:
-                    response = requests.get(items_fetch_url, params=params, timeout=120)
-                    response.raise_for_status()
-                    api_result = response.json()
+                for chunk_start, chunk_end in date_chunks:
+                    params = {
+                        'start_date': str(chunk_start),
+                        'end_date': str(chunk_end)
+                    }
+                    logger.info(f"Fetching items sold for: {chunk_start} to {chunk_end}")
 
-                    if api_result.get('status') == 'success':
-                        items_sold_records = api_result.get('data', [])
+                    try:
+                        response = requests.get(items_fetch_url, params=params, timeout=120)
+                        response.raise_for_status()
+                        api_result = response.json()
 
-                        # Filter by item_code and aggregate by technician
-                        items_sold_data = {}
-                        for record in items_sold_records:
-                            tech_name = record.get('sold_by_technician')
-                            code = record.get('code')
-                            quantity = record.get('quantity', 0)
+                        if api_result.get('status') == 'success':
+                            items_sold_records = api_result.get('data', [])
 
-                            if tech_name and code == item_code:
-                                if tech_name not in items_sold_data:
-                                    items_sold_data[tech_name] = 0
-                                items_sold_data[tech_name] += quantity
+                            # Store individual records for items matching our item_code
+                            for record in items_sold_records:
+                                tech_name = record.get('sold_by_technician')
+                                code = record.get('code')
+                                quantity = record.get('quantity', 0)
+                                invoice_number = record.get('invoice_number')
+                                invoice_date = record.get('invoice_date', '')[:10] if record.get('invoice_date') else None
+                                job_business_unit = record.get('job_business_unit')
 
-                        logger.info(f"Successfully fetched {len(items_sold_data)} technicians with items sold for item code '{item_code}'")
-                        if items_sold_data:
-                            logger.info(f"FULL items_sold data: {items_sold_data}")
-                    else:
-                        logger.warning(f"Failed to fetch items sold from API: {api_result.get('message')}")
-                        items_sold_data = {}
+                                if tech_name and code == item_code and invoice_date:
+                                    try:
+                                        # Insert with ON CONFLICT DO NOTHING for deduplication
+                                        cursor.execute("""
+                                            INSERT INTO competition_items_sold
+                                            (competition_id, invoice_number, invoice_date, technician_name, item_code, quantity, job_business_unit)
+                                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                            ON CONFLICT (competition_id, invoice_number, technician_name, item_code) DO NOTHING
+                                        """, (comp_id, invoice_number, invoice_date, tech_name, code, quantity, job_business_unit))
 
-                except requests.exceptions.Timeout:
-                    logger.error("Timeout fetching items sold data from ServiceTitan API")
-                    items_sold_data = {}
-                except Exception as e:
-                    logger.error(f"Error fetching items sold from API: {e}")
-                    logger.error(traceback.format_exc())
-                    items_sold_data = {}
+                                        if cursor.rowcount > 0:
+                                            items_inserted += 1
+                                        else:
+                                            items_duplicates += 1
+                                    except Exception as e:
+                                        logger.warning(f"Error inserting item record: {e}")
 
-                # Fetch sold flips from ServiceTitan for exact competition date range
-                # Using custom date range API endpoint from servicetitan-sync
-                # This gives us precise data for the competition period
+                            logger.info(f"Chunk {chunk_start}-{chunk_end}: processed {len(items_sold_records)} records")
+                        else:
+                            logger.warning(f"Failed to fetch items for {chunk_start}-{chunk_end}: {api_result.get('message')}")
+
+                    except requests.exceptions.Timeout:
+                        logger.error(f"Timeout fetching items for {chunk_start} to {chunk_end}")
+                    except Exception as e:
+                        logger.error(f"Error fetching items for {chunk_start} to {chunk_end}: {e}")
+
+                logger.info(f"Items sold: {items_inserted} new, {items_duplicates} duplicates skipped")
+
+                # Fetch and store sold flips records
                 fetch_url = f"{servicetitan_sync_url}/fetch-sold-flips-custom"
-                params = {
-                    'start_date': str(start_date),
-                    'end_date': str(end_date)
-                }
+                flips_inserted = 0
 
-                logger.info(f"Fetching sold flips data from ServiceTitan API for date range: {start_date} to {end_date}")
+                for chunk_start, chunk_end in date_chunks:
+                    params = {
+                        'start_date': str(chunk_start),
+                        'end_date': str(chunk_end)
+                    }
+                    logger.info(f"Fetching sold flips for: {chunk_start} to {chunk_end}")
 
-                try:
-                    response = requests.get(fetch_url, params=params, timeout=120)
-                    response.raise_for_status()
-                    api_result = response.json()
+                    try:
+                        response = requests.get(fetch_url, params=params, timeout=120)
+                        response.raise_for_status()
+                        api_result = response.json()
 
-                    if api_result.get('status') == 'success':
-                        sold_flips_records = api_result.get('data', [])
-                        sold_flips_data = {
-                            record['technician_name']: record['leads_sold']
-                            for record in sold_flips_records
-                            if record.get('technician_name')
-                        }
-                        logger.info(f"Successfully fetched {len(sold_flips_data)} technicians with sold flips data for custom date range")
-                    else:
-                        logger.warning(f"Failed to fetch sold flips from API: {api_result.get('message')}")
-                        sold_flips_data = {}
+                        if api_result.get('status') == 'success':
+                            sold_flips_records = api_result.get('data', [])
 
-                except requests.exceptions.Timeout:
-                    logger.error("Timeout fetching sold flips data from ServiceTitan API")
-                    sold_flips_data = {}
-                except Exception as e:
-                    logger.error(f"Error fetching sold flips from API: {e}")
-                    sold_flips_data = {}
+                            # Store sold flips by date for each technician (allows daily tracking)
+                            for record in sold_flips_records:
+                                tech_name = record.get('technician_name')
+                                leads_sold = record.get('leads_sold', 0)
+
+                                if tech_name and leads_sold > 0:
+                                    try:
+                                        # Use chunk_end as sync_date, upsert to update if re-syncing same period
+                                        cursor.execute("""
+                                            INSERT INTO competition_sold_flips
+                                            (competition_id, sync_date, technician_name, leads_sold)
+                                            VALUES (%s, %s, %s, %s)
+                                            ON CONFLICT (competition_id, sync_date, technician_name)
+                                            DO UPDATE SET leads_sold = EXCLUDED.leads_sold
+                                        """, (comp_id, chunk_end, tech_name, leads_sold))
+                                        flips_inserted += 1
+                                    except Exception as e:
+                                        logger.warning(f"Error inserting sold flip: {e}")
+
+                            logger.info(f"Chunk {chunk_start}-{chunk_end}: {len(sold_flips_records)} sold flips records")
+                        else:
+                            logger.warning(f"Failed to fetch sold flips for {chunk_start}-{chunk_end}: {api_result.get('message')}")
+
+                    except requests.exceptions.Timeout:
+                        logger.error(f"Timeout fetching sold flips for {chunk_start} to {chunk_end}")
+                    except Exception as e:
+                        logger.error(f"Error fetching sold flips for {chunk_start} to {chunk_end}: {e}")
+
+                logger.info(f"Sold flips: {flips_inserted} records upserted")
+
+                # Now recalculate leaderboard totals from stored records
+                # Get items sold totals from competition_items_sold table
+                cursor.execute("""
+                    SELECT technician_name, SUM(quantity) as total_items
+                    FROM competition_items_sold
+                    WHERE competition_id = %s
+                    GROUP BY technician_name
+                """, (comp_id,))
+                items_sold_data = {row[0]: row[1] for row in cursor.fetchall()}
+
+                # Get sold flips - use MAX per technician (sold flips report is cumulative per period)
+                # We store the latest value for each chunk period, so get the max
+                cursor.execute("""
+                    SELECT technician_name, MAX(leads_sold) as total_flips
+                    FROM competition_sold_flips
+                    WHERE competition_id = %s
+                    GROUP BY technician_name
+                """, (comp_id,))
+                sold_flips_data = {row[0]: row[1] for row in cursor.fetchall()}
+
+                logger.info(f"Recalculated from DB - items_sold: {items_sold_data}")
+                logger.info(f"Recalculated from DB - sold_flips: {sold_flips_data}")
 
                 # Get all unique technician names
                 all_techs = set(list(items_sold_data.keys()) + list(sold_flips_data.keys()))
@@ -566,11 +707,10 @@ def sync_competition_data(comp_id, request):
 
                 # Update leaderboard for each technician
                 for tech_name in all_techs:
-                    sold_flips = sold_flips_data.get(tech_name, 0)  # This is LeadsSet
-                    items_sold = items_sold_data.get(tech_name, 0)
+                    sold_flips = sold_flips_data.get(tech_name, 0) or 0
+                    items_sold = items_sold_data.get(tech_name, 0) or 0
 
                     # Preserve existing review count - reviews are manually managed
-                    # Get current review count from database if entry exists
                     cursor.execute("""
                         SELECT reviews FROM competition_leaderboard
                         WHERE competition_id = %s AND technician_name = %s
@@ -578,7 +718,7 @@ def sync_competition_data(comp_id, request):
                     existing_row = cursor.fetchone()
                     reviews = existing_row[0] if existing_row else 0
 
-                    # Calculate points: 1:1 ratio - each flip, item, and review = 1 point
+                    # Calculate points: 1:1 ratio
                     total_points = sold_flips + items_sold + reviews
 
                     logger.info(f"Updating {tech_name}: sold_flips={sold_flips}, items_sold={items_sold}, reviews={reviews}, points={total_points}")

@@ -4,7 +4,7 @@ import { GoogleBusinessService } from '@/lib/google-business'
 import { GoogleReviewsCacheService } from '@/lib/google-reviews-cache'
 import { getTokenManager } from '@/lib/google-token-manager'
 
-export async function POST() {
+async function syncReviews() {
   try {
     console.log('🔄 Starting Google reviews sync...')
 
@@ -43,4 +43,14 @@ export async function POST() {
       error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
+}
+
+// GET handler for Vercel cron jobs
+export async function GET() {
+  return syncReviews()
+}
+
+// POST handler for manual triggers
+export async function POST() {
+  return syncReviews()
 }

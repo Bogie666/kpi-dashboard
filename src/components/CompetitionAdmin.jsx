@@ -62,7 +62,7 @@ const CompetitionAdmin = () => {
           const techEntry = leaderboard.data?.leaderboard?.find(
             entry => entry.name === reviewFormData.technicianName
           );
-          setCurrentReviewCount(techEntry?.reviews ?? 0);
+          setCurrentReviewCount(techEntry?.metrics?.reviews ?? 0);
         } else {
           setCurrentReviewCount(null);
         }

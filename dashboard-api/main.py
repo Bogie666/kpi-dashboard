@@ -544,8 +544,12 @@ class DatabaseManager:
                     }
                 return {}
 
-    def get_financial_trend_data(self, year=2025):
+    def get_financial_trend_data(self, year=None):
         """Get monthly financial trend data for YTD chart"""
+        # Default to current year if not specified
+        if year is None:
+            year = datetime.now().year
+
         with self.get_connection() as conn:
             with conn.cursor() as cursor:
                 query = """
@@ -1154,7 +1158,7 @@ def dashboard_api(request):
 
         # Route: /financial-trend or /financial-trend/{year}
         elif (len(path_parts) >= 1 and path_parts[0] == 'financial-trend'):
-            year = int(path_parts[1]) if len(path_parts) == 2 and path_parts[1].isdigit() else 2025
+            year = int(path_parts[1]) if len(path_parts) == 2 and path_parts[1].isdigit() else datetime.now().year
     
             data = db.get_financial_trend_data(year)
             response = {

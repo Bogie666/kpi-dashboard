@@ -153,8 +153,11 @@ class AdminDatabaseManager:
         return icon_map.get(widget_id, 'Monitor')
 
     # Performance Targets Management
-    def get_targets(self):
-        """Get all performance targets organized by category"""
+    def get_targets(self, year=None):
+        """Get all performance targets organized by category, optionally filtered by year"""
+        # Default to current year if not specified
+        if year is None:
+            year = datetime.now().year
         with self.get_connection() as conn:
             with conn.cursor() as cursor:
                 # Check if performance_targets table exists
@@ -253,11 +256,12 @@ class AdminDatabaseManager:
                    END as completion_percentage,
                    effective_from, effective_to, 
                    COALESCE(created_by, 'admin') as created_by
-                FROM performance_targets 
-                WHERE effective_to IS NULL OR effective_to > CURRENT_DATE
+                FROM performance_targets
+                WHERE (effective_to IS NULL OR effective_to > CURRENT_DATE)
+                AND (target_year = %s OR target_year IS NULL)
                 ORDER BY target_category, department, target_month
                 """
-                cursor.execute(query)
+                cursor.execute(query, (year,))
                 rows = cursor.fetchall()
                 
                 # Organize targets by category
@@ -2016,10 +2020,14 @@ def admin_api(request):
         # Performance Targets Routes
         elif path_parts[0] == 'targets':
             if method == 'GET':
-                targets = admin_db.get_targets()
+                # Get year filter from query params
+                year_param = request.args.get('year')
+                year = int(year_param) if year_param else None
+                targets = admin_db.get_targets(year)
                 response = {
                     'status': 'success',
                     'data': targets,
+                    'year': year or datetime.now().year,
                     'timestamp': datetime.now().isoformat()
                 }
                 return (json.dumps(response, cls=CustomEncoder), 200, headers)

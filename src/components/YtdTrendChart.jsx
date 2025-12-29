@@ -9,6 +9,10 @@ const YtdTrendChart = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showPriorYear, setShowPriorYear] = useState(true);
 
+  // Dynamic year calculation - automatically adjusts each new year
+  const currentYear = new Date().getFullYear();
+  const priorYear = currentYear - 1;
+
   // Mock data for development (will be replaced with real API data)
   const mockTrendData = [
     { month: '2025-01', revenue: 1700000, budgetTarget: 1800000, budgetPercent: 94.4, monthName: 'January', isComplete: true },
@@ -32,8 +36,8 @@ const YtdTrendChart = () => {
 
       // Fetch current year, prior year, AND live MTD financial data
       const [currentResponse, priorResponse, mtdResponse] = await Promise.all([
-        fetch(`${API_BASE}/financial-trend/2025`),
-        fetch(`${API_BASE}/financial-trend/2024`),
+        fetch(`${API_BASE}/financial-trend/${currentYear}`),
+        fetch(`${API_BASE}/financial-trend/${priorYear}`),
         fetch(`${API_BASE}/financial/mtd`)
       ]);
 
@@ -122,7 +126,7 @@ const YtdTrendChart = () => {
         : null;
       return (
         <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
-          <p className="text-white font-medium mb-2">{data.monthName} 2025</p>
+          <p className="text-white font-medium mb-2">{data.monthName} {currentYear}</p>
           <div className="space-y-1 text-sm">
             <div className="flex items-center justify-between space-x-4">
               <span className="text-blue-400">Revenue:</span>
@@ -134,7 +138,7 @@ const YtdTrendChart = () => {
             </div>
             {data.priorYearRevenue && (
               <div className="flex items-center justify-between space-x-4">
-                <span className="text-gray-400">2024:</span>
+                <span className="text-gray-400">{priorYear}:</span>
                 <span className="text-gray-300 font-medium">${(data.priorYearRevenue / 1000000).toFixed(3)}M</span>
               </div>
             )}
@@ -146,7 +150,7 @@ const YtdTrendChart = () => {
             </div>
             {yoyChange !== null && (
               <div className="flex items-center justify-between space-x-4">
-                <span className="text-purple-400">vs 2024:</span>
+                <span className="text-purple-400">vs {priorYear}:</span>
                 <span className={`font-medium ${yoyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                   {yoyChange >= 0 ? '+' : ''}{yoyChange.toFixed(2)}%
                 </span>
@@ -278,7 +282,7 @@ const YtdTrendChart = () => {
               strokeDasharray="5 5"
               dot={{ fill: '#6B7280', strokeWidth: 1, r: 3 }}
               connectNulls={false}
-              name="2024 Revenue"
+              name={`${priorYear} Revenue`}
             />
           )}
 
@@ -328,7 +332,7 @@ const YtdTrendChart = () => {
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
         <div className="flex items-center space-x-2">
           <div className="w-4 h-0.5 bg-blue-400"></div>
-          <span className="text-gray-400">2025 Revenue</span>
+          <span className="text-gray-400">{currentYear} Revenue</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-0.5 bg-green-400"></div>
@@ -342,7 +346,7 @@ const YtdTrendChart = () => {
           title="Toggle prior year comparison"
         >
           <div className="w-4 h-0.5 bg-gray-400" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #9CA3AF 0, #9CA3AF 3px, transparent 3px, transparent 6px)' }}></div>
-          <span className="text-gray-400">2024 Revenue</span>
+          <span className="text-gray-400">{priorYear} Revenue</span>
         </button>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-blue-400"></div>

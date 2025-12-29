@@ -118,6 +118,7 @@ const AdminDashboard = () => {
   const [selectedSyncPeriods, setSelectedSyncPeriods] = useState(['today', 'mtd']);
   const [selectedSyncYear, setSelectedSyncYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedTargetYear, setSelectedTargetYear] = useState(new Date().getFullYear());
   const [syncingMonthly, setSyncingMonthly] = useState(false);
   const [syncingReviews, setSyncingReviews] = useState(false);
   const [reviewsSyncStatus, setReviewsSyncStatus] = useState(null);
@@ -359,6 +360,11 @@ const AdminDashboard = () => {
     loadReviewsSyncStatus();
   }, []);
 
+  // Reload targets when year filter changes
+  useEffect(() => {
+    loadTargets(selectedTargetYear);
+  }, [selectedTargetYear]);
+
   const loadAllData = async () => {
     setLoading(true);
     try {
@@ -375,9 +381,9 @@ const AdminDashboard = () => {
     }
   };
 
-  const loadTargets = async () => {
+  const loadTargets = async (year = selectedTargetYear) => {
     try {
-      const response = await fetch(`${API_BASE}/targets`);
+      const response = await fetch(`${API_BASE}/targets?year=${year}`);
       const data = await response.json();
       if (data.status === 'success') {
         setTargets(data.data);
@@ -792,7 +798,7 @@ const AdminDashboard = () => {
           target_key: editingTarget.target_key || '',
           department: editingTarget.department || '',
           value: editingTarget.value || '',
-          year: editingTarget.year || new Date().getFullYear(),
+          year: editingTarget.year || selectedTargetYear,
           month: editingTarget.month || null,
           alertThreshold: editingTarget.alertThreshold || ''
         };
@@ -802,7 +808,7 @@ const AdminDashboard = () => {
         target_key: '',
         department: '',
         value: '',
-        year: new Date().getFullYear(),
+        year: selectedTargetYear,  // Default to currently selected filter year
         month: null,
         alertThreshold: '',
         isMonthly: false
@@ -822,43 +828,56 @@ const AdminDashboard = () => {
 
     const handleSubmit = (e) => {
       e.preventDefault();
-      
+      console.log('Form submitted with data:', formData);
+
       // For financial monthly budgets, create targets for all 12 months
       if (formData.category === 'financial' && formData.isMonthly) {
+        console.log('Creating monthly financial targets for year:', formData.year);
         const monthlyTargets = [];
         for (let month = 1; month <= 12; month++) {
           monthlyTargets.push({
             ...formData,
+            unit: selectedTargetDef?.unit || 'dollars',
             month,
             target_name: `${formData.target_key}_${formData.department}_${month}`,
             name: `${MONTHS[month-1]} Budget - ${TARGET_DEFINITIONS.financial.departments.find(d => d.key === formData.department)?.label}`
           });
         }
+        console.log('Monthly targets to create:', monthlyTargets);
         // Send batch create request
         saveBatchTargets(monthlyTargets);
       } else {
-        saveTarget({
+        const targetData = {
           ...formData,
+          unit: selectedTargetDef?.unit || 'number',
           target_name: `${formData.target_key}_${formData.department || 'all'}`,
           name: `${selectedTargetDef?.label || formData.target_key} ${formData.department ? `- ${TARGET_DEFINITIONS[formData.category]?.departments?.find(d => d.key === formData.department)?.label || formData.department}` : ''}`
-        });
+        };
+        console.log('Saving single target:', targetData);
+        saveTarget(targetData);
       }
     };
 
-    const saveBatchTargets = async (targets) => {
+    const saveBatchTargets = async (targetsToSave) => {
       try {
-        for (const target of targets) {
-          await fetch(`${API_BASE}/targets`, {
+        console.log('saveBatchTargets called with', targetsToSave.length, 'targets');
+        for (const target of targetsToSave) {
+          console.log('Creating target:', target);
+          const response = await fetch(`${API_BASE}/targets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(target)
           });
+          const result = await response.json();
+          console.log('Target create result:', result);
         }
-        await loadTargets();
+        console.log('All targets created, reloading...');
+        await loadTargets(selectedTargetYear);
         setShowTargetModal(false);
         setEditingTarget(null);
       } catch (error) {
         console.error('Error saving batch targets:', error);
+        alert('Error saving targets: ' + error.message);
       }
     };
 
@@ -902,6 +921,27 @@ const AdminDashboard = () => {
                     {target.label} ({target.unit === 'dollars' ? '$' : target.unit === 'percent' ? '%' : '#'})
                   </option>
                 ))}
+              </select>
+            </div>
+
+            {/* Year Selection */}
+            <div>
+              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-2">Target Year</label>
+              <select
+                value={formData.year || new Date().getFullYear()}
+                onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})}
+                className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm md:text-base"
+                required
+              >
+                {/* Show current year, next year, and previous 2 years */}
+                {[...Array(4)].map((_, i) => {
+                  const year = new Date().getFullYear() - 2 + i;
+                  return (
+                    <option key={year} value={year}>
+                      {year} {year === new Date().getFullYear() ? '(Current)' : year === new Date().getFullYear() + 1 ? '(Next Year)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -949,6 +989,22 @@ const AdminDashboard = () => {
                 />
               </div>
             </div>
+
+            {/* Monthly Budget Checkbox - Only for Financial category */}
+            {formData.category === 'financial' && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isMonthly"
+                  checked={formData.isMonthly || false}
+                  onChange={(e) => setFormData({...formData, isMonthly: e.target.checked})}
+                  className="w-4 h-4 rounded bg-gray-600 border-gray-500 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="isMonthly" className="text-sm text-gray-300">
+                  Create monthly budgets (applies same value to all 12 months)
+                </label>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
               <button
@@ -1266,7 +1322,24 @@ const AdminDashboard = () => {
       {activeTab === 'targets' && (
         <div className="bg-gray-800 rounded-lg p-4 md:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 space-y-2 sm:space-y-0">
-            <h2 className="text-lg md:text-xl font-semibold text-white">Performance Targets</h2>
+            <div className="flex items-center space-x-4">
+              <h2 className="text-lg md:text-xl font-semibold text-white">Performance Targets</h2>
+              {/* Year Filter */}
+              <select
+                value={selectedTargetYear}
+                onChange={(e) => setSelectedTargetYear(parseInt(e.target.value))}
+                className="bg-gray-700 text-white rounded px-3 py-1 text-sm border border-gray-600 focus:border-blue-500 focus:outline-none"
+              >
+                {[...Array(4)].map((_, i) => {
+                  const year = new Date().getFullYear() - 2 + i;
+                  return (
+                    <option key={year} value={year}>
+                      {year} {year === new Date().getFullYear() ? '(Current)' : year === new Date().getFullYear() + 1 ? '(Next)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
             <button
               onClick={() => {
                 setEditingTarget(null);
@@ -1367,17 +1440,40 @@ const AdminDashboard = () => {
             )}
 
             {/* Financial Targets - Enhanced Mobile Layout */}
-            {targets.financial?.monthly && Object.keys(targets.financial.monthly).length > 0 && (
-              <CollapsibleSection
-                sectionKey="financial"
-                title="Financial - Monthly Department Budgets"
-                icon={TARGET_DEFINITIONS.financial.icon}
-                targetCount={Object.values(targets.financial.monthly).reduce((sum, dept) => sum + dept.length, 0)}
-              >
+            {/* Show section even if empty, so users can add targets for new years */}
+            <CollapsibleSection
+              sectionKey="financial"
+              title={`Financial - Monthly Department Budgets (${selectedTargetYear})`}
+              icon={TARGET_DEFINITIONS.financial.icon}
+              targetCount={targets.financial?.monthly ? Object.values(targets.financial.monthly).reduce((sum, dept) => sum + dept.length, 0) : 0}
+            >
+              {/* Empty state when no financial targets exist for this year */}
+              {(!targets.financial?.monthly || Object.keys(targets.financial.monthly).length === 0) && (
+                <div className="text-center py-8 text-gray-400">
+                  <p className="mb-4">No financial targets set for {selectedTargetYear}</p>
+                  <button
+                    onClick={() => {
+                      setEditingTarget({
+                        category: 'financial',
+                        target_key: 'monthly_budget',
+                        isMonthly: true,
+                        year: selectedTargetYear
+                      });
+                      setShowTargetModal(true);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                  >
+                    + Add {selectedTargetYear} Budget Targets
+                  </button>
+                </div>
+              )}
+
+              {targets.financial?.monthly && Object.keys(targets.financial.monthly).length > 0 && (
+                <>
                 {/* Company Total Row - Auto-calculated */}
                 <div className="mb-4 md:mb-6 p-3 md:p-4 bg-blue-900 bg-opacity-50 rounded-lg">
                   <h4 className="text-blue-200 font-medium mb-3 flex items-center text-sm md:text-base">
-                    Total Company Budget (Auto-calculated)
+                    Total Company Budget {selectedTargetYear} (Auto-calculated)
                   </h4>
                   
                   {/* Mobile-responsive grid for months */}
@@ -1439,13 +1535,14 @@ const AdminDashboard = () => {
                             {TARGET_DEFINITIONS.financial.departments.find(d => d.key === deptKey)?.label}
                           </h4>
                           <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                            <button 
+                            <button
                               onClick={() => {
                                 setEditingTarget({
                                   category: 'financial',
                                   department: deptKey,
                                   isMonthly: true,
-                                  value: monthlyTargets[0]?.value || 0
+                                  value: monthlyTargets[0]?.value || 0,
+                                  year: selectedTargetYear
                                 });
                                 setShowTargetModal(true);
                               }}
@@ -1595,7 +1692,8 @@ const AdminDashboard = () => {
                       setEditingTarget({
                         category: 'financial',
                         target_key: 'monthly_budget',
-                        isMonthly: true
+                        isMonthly: true,
+                        year: selectedTargetYear
                       });
                       setShowTargetModal(true);
                     }}
@@ -1604,8 +1702,9 @@ const AdminDashboard = () => {
                     Add New Department Budget (12 months)
                   </button>
                 </div>
-              </CollapsibleSection>
-            )}
+                </>
+              )}
+            </CollapsibleSection>
 
             {/* Empty State */}
             {(!targets.comfort_advisor || targets.comfort_advisor.length === 0) &&
