@@ -842,6 +842,7 @@ const AdminDashboard = () => {
         for (let month = 1; month <= 12; month++) {
           monthlyTargets.push({
             ...formData,
+            isMonthly: false,  // Don't trigger API's batch creation - we're sending individual months
             unit: selectedTargetDef?.unit || 'dollars',
             month,
             target_name: `${formData.target_key}_${formData.department}_${month}`,
