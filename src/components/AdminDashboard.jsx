@@ -929,19 +929,19 @@ const AdminDashboard = () => {
             </div>
 
             {/* Department Selection (for financial and others that need it) */}
-            {(formData.category === 'financial' || TARGET_DEFINITIONS[formData.category]?.departments) && (
+            {(formData.isMonthly || formData.category === 'financial' || TARGET_DEFINITIONS[formData.category]?.departments) && (
               <div>
                 <label className="block text-xs md:text-sm font-medium text-gray-300 mb-2">
-                  {formData.category === 'financial' ? 'Department' : 'Team/Department'}
+                  {(formData.isMonthly || formData.category === 'financial') ? 'Department' : 'Team/Department'}
                 </label>
                 <select
                   value={formData.department || ''}
                   onChange={(e) => setFormData({...formData, department: e.target.value})}
                   className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm md:text-base"
-                  required={formData.category === 'financial'}
+                  required={formData.isMonthly || formData.category === 'financial'}
                 >
                   <option value="">Select Department</option>
-                  {TARGET_DEFINITIONS[formData.category]?.departments?.map((dept) => (
+                  {(formData.isMonthly ? TARGET_DEFINITIONS.financial : TARGET_DEFINITIONS[formData.category])?.departments?.map((dept) => (
                     <option key={dept.key} value={dept.key}>{dept.label}</option>
                   ))}
                 </select>
