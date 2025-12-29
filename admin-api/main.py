@@ -673,6 +673,11 @@ class AdminDatabaseManager:
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """
+                    # Handle alertThreshold - use default if empty or not provided
+                    alert_threshold = target_data.get('alertThreshold')
+                    if not alert_threshold or alert_threshold == '':
+                        alert_threshold = target_data['value'] * 0.9
+
                     cursor.execute(query, (
                         target_data['category'],
                         target_data['name'].lower().replace(' ', '_'),
@@ -681,7 +686,7 @@ class AdminDatabaseManager:
                         target_data.get('department'),
                         target_data.get('month'),
                         target_data.get('year', datetime.now().year),
-                        target_data.get('alertThreshold', target_data['value'] * 0.9),
+                        alert_threshold,
                         datetime.now().date(),
                         'admin'
                     ))
@@ -2034,14 +2039,24 @@ def admin_api(request):
             
             elif method == 'POST':
                 target_data = request.get_json()
-                target_id = admin_db.create_target(target_data)
-                response = {
-                    'status': 'success',
-                    'message': 'Target created successfully',
-                    'id': target_id,
-                    'timestamp': datetime.now().isoformat()
-                }
-                return (json.dumps(response, cls=CustomEncoder), 201, headers)
+                logger.info(f"Creating target: {target_data}")
+                try:
+                    target_id = admin_db.create_target(target_data)
+                    response = {
+                        'status': 'success',
+                        'message': 'Target created successfully',
+                        'id': target_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, cls=CustomEncoder), 201, headers)
+                except Exception as e:
+                    logger.error(f"Error creating target: {e}")
+                    response = {
+                        'status': 'error',
+                        'message': str(e),
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, cls=CustomEncoder), 400, headers)
             
             elif method == 'PUT' and len(path_parts) > 1:
                 target_id = int(path_parts[1])

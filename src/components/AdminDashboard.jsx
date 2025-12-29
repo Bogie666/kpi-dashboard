@@ -867,6 +867,9 @@ const AdminDashboard = () => {
     const saveBatchTargets = async (targetsToSave) => {
       try {
         console.log('saveBatchTargets called with', targetsToSave.length, 'targets');
+        const errors = [];
+        let successCount = 0;
+
         for (const target of targetsToSave) {
           console.log('Creating target:', target);
           const response = await fetch(`${API_BASE}/targets`, {
@@ -876,8 +879,19 @@ const AdminDashboard = () => {
           });
           const result = await response.json();
           console.log('Target create result:', result);
+
+          if (result.status === 'success') {
+            successCount++;
+          } else {
+            errors.push(`Month ${target.month}: ${result.message || 'Unknown error'}`);
+          }
         }
-        console.log('All targets created, reloading...');
+
+        if (errors.length > 0) {
+          alert(`Created ${successCount} of ${targetsToSave.length} targets.\n\nErrors:\n${errors.join('\n')}`);
+        }
+
+        console.log('Batch complete, reloading...');
         await loadTargets(selectedTargetYear);
         setShowTargetModal(false);
         setEditingTarget(null);
@@ -2143,7 +2157,7 @@ const AdminDashboard = () => {
                 <div className="mb-4">
                   <label className="block text-sm text-gray-300 mb-2 font-medium">Select Year:</label>
                   <div className="flex gap-2">
-                    {[2024, 2025].map((year) => (
+                    {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map((year) => (
                       <button
                         key={year}
                         onClick={() => {
