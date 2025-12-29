@@ -785,9 +785,21 @@ const AdminDashboard = () => {
 
   // Target Modal Component (existing, but making it more mobile-friendly)
   const TargetModal = () => {
-    const [formData, setFormData] = useState(() => {
+    const [formData, setFormData] = useState({
+      category: 'comfort_advisor',
+      target_key: '',
+      department: '',
+      value: '',
+      year: new Date().getFullYear(),
+      month: null,
+      alertThreshold: '',
+      isMonthly: false
+    });
+
+    // Update formData when editingTarget changes
+    useEffect(() => {
       if (editingTarget) {
-        return {
+        setFormData({
           ...editingTarget,
           category: editingTarget.category || 'comfort_advisor',
           target_key: editingTarget.target_key || '',
@@ -795,20 +807,22 @@ const AdminDashboard = () => {
           value: editingTarget.value || '',
           year: editingTarget.year || new Date().getFullYear(),
           month: editingTarget.month || null,
-          alertThreshold: editingTarget.alertThreshold || ''
-        };
+          alertThreshold: editingTarget.alertThreshold || '',
+          isMonthly: editingTarget.isMonthly || false
+        });
+      } else {
+        setFormData({
+          category: 'comfort_advisor',
+          target_key: '',
+          department: '',
+          value: '',
+          year: new Date().getFullYear(),
+          month: null,
+          alertThreshold: '',
+          isMonthly: false
+        });
       }
-      return {
-        category: 'comfort_advisor',
-        target_key: '',
-        department: '',
-        value: '',
-        year: new Date().getFullYear(),
-        month: null,
-        alertThreshold: '',
-        isMonthly: false
-      };
-    });
+    }, [editingTarget]);
 
     const [selectedTargetDef, setSelectedTargetDef] = useState(null);
 
