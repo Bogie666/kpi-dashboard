@@ -894,12 +894,16 @@ const AdminDashboard = () => {
                 value={formData.category || ''}
                 onChange={(e) => setFormData({...formData, category: e.target.value, target_key: '', department: ''})}
                 className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm md:text-base"
-                required
+                required={!formData.isMonthly}
+                disabled={formData.isMonthly}
               >
                 {Object.entries(TARGET_DEFINITIONS).map(([key, def]) => (
                   <option key={key} value={key}>{def.label}</option>
                 ))}
               </select>
+              {formData.isMonthly && (
+                <p className="text-xs text-gray-400 mt-1">Creating 12 monthly budget targets for {formData.year}</p>
+              )}
             </div>
 
             {/* Target Type Selection */}
@@ -909,7 +913,8 @@ const AdminDashboard = () => {
                 value={formData.target_key || ''}
                 onChange={(e) => setFormData({...formData, target_key: e.target.value})}
                 className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm md:text-base"
-                required
+                required={!formData.isMonthly}
+                disabled={formData.isMonthly}
               >
                 <option value="">Select Target Type</option>
                 {TARGET_DEFINITIONS[formData.category]?.targets?.map((target) => (
