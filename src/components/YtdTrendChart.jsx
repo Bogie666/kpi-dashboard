@@ -67,20 +67,23 @@ const YtdTrendChart = () => {
       const allYearsCombined = [];
       const yearDataMap = {};
 
+      const currentMonth = new Date().getMonth() + 1;
+
       yearDataResponses.forEach((response, idx) => {
         const year = yearsToFetch[idx];
         if (response.status === 'success' && response.data) {
           yearDataMap[year] = response.data;
           response.data.forEach(item => {
-            const currentMonth = new Date().getMonth() + 1;
             const isCurrentMonth = item.year === currentYear && item.monthNum === currentMonth;
 
             // Create a unique key for sorting and display
+            // Explicitly set isComplete - only current month should be incomplete
             const monthData = {
               ...item,
               displayMonth: `${item.monthName.substring(0, 3)} ${item.year}`,
               sortKey: item.year * 100 + item.monthNum,
-              isCurrentMonth
+              isCurrentMonth,
+              isComplete: !isCurrentMonth
             };
 
             // Update current month with live MTD if available
@@ -89,7 +92,6 @@ const YtdTrendChart = () => {
               monthData.budgetPercent = item.budgetTarget > 0
                 ? (liveMtdRevenue / item.budgetTarget) * 100
                 : 0;
-              monthData.isComplete = false;
             }
 
             allYearsCombined.push(monthData);
