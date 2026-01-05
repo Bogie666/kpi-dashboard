@@ -14,7 +14,7 @@ const YtdTrendChart = () => {
   // Dynamic year calculation - automatically adjusts each new year
   const currentYear = new Date().getFullYear();
   const priorYear = currentYear - 1;
-  const startYear = 2024; // First year with full data
+  const startYear = 2025; // First year with budget data
 
   // Mock data for development (will be replaced with real API data)
   const mockTrendData = [
