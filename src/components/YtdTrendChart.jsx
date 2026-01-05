@@ -4,14 +4,17 @@ import { Activity, TrendingUp, Calendar, RefreshCw, AlertCircle } from 'lucide-r
 
 const YtdTrendChart = () => {
   const [trendData, setTrendData] = useState([]);
+  const [allYearsData, setAllYearsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showPriorYear, setShowPriorYear] = useState(true);
+  const [showAllYears, setShowAllYears] = useState(false);
 
   // Dynamic year calculation - automatically adjusts each new year
   const currentYear = new Date().getFullYear();
   const priorYear = currentYear - 1;
+  const startYear = 2024; // First year with full data
 
   // Mock data for development (will be replaced with real API data)
   const mockTrendData = [
@@ -34,41 +37,87 @@ const YtdTrendChart = () => {
     try {
       const API_BASE = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/dashboard_api';
 
-      // Fetch current year, prior year, AND live MTD financial data
-      const [currentResponse, priorResponse, mtdResponse] = await Promise.all([
-        fetch(`${API_BASE}/financial-trend/${currentYear}`),
-        fetch(`${API_BASE}/financial-trend/${priorYear}`),
-        fetch(`${API_BASE}/financial/mtd`)
-      ]);
+      // Build list of years to fetch (from startYear to current year)
+      const yearsToFetch = [];
+      for (let year = startYear; year <= currentYear; year++) {
+        yearsToFetch.push(year);
+      }
 
-      const currentData = await currentResponse.json();
-      const priorData = await priorResponse.json();
-      const mtdData = await mtdResponse.json();
+      // Fetch all years plus live MTD financial data
+      const yearFetches = yearsToFetch.map(year =>
+        fetch(`${API_BASE}/financial-trend/${year}`).then(r => r.json())
+      );
+      const mtdFetch = fetch(`${API_BASE}/financial/mtd`).then(r => r.json());
 
-      console.log('Current Year API Response:', currentData);
-      console.log('Prior Year API Response:', priorData);
+      const [mtdData, ...yearDataResponses] = await Promise.all([mtdFetch, ...yearFetches]);
+
       console.log('Live MTD Financial Response:', mtdData);
+      yearDataResponses.forEach((data, idx) => {
+        console.log(`Year ${yearsToFetch[idx]} API Response:`, data);
+      });
 
-      if (currentData.status === 'success' && currentData.data && currentData.data.length > 0) {
+      // Calculate live MTD total revenue from financial endpoint
+      let liveMtdRevenue = null;
+      if (mtdData.status === 'success' && mtdData.data) {
+        liveMtdRevenue = mtdData.data.reduce((sum, dept) => sum + (dept.totalRevenue || 0), 0);
+        console.log('📊 Live MTD Revenue calculated:', liveMtdRevenue);
+      }
+
+      // Build all years continuous data
+      const allYearsCombined = [];
+      const yearDataMap = {};
+
+      yearDataResponses.forEach((response, idx) => {
+        const year = yearsToFetch[idx];
+        if (response.status === 'success' && response.data) {
+          yearDataMap[year] = response.data;
+          response.data.forEach(item => {
+            const currentMonth = new Date().getMonth() + 1;
+            const isCurrentMonth = item.year === currentYear && item.monthNum === currentMonth;
+
+            // Create a unique key for sorting and display
+            const monthData = {
+              ...item,
+              displayMonth: `${item.monthName.substring(0, 3)} ${item.year}`,
+              sortKey: item.year * 100 + item.monthNum,
+              isCurrentMonth
+            };
+
+            // Update current month with live MTD if available
+            if (isCurrentMonth && liveMtdRevenue !== null) {
+              monthData.revenue = liveMtdRevenue;
+              monthData.budgetPercent = item.budgetTarget > 0
+                ? (liveMtdRevenue / item.budgetTarget) * 100
+                : 0;
+              monthData.isComplete = false;
+            }
+
+            allYearsCombined.push(monthData);
+          });
+        }
+      });
+
+      // Sort by date
+      allYearsCombined.sort((a, b) => a.sortKey - b.sortKey);
+      setAllYearsData(allYearsCombined);
+      console.log(`✅ Loaded ${allYearsCombined.length} months of all-years data`);
+
+      // Build current year data with prior year comparison (existing logic)
+      const currentYearData = yearDataMap[currentYear];
+      const priorYearData = yearDataMap[priorYear];
+
+      if (currentYearData && currentYearData.length > 0) {
         // Create a map of prior year revenue by month number
         const priorYearMap = {};
-        if (priorData.status === 'success' && priorData.data) {
-          priorData.data.forEach(item => {
+        if (priorYearData) {
+          priorYearData.forEach(item => {
             priorYearMap[item.monthNum] = item.revenue;
           });
         }
 
-        // Calculate live MTD total revenue from financial endpoint
-        let liveMtdRevenue = null;
-        if (mtdData.status === 'success' && mtdData.data) {
-          liveMtdRevenue = mtdData.data.reduce((sum, dept) => sum + (dept.totalRevenue || 0), 0);
-          console.log('📊 Live MTD Revenue calculated:', liveMtdRevenue);
-        }
-
         // Merge prior year data into current year data
-        // Also update the current month with live MTD revenue
         const currentMonth = new Date().getMonth() + 1; // 1-12
-        const mergedData = currentData.data.map(item => {
+        const mergedData = currentYearData.map(item => {
           const baseData = {
             ...item,
             priorYearRevenue: priorYearMap[item.monthNum] || null
@@ -121,12 +170,13 @@ const YtdTrendChart = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      const displayYear = data.year || currentYear;
       const yoyChange = data.priorYearRevenue
         ? ((data.revenue - data.priorYearRevenue) / data.priorYearRevenue * 100)
         : null;
       return (
         <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
-          <p className="text-white font-medium mb-2">{data.monthName} {currentYear}</p>
+          <p className="text-white font-medium mb-2">{data.monthName} {displayYear}</p>
           <div className="space-y-1 text-sm">
             <div className="flex items-center justify-between space-x-4">
               <span className="text-blue-400">Revenue:</span>
@@ -136,7 +186,7 @@ const YtdTrendChart = () => {
               <span className="text-green-400">Target:</span>
               <span className="text-white font-medium">${(data.budgetTarget / 1000000).toFixed(3)}M</span>
             </div>
-            {data.priorYearRevenue && (
+            {!showAllYears && data.priorYearRevenue && (
               <div className="flex items-center justify-between space-x-4">
                 <span className="text-gray-400">{priorYear}:</span>
                 <span className="text-gray-300 font-medium">${(data.priorYearRevenue / 1000000).toFixed(3)}M</span>
@@ -148,7 +198,7 @@ const YtdTrendChart = () => {
                 {data.budgetPercent.toFixed(2)}%
               </span>
             </div>
-            {yoyChange !== null && (
+            {!showAllYears && yoyChange !== null && (
               <div className="flex items-center justify-between space-x-4">
                 <span className="text-purple-400">vs {priorYear}:</span>
                 <span className={`font-medium ${yoyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -168,12 +218,15 @@ const YtdTrendChart = () => {
     return null;
   };
 
+  // Select the active data set based on toggle
+  const activeData = showAllYears ? allYearsData : trendData;
+
   // Calculate summary statistics
-  const completedMonths = trendData.filter(d => d.isComplete);
-  const totalRevenue = trendData.reduce((sum, d) => sum + d.revenue, 0);
-  const totalBudget = trendData.reduce((sum, d) => sum + d.budgetTarget, 0);
-  const avgPerformance = completedMonths.length > 0 
-    ? completedMonths.reduce((sum, d) => sum + d.budgetPercent, 0) / completedMonths.length 
+  const completedMonths = activeData.filter(d => d.isComplete);
+  const totalRevenue = activeData.reduce((sum, d) => sum + d.revenue, 0);
+  const totalBudget = activeData.reduce((sum, d) => sum + d.budgetTarget, 0);
+  const avgPerformance = completedMonths.length > 0
+    ? completedMonths.reduce((sum, d) => sum + d.budgetPercent, 0) / completedMonths.length
     : 0;
 
   if (loading) {
@@ -212,9 +265,26 @@ const YtdTrendChart = () => {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-2">
           <Activity className="h-6 w-6 text-blue-400" />
-          <h3 className="text-xl font-semibold text-white">Year-to-Date Performance Trend</h3>
+          <h3 className="text-xl font-semibold text-white">
+            {showAllYears ? 'All-Time Performance Trend' : 'Year-to-Date Performance Trend'}
+          </h3>
         </div>
         <div className="flex items-center space-x-4">
+          {/* All Years Toggle */}
+          <label className="flex items-center space-x-2 cursor-pointer">
+            <span className="text-sm text-gray-400">All Years</span>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={showAllYears}
+                onChange={(e) => setShowAllYears(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-10 h-5 rounded-full transition-colors ${showAllYears ? 'bg-blue-500' : 'bg-gray-600'}`}>
+                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showAllYears ? 'translate-x-5' : 'translate-x-0'}`}></div>
+              </div>
+            </div>
+          </label>
           <div className="flex items-center space-x-2 text-sm">
             <div className={`w-2 h-2 rounded ${lastUpdated === 'Mock Data' ? 'bg-orange-400' : 'bg-green-400'}`}></div>
             <span className="text-gray-400">{lastUpdated === 'Mock Data' ? 'Sample Data' : 'Live Data'}</span>
@@ -236,13 +306,20 @@ const YtdTrendChart = () => {
 
       {/* Chart */}
       <ResponsiveContainer width="100%" height={400}>
-        <LineChart data={trendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <LineChart data={activeData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis 
-            dataKey="month" 
-            stroke="#9CA3AF" 
-            fontSize={12}
+          <XAxis
+            dataKey={showAllYears ? "displayMonth" : "month"}
+            stroke="#9CA3AF"
+            fontSize={showAllYears ? 10 : 12}
+            angle={showAllYears ? -45 : 0}
+            textAnchor={showAllYears ? "end" : "middle"}
+            height={showAllYears ? 60 : 30}
+            interval={showAllYears ? 2 : 0}
             tickFormatter={(value) => {
+              if (showAllYears) {
+                return value; // displayMonth is already formatted like "Jan 2024"
+              }
               // Handle both 'YYYY-MM' format and full date strings
               let date;
               if (value && value.includes('-')) {
@@ -256,12 +333,12 @@ const YtdTrendChart = () => {
               } else {
                 date = new Date(value);
               }
-              
+
               // Fallback if date is invalid
               if (isNaN(date.getTime())) {
                 return value;
               }
-              
+
               return date.toLocaleDateString('en-US', { month: 'short' });
             }}
           />
@@ -273,7 +350,8 @@ const YtdTrendChart = () => {
           <Tooltip content={<CustomTooltip />} />
           
           {/* Prior Year Revenue Line (Gray, dashed) - render first so it's behind */}
-          {showPriorYear && (
+          {/* Only show in YTD mode, not in all-years mode */}
+          {!showAllYears && showPriorYear && (
             <Line
               type="monotone"
               dataKey="priorYearRevenue"
@@ -332,22 +410,24 @@ const YtdTrendChart = () => {
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
         <div className="flex items-center space-x-2">
           <div className="w-4 h-0.5 bg-blue-400"></div>
-          <span className="text-gray-400">{currentYear} Revenue</span>
+          <span className="text-gray-400">{showAllYears ? 'Revenue' : `${currentYear} Revenue`}</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-0.5 bg-green-400"></div>
           <span className="text-gray-400">Budget Target</span>
         </div>
-        <button
-          onClick={() => setShowPriorYear(!showPriorYear)}
-          className={`flex items-center space-x-2 px-2 py-1 rounded transition-colors ${
-            showPriorYear ? 'bg-gray-700' : 'bg-gray-800 opacity-50'
-          }`}
-          title="Toggle prior year comparison"
-        >
-          <div className="w-4 h-0.5 bg-gray-400" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #9CA3AF 0, #9CA3AF 3px, transparent 3px, transparent 6px)' }}></div>
-          <span className="text-gray-400">{priorYear} Revenue</span>
-        </button>
+        {!showAllYears && (
+          <button
+            onClick={() => setShowPriorYear(!showPriorYear)}
+            className={`flex items-center space-x-2 px-2 py-1 rounded transition-colors ${
+              showPriorYear ? 'bg-gray-700' : 'bg-gray-800 opacity-50'
+            }`}
+            title="Toggle prior year comparison"
+          >
+            <div className="w-4 h-0.5 bg-gray-400" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #9CA3AF 0, #9CA3AF 3px, transparent 3px, transparent 6px)' }}></div>
+            <span className="text-gray-400">{priorYear} Revenue</span>
+          </button>
+        )}
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-blue-400"></div>
           <span className="text-gray-400">Completed</span>
