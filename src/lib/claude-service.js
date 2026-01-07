@@ -5,8 +5,8 @@
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-// Use Claude 3.5 Sonnet - capable and widely available
-const CLAUDE_MODEL = 'claude-3-5-sonnet-20241022';
+// Use Claude 3.7 Sonnet
+const CLAUDE_MODEL = 'claude-3-7-sonnet-20250219';
 
 class ClaudeService {
   constructor() {
