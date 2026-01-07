@@ -4,7 +4,7 @@
 # Syncs financial data in 3-month chunks to avoid timeouts
 
 FUNCTION_URL="https://us-central1-new-dashboard-2025.cloudfunctions.net/sync_servicetitan_data/yearly-financial"
-YEAR=2025
+YEAR=${YEAR:-$(date +%Y)}  # Use environment variable if set, otherwise current year
 
 echo "========================================"
 echo "Monthly Financial Data Sync Script"
@@ -47,16 +47,16 @@ sync_months() {
 sync_all() {
     echo "Starting automatic sync of all months in 3-month chunks..."
     
-    sync_months 1 3 "Q1 2025 (Jan-Mar)"
+    sync_months 1 3 "Q1 $YEAR (Jan-Mar)"
     sleep 30  # Wait 30 seconds between chunks
-    
-    sync_months 4 6 "Q2 2025 (Apr-Jun)" 
-    sleep 30
-    
-    sync_months 7 9 "Q3 2025 (Jul-Sep)"
+
+    sync_months 4 6 "Q2 $YEAR (Apr-Jun)"
     sleep 30
 
-    sync_months 10 10 "Oct 2025"
+    sync_months 7 9 "Q3 $YEAR (Jul-Sep)"
+    sleep 30
+
+    sync_months 10 12 "Q4 $YEAR (Oct-Dec)"
 
     echo ""
     echo "🎉 All chunks completed! Check your database for monthly data."
@@ -65,19 +65,19 @@ sync_all() {
 # Option 2: Sync individual chunks
 case $1 in
     "q1"|"1")
-        sync_months 1 3 "Q1 2025 (Jan-Mar)"
+        sync_months 1 3 "Q1 $YEAR (Jan-Mar)"
         ;;
     "q2"|"2")
-        sync_months 4 6 "Q2 2025 (Apr-Jun)"
+        sync_months 4 6 "Q2 $YEAR (Apr-Jun)"
         ;;
     "q3"|"3")
-        sync_months 7 9 "Q3 2025 (Jul-Sep)"
+        sync_months 7 9 "Q3 $YEAR (Jul-Sep)"
         ;;
     "q4"|"4")
-        sync_months 10 10 "Oct 2025"
+        sync_months 10 12 "Q4 $YEAR (Oct-Dec)"
         ;;
     "oct"|"october"|"10")
-        sync_months 10 10 "Oct 2025"
+        sync_months 10 10 "Oct $YEAR"
         ;;
     "month")
         # Sync a specific month
@@ -113,11 +113,11 @@ case $1 in
         echo "Usage: $0 [q1|q2|q3|q4|oct|month <num>|all|test]"
         echo ""
         echo "Options:"
-        echo "  q1 or 1           - Sync Jan-Mar 2025"
-        echo "  q2 or 2           - Sync Apr-Jun 2025"
-        echo "  q3 or 3           - Sync Jul-Sep 2025"
-        echo "  q4 or 4           - Sync Oct 2025"
-        echo "  oct or 10         - Sync Oct 2025"
+        echo "  q1 or 1           - Sync Jan-Mar $YEAR"
+        echo "  q2 or 2           - Sync Apr-Jun $YEAR"
+        echo "  q3 or 3           - Sync Jul-Sep $YEAR"
+        echo "  q4 or 4           - Sync Oct-Dec $YEAR"
+        echo "  oct or 10         - Sync Oct $YEAR"
         echo "  month <1-12>      - Sync specific month (1=Jan, 2=Feb, etc.)"
         echo "  all               - Sync all months (default)"
         echo "  test              - Test connection to function"

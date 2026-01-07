@@ -2370,8 +2370,10 @@ def fetch_financial_data(period_type):
             if attempt < max_retries - 1:
                 continue
             raise
-def fetch_monthly_financial_data_for_year(year=2025, start_month=1, end_month=12):
+def fetch_monthly_financial_data_for_year(year=None, start_month=1, end_month=12):
     """Fetch financial data for each completed month of the year"""
+    if year is None:
+        year = datetime.now().year
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/accounting/reports/128062649/data"
@@ -2758,8 +2760,10 @@ def fetch_membership_data(period_type):
                 continue
             raise
 
-def get_existing_monthly_data(year=2025):
+def get_existing_monthly_data(year=None):
     """Check what monthly data already exists in database"""
+    if year is None:
+        year = datetime.now().year
     db = Database()
     
     with db.get_connection() as conn:
@@ -2796,8 +2800,10 @@ def get_existing_monthly_data(year=2025):
             
             return existing_months
 
-def smart_monthly_financial_sync(year=2025):
+def smart_monthly_financial_sync(year=None):
     """Intelligently sync only needed monthly financial data"""
+    if year is None:
+        year = datetime.now().year
     logger.info(f"Starting smart monthly financial sync for {year}")
     
     # Get current date info
@@ -3008,7 +3014,7 @@ def sync_servicetitan_data(request):
 
         # Check for yearly-financial endpoint FIRST
         if request.path and '/yearly-financial' in request.path:
-            year = int(request.args.get('year', 2025))
+            year = int(request.args.get('year', datetime.now().year))
             start_month = int(request.args.get('start_month', 1))
             end_month = int(request.args.get('end_month', 12))
 

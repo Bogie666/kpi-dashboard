@@ -193,16 +193,17 @@ class AdminDatabaseManager:
                     """)
                     
                     # Insert some default targets including technician targets
+                    current_year = datetime.now().year
                     default_targets = [
-                        ('comfort_advisor', 'avg_ticket', 450.00, 'dollars', None, None, 2025, 400.00, 420.00),
-                        ('comfort_advisor', 'close_rate', 75.00, 'percent', None, None, 2025, 65.00, 72.00),
-                        ('call_center', 'booking_rate', 85.00, 'percent', None, None, 2025, 75.00, 82.00),
-                        ('call_center', 'memberships_sold', 3.00, 'number', None, None, 2025, 2.00, 2.50),
-                        ('technician', 'avg_ticket', 500.00, 'dollars', None, None, 2025, 450.00, 475.00),
-                        ('technician', 'close_rate', 60.00, 'percent', None, None, 2025, 50.00, 55.00),
-                        ('technician', 'recall_rate', 5.00, 'percent', None, None, 2025, 8.00, 6.50),
-                        ('technician', 'memberships_sold', 2.00, 'number', None, None, 2025, 1.00, 1.50),
-                        ('financial', 'annual_budget', 5000000.00, 'dollars', 'total', None, 2025, 4500000.00, 4800000.00)
+                        ('comfort_advisor', 'avg_ticket', 450.00, 'dollars', None, None, current_year, 400.00, 420.00),
+                        ('comfort_advisor', 'close_rate', 75.00, 'percent', None, None, current_year, 65.00, 72.00),
+                        ('call_center', 'booking_rate', 85.00, 'percent', None, None, current_year, 75.00, 82.00),
+                        ('call_center', 'memberships_sold', 3.00, 'number', None, None, current_year, 2.00, 2.50),
+                        ('technician', 'avg_ticket', 500.00, 'dollars', None, None, current_year, 450.00, 475.00),
+                        ('technician', 'close_rate', 60.00, 'percent', None, None, current_year, 50.00, 55.00),
+                        ('technician', 'recall_rate', 5.00, 'percent', None, None, current_year, 8.00, 6.50),
+                        ('technician', 'memberships_sold', 2.00, 'number', None, None, current_year, 1.00, 1.50),
+                        ('financial', 'annual_budget', 5000000.00, 'dollars', 'total', None, current_year, 4500000.00, 4800000.00)
                     ]
                     
                     for target in default_targets:
@@ -258,10 +259,10 @@ class AdminDatabaseManager:
                    COALESCE(created_by, 'admin') as created_by
                 FROM performance_targets
                 WHERE (effective_to IS NULL OR effective_to > CURRENT_DATE)
-                AND (target_year = %s OR target_year IS NULL)
-                ORDER BY target_category, department, target_month
+                AND (target_year IN (%s, %s) OR target_year IS NULL)
+                ORDER BY target_category, department, target_year, target_month
                 """
-                cursor.execute(query, (year,))
+                cursor.execute(query, (year, year - 1))
                 rows = cursor.fetchall()
                 
                 # Organize targets by category
@@ -288,7 +289,7 @@ class AdminDatabaseManager:
                             'unit': row[4] if row[4] is not None else 'number',
                             'department': row[5],
                             'month': row[6],
-                            'year': row[7] if row[7] is not None else 2025,
+                            'year': row[7] if row[7] is not None else datetime.now().year,
                             'alertThreshold': float(row[8]) if row[8] is not None else 0.0,
                             'currentValue': float(row[9]) if row[9] is not None else 0.0,
                             'status': row[10] if row[10] is not None else 'unknown',
@@ -960,7 +961,7 @@ class AdminDatabaseManager:
         status = {
             'database': 'connected',
             'serviceTitan': 'connected',
-            'lastSync': datetime.now().isoformat(),
+            'lastSync': datetime.utcnow().isoformat() + 'Z',
             'syncStatus': 'success'
         }
         

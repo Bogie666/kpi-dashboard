@@ -615,7 +615,7 @@ class DatabaseManager:
                 SELECT SUM(target_value) as total_budget
                 FROM performance_targets
                 WHERE target_category = 'financial'
-                AND target_name = 'monthly_budget'
+                AND target_name LIKE '%%budget%%'
                 AND target_year = %s
                 AND target_month = %s
                 """
@@ -932,6 +932,93 @@ class DatabaseManager:
 
                 return result
 
+    def get_historical_revenue_by_year(self, year: int):
+        """Get historical revenue data for a specific year with department breakdowns"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                query = """
+                SELECT
+                    EXTRACT(YEAR FROM report_date)::int as year,
+                    EXTRACT(MONTH FROM report_date)::int as month,
+                    TO_CHAR(MIN(report_date), 'Mon') as month_name,
+                    TO_CHAR(MIN(report_date), 'Mon YYYY') as month_label,
+                    TO_CHAR(MIN(report_date), 'YYYY-MM') as month_key,
+                    department_name,
+                    SUM(total_revenue_cents) as total_revenue_cents,
+                    MAX(updated_at) as last_updated,
+                    BOOL_AND(CASE
+                        WHEN EXTRACT(YEAR FROM report_date) < EXTRACT(YEAR FROM CURRENT_DATE)
+                            OR (EXTRACT(YEAR FROM report_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+                                AND EXTRACT(MONTH FROM report_date) < EXTRACT(MONTH FROM CURRENT_DATE))
+                        THEN true
+                        ELSE false
+                    END) as is_complete
+                FROM financial_performance
+                WHERE period_type LIKE 'monthly_%%'
+                    AND EXTRACT(YEAR FROM report_date) = %s
+                GROUP BY
+                    EXTRACT(YEAR FROM report_date),
+                    EXTRACT(MONTH FROM report_date),
+                    department_name
+                ORDER BY
+                    EXTRACT(MONTH FROM report_date)
+                """
+
+                logger.info(f"Historical Revenue Query for year: {year}")
+                cursor.execute(query, (year,))
+                rows = cursor.fetchall()
+                logger.info(f"Historical Revenue Query returned {len(rows)} rows")
+
+                # Group by month and aggregate departments
+                months_dict = {}
+
+                for row in rows:
+                    year_val = row[0]
+                    month = row[1]
+                    month_name = row[2]
+                    month_label = row[3]
+                    month_key = row[4]
+                    department_name = row[5]
+                    total_revenue_cents = row[6]
+                    last_updated = row[7]
+                    is_complete = row[8]
+
+                    # Initialize month entry if not exists
+                    if month_key not in months_dict:
+                        months_dict[month_key] = {
+                            'month': month_key,
+                            'monthName': month_name,
+                            'monthLabel': month_label,
+                            'year': int(year_val),
+                            'monthNumber': int(month),
+                            'total': 0,
+                            'hvac_replacement': 0,
+                            'hvac_service': 0,
+                            'hvac_maintenance': 0,
+                            'commercial_hvac': 0,
+                            'plumbing': 0,
+                            'electrical': 0,
+                            'tyler': 0,
+                            'isComplete': is_complete,
+                            'lastUpdated': last_updated.isoformat() if last_updated else None
+                        }
+
+                    # Convert revenue to dollars
+                    revenue = round(total_revenue_cents / 100) if total_revenue_cents else 0
+
+                    # Add to total
+                    months_dict[month_key]['total'] += revenue
+
+                    # Map department name to field name
+                    dept_field = department_name.lower().replace(' ', '_').replace('-', '_')
+                    if dept_field in months_dict[month_key]:
+                        months_dict[month_key][dept_field] = revenue
+
+                # Convert dict to list and sort by month
+                result = sorted(months_dict.values(), key=lambda x: x['monthNumber'])
+
+                return result
+
 # Initialize database manager
 db = DatabaseManager()
 
@@ -1185,6 +1272,22 @@ def dashboard_api(request):
             }
             return (json.dumps(response, cls=DecimalEncoder), 200, headers)
 
+        # Route: /historical-revenue/{year}
+        elif len(path_parts) == 2 and path_parts[0] == 'historical-revenue':
+            year = int(path_parts[1]) if path_parts[1].isdigit() else datetime.now().year
+
+            data = db.get_historical_revenue_by_year(year)
+
+            response = {
+                'status': 'success',
+                'data': data,
+                'year': year,
+                'months_available': len(data),
+                'total_revenue': sum(item['total'] for item in data) if data else 0,
+                'timestamp': datetime.now().isoformat()
+            }
+            return (json.dumps(response, cls=DecimalEncoder), 200, headers)
+
         # Route: /financial-ttm-departments
         elif path == 'financial-ttm-departments' or (len(path_parts) >= 1 and path_parts[0] == 'financial-ttm-departments'):
             # Calculate TTM date range - EXCLUDE current month, go back 12 complete months
@@ -1372,6 +1475,8 @@ def dashboard_api(request):
                     '/financial-trend/2025',
                     '/financial-ttm',
                     '/financial-ttm-departments',
+                    '/historical-revenue/2024',
+                    '/historical-revenue/2025',
                     '/memberships/mtd',
                     '/memberships/ytd',
                     '/memberships/last_month',

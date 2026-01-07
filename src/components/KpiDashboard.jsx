@@ -10,6 +10,7 @@ import { LogOut, User, Monitor } from 'lucide-react';
 import YtdTrendChart from './YtdTrendChart';
 import TopPerformersDashboard from './TopPerformersDashboard';
 import RevenueTTMDashboard from './RevenueTTMDashboard';
+import HistoricalRevenueDashboard from './HistoricalRevenueDashboard';
 import GoogleReviews from './GoogleReviews';
 
 const KpiDashboard = () => {
@@ -1517,6 +1518,8 @@ const TechnicianView = ({
 
   // Financial View
 const FinancialView = () => {
+  const [financialSubTab, setFinancialSubTab] = useState('overview');
+
   // Fixed department order
   const departmentOrder = [
     'hvac_replacement',
@@ -1710,27 +1713,31 @@ const FinancialView = () => {
     const getTargetForPeriod = (department, period) => {
       const monthlyTargets = targets?.financial?.monthly?.[department];
       if (!monthlyTargets) return 0;
-      
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+
       switch (period) {
         case 'ytd':
-          // YTD: Sum of January through current month
-          const currentMonth = new Date().getMonth() + 1;
+          // YTD: Sum of January through current month for current year
+          const currentMonth = now.getMonth() + 1;
           let ytdTarget = 0;
           for (let month = 1; month <= currentMonth; month++) {
-            const monthTarget = monthlyTargets.find(t => t.month === month);
+            const monthTarget = monthlyTargets.find(t => t.month === month && t.year === currentYear);
             ytdTarget += monthTarget?.value || 0;
           }
           return ytdTarget;
         case 'last_month':
-          // Last month: Previous month's target
-          const lastMonth = new Date().getMonth(); // 0-11, so current month - 1
-          const targetMonth = lastMonth === 0 ? 12 : lastMonth; // Handle January edge case
-          const lastMonthTarget = monthlyTargets.find(t => t.month === targetMonth);
+          // Last month: Previous month's target (handle year boundary)
+          const lastMonthIndex = now.getMonth(); // 0-11
+          const targetMonth = lastMonthIndex === 0 ? 12 : lastMonthIndex;
+          const targetYear = lastMonthIndex === 0 ? currentYear - 1 : currentYear;
+          const lastMonthTarget = monthlyTargets.find(t => t.month === targetMonth && t.year === targetYear);
           return lastMonthTarget?.value || 0;
         case 'mtd':
         default:
-          // MTD: Current month target
-          const currentMonthTarget = monthlyTargets.find(t => t.month === new Date().getMonth() + 1);
+          // MTD: Current month target for current year
+          const currentMonthTarget = monthlyTargets.find(t => t.month === now.getMonth() + 1 && t.year === currentYear);
           return currentMonthTarget?.value || 0;
       }
     };
@@ -1952,6 +1959,34 @@ const EnhancedTotalRevenueCard = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Financial Sub-Tabs */}
+      <div className="flex space-x-2 border-b border-gray-700 pb-2">
+        <button
+          onClick={() => setFinancialSubTab('overview')}
+          className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-all ${
+            financialSubTab === 'overview'
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setFinancialSubTab('historical')}
+          className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-all ${
+            financialSubTab === 'historical'
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+          }`}
+        >
+          Historical Revenue
+        </button>
+      </div>
+
+      {financialSubTab === 'historical' ? (
+        <HistoricalRevenueDashboard />
+      ) : (
+        <>
       {/* Enhanced Summary Cards with Color-Coded Total Revenue */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
         <EnhancedTotalRevenueCard />
@@ -2007,32 +2042,36 @@ const EnhancedTotalRevenueCard = () => {
                 const budgetTarget = (() => {
                   const monthlyTargets = targets?.financial?.monthly?.[dept.department];
                   if (!monthlyTargets) return 0;
-                  
+
+                  const now = new Date();
+                  const currentYear = now.getFullYear();
+
                   const getTargetForPeriod = (department, period) => {
-                    const monthlyTargets = targets?.financial?.monthly?.[department];
-                    if (!monthlyTargets) return 0;
-                    
+                    const deptTargets = targets?.financial?.monthly?.[department];
+                    if (!deptTargets) return 0;
+
                     switch (period) {
                       case 'ytd':
-                        const currentMonth = new Date().getMonth() + 1;
+                        const currentMonth = now.getMonth() + 1;
                         let ytdTarget = 0;
                         for (let month = 1; month <= currentMonth; month++) {
-                          const monthTarget = monthlyTargets.find(t => t.month === month);
+                          const monthTarget = deptTargets.find(t => t.month === month && t.year === currentYear);
                           ytdTarget += monthTarget?.value || 0;
                         }
                         return ytdTarget;
                       case 'last_month':
-                        const lastMonth = new Date().getMonth();
-                        const targetMonth = lastMonth === 0 ? 12 : lastMonth;
-                        const lastMonthTarget = monthlyTargets.find(t => t.month === targetMonth);
+                        const lastMonthIndex = now.getMonth();
+                        const targetMonth = lastMonthIndex === 0 ? 12 : lastMonthIndex;
+                        const targetYear = lastMonthIndex === 0 ? currentYear - 1 : currentYear;
+                        const lastMonthTarget = deptTargets.find(t => t.month === targetMonth && t.year === targetYear);
                         return lastMonthTarget?.value || 0;
                       case 'mtd':
                       default:
-                        const currentMonthTarget = monthlyTargets.find(t => t.month === new Date().getMonth() + 1);
+                        const currentMonthTarget = deptTargets.find(t => t.month === now.getMonth() + 1 && t.year === currentYear);
                         return currentMonthTarget?.value || 0;
                     }
                   };
-                  
+
                   return getTargetForPeriod(dept.department, timePeriod);
                 })();
                 
@@ -2154,10 +2193,12 @@ const EnhancedTotalRevenueCard = () => {
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
-  
+
   const MembershipsView = () => {
     const membershipData = dashboardData.memberships || [];
     const membershipSummary = dashboardData.membershipSummary || {};
