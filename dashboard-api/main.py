@@ -318,6 +318,36 @@ class DatabaseManager:
                     'techRecallPercent': float(row[9]) if row[9] else 0
                 } for row in rows]
 
+    def get_commercial_hvac_data(self, period_type: str):
+        """Get Commercial HVAC performance data from commercial_hvac_performance table"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                query = """
+                SELECT
+                    employee_name, business_unit, trade,
+                    completed_jobs, total_sales_cents, total_job_average_cents,
+                    close_rate_percent, opportunities, memberships_sold, leads_set, tech_recall_percent
+                FROM commercial_hvac_performance
+                WHERE period_type = %s
+                ORDER BY total_sales_cents DESC
+                """
+                cursor.execute(query, (period_type,))
+                rows = cursor.fetchall()
+
+                return [{
+                    'name': row[0],
+                    'businessUnit': row[1],
+                    'trade': row[2],
+                    'completedJobs': row[3],
+                    'totalSales': row[4] / 100 if row[4] else 0,
+                    'totalJobAverage': row[5] / 100 if row[5] else 0,
+                    'closeRatePercent': float(row[6]) if row[6] else 0,
+                    'opportunities': row[7],
+                    'membershipsSold': row[8],
+                    'leadsSet': float(row[9]) if row[9] else 0,
+                    'techRecallPercent': float(row[10]) if row[10] else 0
+                } for row in rows]
+
     def get_summary_metrics(self, period_type: str):
         """Get summary metrics for dashboard cards"""
         with self.get_connection() as conn:
@@ -1142,6 +1172,22 @@ def dashboard_api(request):
             }
             return (json.dumps(response, cls=DecimalEncoder), 200, headers)
 
+        # Route: /commercial-hvac/{period_type}
+        elif len(path_parts) == 2 and path_parts[0] == 'commercial-hvac':
+            period_type = path_parts[1]
+
+            if period_type not in ['mtd', 'ytd', 'last_month']:
+                return (json.dumps({'error': 'Invalid period type'}, cls=DecimalEncoder), 400, headers)
+
+            data = db.get_commercial_hvac_data(period_type)
+            response = {
+                'status': 'success',
+                'data': data,
+                'period': period_type,
+                'timestamp': datetime.now().isoformat()
+            }
+            return (json.dumps(response, cls=DecimalEncoder), 200, headers)
+
         # Route: /summary/{period_type}
         elif len(path_parts) == 2 and path_parts[0] == 'summary':
             period_type = path_parts[1]
@@ -1457,6 +1503,9 @@ def dashboard_api(request):
                     '/electrical/mtd',
                     '/electrical/ytd',
                     '/electrical/last_month',
+                    '/commercial-hvac/mtd',
+                    '/commercial-hvac/ytd',
+                    '/commercial-hvac/last_month',
                     '/call-center/today',
                     '/call-center/week',
                     '/call-center/mtd',

@@ -24,36 +24,29 @@ const KpiDashboard = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // Sub-tab states for grouped navigation
+  const [financialSubTab, setFinancialSubTab] = useState('overview');
+  const [technicianSubTab, setTechnicianSubTab] = useState('comfort_advisor');
+  const [operationsSubTab, setOperationsSubTab] = useState('call_center');
+  const [engagementSubTab, setEngagementSubTab] = useState('reviews');
+
+// Set default time period based on active view and sub-tab
 useEffect(() => {
-  switch (activeView) {
-    case 'financial':
-      setTimePeriod('mtd');
-      break;
-    case 'comfort_advisor':
-      setTimePeriod('mtd');
-      break;
-    case 'call_center':
+  if (activeView === 'financial') {
+    setTimePeriod('mtd');
+  } else if (activeView === 'technicians') {
+    setTimePeriod('mtd');
+  } else if (activeView === 'operations') {
+    // Call center uses 'today' by default, memberships uses 'mtd'
+    if (operationsSubTab === 'call_center') {
       setTimePeriod('today');
-      break;
-    case 'technician':
+    } else {
       setTimePeriod('mtd');
-      break;
-    case 'hvac_maintenance':  
-      setTimePeriod('mtd');
-      break; 
-    case 'plumbing':
-      setTimePeriod('mtd');
-      break;
-    case 'electrical':
-      setTimePeriod('mtd');
-      break;
-    case 'memberships':
-      setTimePeriod('mtd');
-      break;
-    default:
-      break;
+    }
+  } else if (activeView === 'engagement') {
+    setTimePeriod('mtd');
   }
-}, [activeView]);
+}, [activeView, operationsSubTab]);
 
   // API URLs
   const DASHBOARD_API = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/dashboard_api';
@@ -62,17 +55,9 @@ useEffect(() => {
   const getTabsForUser = (user) => {
   const allTabs = [
     { id: "financial", label: "Financial", icon: DollarSign },
-    { id: "revenue-ttm", label: "Revenue TTM", icon: TrendingUp },
-    { id: "comfort_advisor", label: "Comfort Advisor", icon: UserCheck },
-    { id: "technician", label: "HVAC Tech", icon: Wrench },
-    { id: "hvac_maintenance", label: "HVAC Maint", icon: Wrench },
-    { id: "plumbing", label: "Plumbing", icon: Droplets },
-    { id: "electrical", label: "Electrical", icon: Zap },
-    { id: "call_center", label: "Call Center", icon: Phone },
-    { id: "memberships", label: "Memberships", icon: Users },
-    { id: "reviews", label: "Reviews", icon: MessageSquare },
-    { id: "top_performers", label: "Top Performers", icon: Trophy },
-    { id: "competition", label: "Competition", icon: Target },
+    { id: "technicians", label: "Technicians", icon: Wrench },
+    { id: "operations", label: "Operations", icon: Phone },
+    { id: "engagement", label: "Engagement", icon: MessageSquare },
   ];
 
   // Admin tab is now in the header, not in the main tabs
@@ -80,6 +65,80 @@ useEffect(() => {
 };
 
 const tabs = getTabsForUser(currentUser);
+
+// Sub-tab definitions for each main tab group
+const financialSubTabs = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'historical', label: 'Historical' },
+  { id: 'ttm', label: 'Revenue TTM' },
+];
+
+const technicianSubTabs = [
+  { id: 'comfort_advisor', label: 'Comfort Advisor' },
+  { id: 'hvac_tech', label: 'HVAC Tech' },
+  { id: 'hvac_maintenance', label: 'HVAC Maint' },
+  { id: 'commercial_hvac', label: 'Commercial HVAC' },
+  { id: 'plumbing', label: 'Plumbing' },
+  { id: 'electrical', label: 'Electrical' },
+];
+
+const operationsSubTabs = [
+  { id: 'call_center', label: 'Call Center' },
+  { id: 'memberships', label: 'Memberships' },
+];
+
+const engagementSubTabs = [
+  { id: 'reviews', label: 'Reviews' },
+  { id: 'top_performers', label: 'Top Performers' },
+  { id: 'competition', label: 'Competition' },
+];
+
+// Styled SubTabs component with color outlines
+const SubTabs = ({ tabs, activeTab, onTabChange, colorScheme = 'blue', rightContent }) => {
+  const colorClasses = {
+    blue: {
+      active: 'bg-blue-500/20 border-blue-500 text-blue-400',
+      inactive: 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-blue-400 hover:text-blue-300',
+    },
+    green: {
+      active: 'bg-green-500/20 border-green-500 text-green-400',
+      inactive: 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-green-400 hover:text-green-300',
+    },
+    purple: {
+      active: 'bg-purple-500/20 border-purple-500 text-purple-400',
+      inactive: 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-purple-400 hover:text-purple-300',
+    },
+    amber: {
+      active: 'bg-amber-500/20 border-amber-500 text-amber-400',
+      inactive: 'bg-gray-800/50 border-gray-600 text-gray-400 hover:border-amber-400 hover:text-amber-300',
+    },
+  };
+
+  const colors = colorClasses[colorScheme] || colorClasses.blue;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => onTabChange(tab.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all duration-200 ${
+              activeTab === tab.id ? colors.active : colors.inactive
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {rightContent && (
+        <div className="flex flex-wrap gap-1 md:gap-2">
+          {rightContent}
+        </div>
+      )}
+    </div>
+  );
+};
 
   const comfortAdvisorPeriods = [
     { id: 'mtd', label: 'MTD' },
@@ -94,12 +153,37 @@ const tabs = getTabsForUser(currentUser);
     { id: 'last_month', label: 'Last Month' }
   ];
 
-  const periods = activeView === 'call_center' ? callCenterPeriods : 
-                  activeView === 'technician' ? comfortAdvisorPeriods :
-                  activeView === 'plumbing' ? comfortAdvisorPeriods :
-                  activeView === 'electrical' ? comfortAdvisorPeriods :
-                  activeView === 'memberships' ? comfortAdvisorPeriods :
-                  comfortAdvisorPeriods;
+  // Period selector buttons component
+  const PeriodSelector = ({ periodOptions = comfortAdvisorPeriods }) => (
+    <>
+      {periodOptions.map((period) => (
+        <button
+          key={period.id}
+          onClick={() => setTimePeriod(period.id)}
+          className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm transition-colors ${
+            timePeriod === period.id
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          }`}
+        >
+          {period.label}
+        </button>
+      ))}
+    </>
+  );
+
+  // Determine periods based on active view and sub-tabs
+  const getPeriods = () => {
+    if (activeView === 'operations' && operationsSubTab === 'call_center') {
+      return callCenterPeriods;
+    }
+    // Legacy support for display mode
+    if (activeView === 'call_center') {
+      return callCenterPeriods;
+    }
+    return comfortAdvisorPeriods;
+  };
+  const periods = getPeriods();
 
   // Check authentication on component mount
 useEffect(() => {
@@ -128,10 +212,10 @@ useEffect(() => {
       // Valid pages for single-page display mode
       const validPages = [
         'financial', 'revenue-ttm', 'comfort_advisor', 'technician',
-        'hvac_maintenance', 'plumbing', 'electrical', 'call_center',
+        'hvac_maintenance', 'commercial_hvac', 'plumbing', 'electrical', 'call_center',
         'memberships', 'reviews', 'top_performers', 'competition',
         'top_comfort_advisor', 'top_hvac_tech', 'top_hvac_maintenance',
-        'top_plumbing', 'top_electrical', 'top_call_center'
+        'top_commercial_hvac', 'top_plumbing', 'top_electrical', 'top_call_center'
       ];
 
       if (singlePage && validPages.includes(singlePage)) {
@@ -234,6 +318,9 @@ const startDisplayAutoRotation = () => {
     'hvac_maintenance',            // HVAC Maintenance Metrics
     'top_hvac_maintenance',        // Top HVAC Maintenance
 
+    'commercial_hvac',             // Commercial HVAC Metrics
+    'top_commercial_hvac',         // Top Commercial HVAC
+
     'plumbing',                    // Plumbing Metrics
     'top_plumbing',                // Top Plumbers
 
@@ -274,12 +361,19 @@ const startDisplayAutoRotation = () => {
     }
     loadTargets();
     setLastUpdated(new Date().toLocaleTimeString());
-  }, [timePeriod, activeView]);
+  }, [timePeriod, activeView, financialSubTab, technicianSubTab, operationsSubTab, engagementSubTab]);
 
   const loadDashboardData = async () => {
   setLoading(true);
   try {
-    if (activeView === 'comfort_advisor') {
+    // Handle grouped views by checking sub-tabs
+    const effectiveView = activeView === 'technicians' ? technicianSubTab :
+                          activeView === 'operations' ? operationsSubTab :
+                          activeView === 'engagement' ? engagementSubTab :
+                          activeView === 'financial' && financialSubTab === 'ttm' ? 'revenue-ttm' :
+                          activeView;
+
+    if (effectiveView === 'comfort_advisor') {
       const url = `${DASHBOARD_API}/comfort-advisors/${timePeriod}`;
       console.log('🔍 Fetching comfort advisor data from:', url);
       const response = await fetch(url);
@@ -334,47 +428,69 @@ const startDisplayAutoRotation = () => {
       } else {
         console.error('❌ API returned error status:', data);
       }
-    } else if (activeView === 'call_center') {
+    } else if (effectiveView === 'call_center') {
       const response = await fetch(`${DASHBOARD_API}/call-center/${timePeriod}`);
       const data = await response.json();
       if (data.status === 'success') {
         setDashboardData(prev => ({ ...prev, call_center: data.data }));
       }
-    } else if (activeView === 'technician') {
+    } else if (effectiveView === 'hvac_tech' || effectiveView === 'technician') {
       // CHANGED: Use new hvac-tech endpoint
       const response = await fetch(`${DASHBOARD_API}/hvac-tech/${timePeriod}`);
       const data = await response.json();
       if (data.status === 'success') {
         setDashboardData(prev => ({ ...prev, technician: data.data }));
       }
-    } else if (activeView === 'hvac_maintenance') {
+    } else if (effectiveView === 'hvac_maintenance') {
       // CHANGED: Use new hvac-maintenance endpoint
       const response = await fetch(`${DASHBOARD_API}/hvac-maintenance/${timePeriod}`);
       const data = await response.json();
       if (data.status === 'success') {
         setDashboardData(prev => ({ ...prev, hvac_maintenance: data.data }));
       }
-    } else if (activeView === 'plumbing') {
+    } else if (effectiveView === 'commercial_hvac') {
+      // Commercial HVAC endpoint
+      const response = await fetch(`${DASHBOARD_API}/commercial-hvac/${timePeriod}`);
+      const data = await response.json();
+      if (data.status === 'success') {
+        setDashboardData(prev => ({ ...prev, commercial_hvac: data.data }));
+      }
+    } else if (effectiveView === 'plumbing') {
       // NEW: Use dedicated plumbing endpoint
       const response = await fetch(`${DASHBOARD_API}/plumbing/${timePeriod}`);
       const data = await response.json();
       if (data.status === 'success') {
         setDashboardData(prev => ({ ...prev, plumbing: data.data }));
       }
-    } else if (activeView === 'electrical') {
+    } else if (effectiveView === 'electrical') {
       // NEW: Use dedicated electrical endpoint
       const response = await fetch(`${DASHBOARD_API}/electrical/${timePeriod}`);
       const data = await response.json();
       if (data.status === 'success') {
         setDashboardData(prev => ({ ...prev, electrical: data.data }));
       }
-    } else if (activeView === 'financial') {
+    } else if (effectiveView === 'revenue-ttm') {
+      // Load TTM data with department breakdowns
+      const response = await fetch(`${DASHBOARD_API}/financial-ttm-departments`);
+      const data = await response.json();
+      if (data.status === 'success') {
+        setDashboardData(prev => ({
+          ...prev,
+          revenueTTM: data.data,
+          ttmSummary: {
+            totalRevenue: data.total_ttm_revenue,
+            averageMonthly: data.average_monthly,
+            period: data.period
+          }
+        }));
+      }
+    } else if (effectiveView === 'financial' || activeView === 'financial') {
       const response = await fetch(`${DASHBOARD_API}/financial/${timePeriod}`);
       const data = await response.json();
       if (data.status === 'success') {
         setDashboardData(prev => ({ ...prev, financial: data.data }));
       }
-    } else if (activeView === 'memberships') {
+    } else if (effectiveView === 'memberships') {
       // Load both membership data and summary
       const [membershipResponse, summaryResponse] = await Promise.all([
         fetch(`${DASHBOARD_API}/memberships/${timePeriod}`),
@@ -389,21 +505,6 @@ const startDisplayAutoRotation = () => {
       }
       if (summaryData.status === 'success') {
         setDashboardData(prev => ({ ...prev, membershipSummary: summaryData.data }));
-      }
-    } else if (activeView === 'revenue-ttm') {
-      // Load TTM data with department breakdowns
-      const response = await fetch(`${DASHBOARD_API}/financial-ttm-departments`);
-      const data = await response.json();
-      if (data.status === 'success') {
-        setDashboardData(prev => ({
-          ...prev,
-          revenueTTM: data.data,
-          ttmSummary: {
-            totalRevenue: data.total_ttm_revenue,
-            averageMonthly: data.average_monthly,
-            period: data.period
-          }
-        }));
       }
     }
   } catch (error) {
@@ -1518,7 +1619,7 @@ const TechnicianView = ({
 
   // Financial View
 const FinancialView = () => {
-  const [financialSubTab, setFinancialSubTab] = useState('overview');
+  // Uses parent-level financialSubTab state
 
   // Fixed department order
   const departmentOrder = [
@@ -1960,31 +2061,22 @@ const EnhancedTotalRevenueCard = () => {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Financial Sub-Tabs */}
-      <div className="flex space-x-2 border-b border-gray-700 pb-2">
-        <button
-          onClick={() => setFinancialSubTab('overview')}
-          className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-all ${
-            financialSubTab === 'overview'
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-          }`}
-        >
-          Overview
-        </button>
-        <button
-          onClick={() => setFinancialSubTab('historical')}
-          className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-all ${
-            financialSubTab === 'historical'
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-          }`}
-        >
-          Historical Revenue
-        </button>
-      </div>
+      <SubTabs
+        tabs={financialSubTabs}
+        activeTab={financialSubTab}
+        onTabChange={setFinancialSubTab}
+        colorScheme="blue"
+        rightContent={financialSubTab !== 'ttm' && <PeriodSelector />}
+      />
 
       {financialSubTab === 'historical' ? (
         <HistoricalRevenueDashboard />
+      ) : financialSubTab === 'ttm' ? (
+        <RevenueTTMDashboard
+          ttmData={dashboardData.revenueTTM || []}
+          summary={dashboardData.ttmSummary || {}}
+          loading={loading}
+        />
       ) : (
         <>
       {/* Enhanced Summary Cards with Color-Coded Total Revenue */}
@@ -2391,6 +2483,127 @@ const EnhancedTotalRevenueCard = () => {
     );
   };
 
+  // Technicians Grouped View
+  const TechniciansView = () => {
+    const renderTechnicianContent = () => {
+      switch (technicianSubTab) {
+        case 'comfort_advisor':
+          return <ComfortAdvisorView />;
+        case 'hvac_tech':
+          return (
+            <TechnicianView
+              viewTitle="HVAC Technician"
+              targetCategory="technician"
+              dataKey="technician"
+            />
+          );
+        case 'hvac_maintenance':
+          return (
+            <TechnicianView
+              viewTitle="HVAC Maintenance Technician"
+              targetCategory="hvac_maintenance"
+              dataKey="hvac_maintenance"
+            />
+          );
+        case 'commercial_hvac':
+          return (
+            <TechnicianView
+              viewTitle="Commercial HVAC Technician"
+              targetCategory="commercial_hvac"
+              dataKey="commercial_hvac"
+            />
+          );
+        case 'plumbing':
+          return (
+            <TechnicianView
+              viewTitle="Plumbing Technician"
+              targetCategory="plumbing"
+              dataKey="plumbing"
+            />
+          );
+        case 'electrical':
+          return (
+            <TechnicianView
+              viewTitle="Electrical Technician"
+              targetCategory="electrical"
+              dataKey="electrical"
+            />
+          );
+        default:
+          return <ComfortAdvisorView />;
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <SubTabs
+          tabs={technicianSubTabs}
+          activeTab={technicianSubTab}
+          onTabChange={setTechnicianSubTab}
+          colorScheme="green"
+          rightContent={<PeriodSelector />}
+        />
+        {renderTechnicianContent()}
+      </div>
+    );
+  };
+
+  // Operations Grouped View
+  const OperationsView = () => {
+    const renderOperationsContent = () => {
+      switch (operationsSubTab) {
+        case 'call_center':
+          return <CallCenterView />;
+        case 'memberships':
+          return <MembershipsView />;
+        default:
+          return <CallCenterView />;
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <SubTabs
+          tabs={operationsSubTabs}
+          activeTab={operationsSubTab}
+          onTabChange={setOperationsSubTab}
+          colorScheme="purple"
+          rightContent={<PeriodSelector periodOptions={operationsSubTab === 'call_center' ? callCenterPeriods : comfortAdvisorPeriods} />}
+        />
+        {renderOperationsContent()}
+      </div>
+    );
+  };
+
+  // Engagement Grouped View
+  const EngagementView = () => {
+    const renderEngagementContent = () => {
+      switch (engagementSubTab) {
+        case 'reviews':
+          return <GoogleReviews />;
+        case 'top_performers':
+          return <TopPerformersDashboard />;
+        case 'competition':
+          return <CompetitionLeaderboard />;
+        default:
+          return <GoogleReviews />;
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <SubTabs
+          tabs={engagementSubTabs}
+          activeTab={engagementSubTab}
+          onTabChange={setEngagementSubTab}
+          colorScheme="amber"
+          rightContent={engagementSubTab === 'top_performers' && <PeriodSelector />}
+        />
+        {renderEngagementContent()}
+      </div>
+    );
+  };
+
   // Admin Dashboard View
   const AdminView = () => {
     return <AdminDashboard />;
@@ -2398,35 +2611,48 @@ const EnhancedTotalRevenueCard = () => {
 
   const renderView = () => {
   switch (activeView) {
+    case "financial":
+      return <FinancialView />;
+    case "technicians":
+      return <TechniciansView />;
+    case "operations":
+      return <OperationsView />;
+    case "engagement":
+      return <EngagementView />;
+    // Display mode still needs direct access to individual views
     case "comfort_advisor":
       return <ComfortAdvisorView />;
     case "call_center":
       return <CallCenterView />;
-    case "financial":
-      return <FinancialView />;
     case "technician":
-      return <TechnicianView 
-        viewTitle="HVAC Technician" 
+      return <TechnicianView
+        viewTitle="HVAC Technician"
         targetCategory="technician"
-        dataKey="technician"  // Uses hvac-tech endpoint data
+        dataKey="technician"
       />;
     case "hvac_maintenance":
-      return <TechnicianView 
-        viewTitle="HVAC Maintenance Technician" 
+      return <TechnicianView
+        viewTitle="HVAC Maintenance Technician"
         targetCategory="hvac_maintenance"
-        dataKey="hvac_maintenance"  // Uses hvac-maintenance endpoint data (separate!)
-      />;  
+        dataKey="hvac_maintenance"
+      />;
+    case "commercial_hvac":
+      return <TechnicianView
+        viewTitle="Commercial HVAC Technician"
+        targetCategory="commercial_hvac"
+        dataKey="commercial_hvac"
+      />;
     case "plumbing":
       return <TechnicianView
         viewTitle="Plumbing Technician"
         targetCategory="plumbing"
-        dataKey="plumbing"  // NEW: Uses dedicated plumbing endpoint
+        dataKey="plumbing"
       />;
     case "electrical":
       return <TechnicianView
         viewTitle="Electrical Technician"
         targetCategory="electrical"
-        dataKey="electrical"  // NEW: Uses dedicated electrical endpoint
+        dataKey="electrical"
       />;
     case "memberships":
       return <MembershipsView />;
@@ -2442,6 +2668,8 @@ const EnhancedTotalRevenueCard = () => {
       return <TopPerformersDashboard initialTab="hvac_tech" />;
     case "top_hvac_maintenance":
       return <TopPerformersDashboard initialTab="hvac_maintenance" />;
+    case "top_commercial_hvac":
+      return <TopPerformersDashboard initialTab="commercial_hvac" />;
     case "top_plumbing":
       return <TopPerformersDashboard initialTab="plumbing" />;
     case "top_electrical":
@@ -2459,7 +2687,7 @@ const EnhancedTotalRevenueCard = () => {
     case "admin":
       return <AdminView />;
     default:
-      return <ComfortAdvisorView />;
+      return <FinancialView />;
   }
 };
   if (authLoading) {
@@ -2560,25 +2788,6 @@ if (!isAuthenticated) {
     ))}
   </div>
 )}
-
-        {/* Time Period Selector (only for data views) */}
-        {!['admin', 'competition', 'reviews'].includes(activeView) && currentUser?.role !== 'display' && (
-          <div className="flex flex-wrap space-x-1 md:space-x-2 mb-4 md:mb-6">
-            {periods.map((period) => (
-              <button
-                key={period.id}
-                onClick={() => setTimePeriod(period.id)}
-                className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm transition-colors ${
-                  timePeriod === period.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-            >
-                {period.label}
-              </button>
-          ))}
-        </div>
-        )}
 
         {/* Main Content */}
         {loading && activeView !== 'admin' ? (

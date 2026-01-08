@@ -581,6 +581,69 @@ class Database:
                 conn.commit()
                 logger.info(f"Inserted {len(data)} HVAC maintenance records for {period_type}")
 
+    def insert_commercial_hvac_data(self, data, period_type):
+        """Insert Commercial HVAC data into commercial_hvac_performance table"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Clear existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM commercial_hvac_performance
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing Commercial HVAC '{period_type}' records")
+
+                query = """
+                INSERT INTO commercial_hvac_performance (
+                    report_date, period_type, employee_name, business_unit, trade,
+                    completed_jobs, total_sales_cents, total_job_average_cents,
+                    close_rate_percent, opportunities, memberships_sold, leads_set,
+                    tech_recall_percent, updated_at
+                ) VALUES (
+                    CURRENT_DATE, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s
+                )
+                ON CONFLICT (employee_name, report_date, period_type)
+                DO UPDATE SET
+                    business_unit = EXCLUDED.business_unit,
+                    trade = EXCLUDED.trade,
+                    completed_jobs = EXCLUDED.completed_jobs,
+                    total_sales_cents = EXCLUDED.total_sales_cents,
+                    total_job_average_cents = EXCLUDED.total_job_average_cents,
+                    close_rate_percent = EXCLUDED.close_rate_percent,
+                    opportunities = EXCLUDED.opportunities,
+                    memberships_sold = EXCLUDED.memberships_sold,
+                    leads_set = EXCLUDED.leads_set,
+                    tech_recall_percent = EXCLUDED.tech_recall_percent,
+                    updated_at = EXCLUDED.updated_at
+                """
+
+                for record in data:
+                    try:
+                        cursor.execute(query, (
+                            record["period_type"],
+                            record["employee_name"],
+                            record["business_unit"],
+                            record["trade"],
+                            record["completed_jobs"],
+                            record["total_sales_cents"],
+                            record["total_job_average_cents"],
+                            record["close_rate_percent"],
+                            record["opportunities"],
+                            record["memberships_sold"],
+                            record.get("leads_set", 0),
+                            record["tech_recall_percent"],
+                            record["updated_at"]
+                        ))
+                    except Exception as e:
+                        logger.error(f"Error inserting Commercial HVAC record for {record.get('employee_name', 'Unknown')}: {e}")
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} Commercial HVAC records for {period_type}")
+
     def insert_plumbing_data(self, data, period_type):
         """Insert Plumbing data into plumbing_tech_performance table"""
         with self.get_connection() as conn:
@@ -1527,6 +1590,132 @@ def fetch_hvac_maintenance_data(period_type):
             
         except Exception as e:
             logger.error(f"Error in fetch_hvac_maintenance_data: {str(e)}")
+            if attempt < max_retries - 1:
+                continue
+            raise
+
+def fetch_commercial_hvac_data(period_type):
+    """Fetch Commercial HVAC technician data from ServiceTitan"""
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/398188829/data"
+    today = datetime.now()
+
+    if period_type == "today":
+        from_date = today.strftime("%Y-%m-%d")
+        to_date = from_date
+    elif period_type == "week":
+        from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "mtd":
+        from_date = today.replace(day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "ytd":
+        from_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "last_month":
+        last_month = today.replace(day=1) - timedelta(days=1)
+        from_date = last_month.replace(day=1).strftime("%Y-%m-%d")
+        to_date = last_month.strftime("%Y-%m-%d")
+    else:
+        raise ValueError("Invalid period_type")
+
+    payload = {
+        "parameters": [
+            {"name": "From", "value": from_date},
+            {"name": "To", "value": to_date}
+        ]
+    }
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 429:
+                logger.info(f"Rate limited. Retrying in 120 seconds... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(120)
+                continue
+            response.raise_for_status()
+
+            raw_data = response.json()
+            logger.info(f"Commercial HVAC API raw response (first 1000 chars): {json.dumps(raw_data, indent=2)[:1000]}...")
+
+            # Handle the response format
+            records = []
+            if isinstance(raw_data, dict) and "data" in raw_data:
+                records = raw_data["data"]
+            elif isinstance(raw_data, list):
+                records = raw_data
+
+            processed_data = []
+            for i, record in enumerate(records):
+                try:
+                    if isinstance(record, dict):
+                        # Dictionary format
+                        processed_record = {
+                            "employee_name": safe_get(record, "Name") or safe_get(record, "Technician", ""),
+                            "period_type": period_type,
+                            "business_unit": safe_get(record, "TechnicianBusinessUnit", ""),
+                            "trade": "Commercial HVAC",
+                            "completed_jobs": safe_int(safe_get(record, "CompletedJobs")),
+                            "total_sales_cents": safe_int(safe_float(safe_get(record, "TotalSales")) * 100),
+                            "total_job_average_cents": safe_int(safe_float(safe_get(record, "TotalJobAverage")) * 100),
+                            "close_rate_percent": safe_float(safe_get(record, "CloseRate", "0").replace('%', '') if safe_get(record, "CloseRate") else 0) * 100,
+                            "opportunities": safe_int(safe_get(record, "Opportunity")),
+                            "memberships_sold": safe_int(safe_get(record, "MembershipsSold")),
+                            "leads_set": safe_float(safe_get(record, "LeadsSet", 0)),
+                            "tech_recall_percent": safe_float(safe_get(record, "TechRecall%", "0").replace('%', '') if safe_get(record, "TechRecall%") else 0) * 100,
+                            "updated_at": datetime.now()
+                        }
+                        processed_data.append(processed_record)
+                    elif isinstance(record, list) and len(record) >= 25:
+                        # Array format - EXACT same layout as HVAC tech report
+                        # [0] = Name, [1] = Business Unit, [2] = Completed Jobs
+                        # [6] = Trade, [7] = Recall Rate (multiply by 100)
+                        # [15] = Opportunities, [17] = Closed Opportunities (divisor)
+                        # [23] = Total Job Average, [24] = Total Sales
+                        # [25] = Close Rate (multiply by 100), [26] = Memberships Sold
+                        # [27] = Leads Set (flips)
+
+                        if i == 0:
+                            logger.info(f"🔍 Commercial HVAC DEBUG - First record: {record[0]}")
+                            logger.info(f"📊 Array length: {len(record)}")
+
+                        completed_jobs = safe_int(record[2] if len(record) > 2 else 0)
+                        total_sales = safe_float(record[24] if len(record) > 24 else 0)  # Total Sales
+                        opportunities = safe_int(record[14] if len(record) > 14 else 0)  # Opportunity
+                        close_rate = safe_float(record[25] if len(record) > 25 else 0) * 100  # Close Rate
+                        recall_rate = safe_float(record[7] if len(record) > 7 else 0) * 100  # Tech Recall %
+                        total_job_avg = safe_float(record[23] if len(record) > 23 else 0)  # Total Job Average
+                        memberships_sold = safe_int(record[26] if len(record) > 26 else 0)  # Memberships Sold
+                        leads_set = safe_float(record[27] if len(record) > 27 else 0)  # Leads Set
+
+                        processed_record = {
+                            "employee_name": str(record[0]) if len(record) > 0 and record[0] else "",
+                            "period_type": period_type,
+                            "business_unit": str(record[1]) if len(record) > 1 and record[1] else "",
+                            "trade": "Commercial HVAC",
+                            "completed_jobs": completed_jobs,
+                            "total_sales_cents": safe_int(total_sales * 100),
+                            "total_job_average_cents": safe_int(total_job_avg * 100),
+                            "close_rate_percent": close_rate,
+                            "opportunities": opportunities,
+                            "memberships_sold": memberships_sold,
+                            "leads_set": leads_set,
+                            "tech_recall_percent": recall_rate,
+                            "updated_at": datetime.now()
+                        }
+                        processed_data.append(processed_record)
+                    else:
+                        logger.warning(f"Skipping Commercial HVAC record {i}: unexpected format or length {len(record) if isinstance(record, list) else type(record)}")
+                except Exception as e:
+                    logger.error(f"Error processing Commercial HVAC record {i}: {e}")
+
+            logger.info(f"Successfully fetched {len(processed_data)} Commercial HVAC records for {period_type}")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_commercial_hvac_data: {str(e)}")
             if attempt < max_retries - 1:
                 continue
             raise
@@ -3319,6 +3508,17 @@ def sync_servicetitan_data(request):
                         logger.info("No Electrical data returned")
                 except Exception as e:
                     logger.error(f"Failed to sync Electrical data: {str(e)}")
+
+                # Commercial HVAC
+                try:
+                    commercial_hvac_data = fetch_commercial_hvac_data(period)
+                    if commercial_hvac_data:
+                        db.insert_commercial_hvac_data(commercial_hvac_data, period)
+                        logger.info(f"Inserted {len(commercial_hvac_data)} Commercial HVAC records")
+                    else:
+                        logger.info("No Commercial HVAC data returned")
+                except Exception as e:
+                    logger.error(f"Failed to sync Commercial HVAC data: {str(e)}")
 
                 # Items Sold (Competition Data)
                 try:
