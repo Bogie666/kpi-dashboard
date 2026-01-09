@@ -88,6 +88,7 @@ import {
   Wrench,
   Droplets,
   Zap,
+  Building2,
   Activity,
   Clock,
   Camera,
@@ -219,13 +220,47 @@ const AdminDashboard = () => {
         description: 'Percentage of jobs requiring return visits (lower is better)',
         dataField: 'tech_recall_percent'
       },
-      { 
-        key: 'memberships_sold', 
-        label: 'Memberships Sold', 
+      {
+        key: 'memberships_sold',
+        label: 'Memberships Sold',
         unit: 'number',
         description: 'Number of memberships sold per month',
         dataField: 'memberships_sold'
       }
+      ]
+    },
+    commercial_hvac: {
+      label: 'Commercial HVAC Technicians',
+      icon: Building2,
+      targets: [
+        {
+          key: 'avg_ticket',
+          label: 'Average Ticket',
+          unit: 'dollars',
+          description: 'Average dollar amount per commercial service call',
+          dataField: 'total_job_average_cents'
+        },
+        {
+          key: 'close_rate',
+          label: 'Close Rate',
+          unit: 'percent',
+          description: 'Percentage of commercial calls that result in sales',
+          dataField: 'close_rate_percent'
+        },
+        {
+          key: 'recall_rate',
+          label: 'Recall Rate',
+          unit: 'percent',
+          description: 'Percentage of jobs requiring return visits (lower is better)',
+          dataField: 'tech_recall_percent'
+        },
+        {
+          key: 'memberships_sold',
+          label: 'Memberships Sold',
+          unit: 'number',
+          description: 'Number of memberships sold per month',
+          dataField: 'memberships_sold'
+        }
       ]
     },
     plumbing: {
@@ -920,6 +955,7 @@ const AdminDashboard = () => {
                 className="w-full bg-gray-600 text-white rounded px-3 py-2 text-sm md:text-base"
                 required
               >
+                <option value="">Select Category</option>
                 {Object.entries(TARGET_DEFINITIONS).map(([key, def]) => (
                   <option key={key} value={key}>{def.label}</option>
                 ))}
@@ -1420,6 +1456,20 @@ const AdminDashboard = () => {
               </CollapsibleSection>
             )}
 
+            {/* Commercial HVAC Technician Targets */}
+            {targets.commercial_hvac && Array.isArray(targets.commercial_hvac) && (
+              <CollapsibleSection
+                sectionKey="commercial_hvac"
+                title="Commercial HVAC Technicians"
+                icon={TARGET_DEFINITIONS.commercial_hvac.icon}
+                targetCount={targets.commercial_hvac.length}
+              >
+                {targets.commercial_hvac.map((target) => (
+                  <TargetCard key={target.id} target={target} />
+                ))}
+              </CollapsibleSection>
+            )}
+
             {/* Plumbing Technician Targets */}
             {targets.plumbing && Array.isArray(targets.plumbing) && (
               <CollapsibleSection
@@ -1733,6 +1783,8 @@ const AdminDashboard = () => {
             {(!targets.comfort_advisor || targets.comfort_advisor.length === 0) &&
              (!targets.call_center || targets.call_center.length === 0) &&
              (!targets.technician || targets.technician.length === 0) &&
+             (!targets.hvac_maintenance || targets.hvac_maintenance.length === 0) &&
+             (!targets.commercial_hvac || targets.commercial_hvac.length === 0) &&
              (!targets.plumbing || targets.plumbing.length === 0) &&
              (!targets.electrical || targets.electrical.length === 0) &&
              (!targets.financial?.monthly || Object.keys(targets.financial.monthly).length === 0) && (

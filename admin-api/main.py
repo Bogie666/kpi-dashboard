@@ -270,6 +270,7 @@ class AdminDatabaseManager:
                     'comfort_advisor': [],
                     'technician': [],
                     'hvac_maintenance': [],
+                    'commercial_hvac': [],
                     'plumbing': [],
                     'electrical': [],
                     'call_center': [],
@@ -403,7 +404,7 @@ class AdminDatabaseManager:
                     AND total_job_average_cents > 0
                 ), 0),
                 updated_at = CURRENT_TIMESTAMP
-                WHERE target_category IN ('technician', 'hvac_maintenance', 'plumbing', 'electrical') 
+                WHERE target_category IN ('technician', 'hvac_maintenance', 'commercial_hvac', 'plumbing', 'electrical')
                 AND target_name LIKE '%avg_ticket%'
                 """)
                 
@@ -417,7 +418,7 @@ class AdminDatabaseManager:
                     AND close_rate_percent >= 0
                 ), 0),
                 updated_at = CURRENT_TIMESTAMP
-                WHERE target_category IN ('technician', 'hvac_maintenance', 'plumbing', 'electrical')
+                WHERE target_category IN ('technician', 'hvac_maintenance', 'commercial_hvac', 'plumbing', 'electrical')
                 AND target_name LIKE '%close_rate%'
                 """)
                 
@@ -431,7 +432,7 @@ class AdminDatabaseManager:
                     AND tech_recall_percent >= 0
                 ), 0),
                 updated_at = CURRENT_TIMESTAMP
-                WHERE target_category IN ('technician', 'hvac_maintenance', 'plumbing', 'electrical')
+                WHERE target_category IN ('technician', 'hvac_maintenance', 'commercial_hvac', 'plumbing', 'electrical')
                 AND target_name LIKE '%recall_rate%'
                 """)
                 
@@ -445,7 +446,7 @@ class AdminDatabaseManager:
                     AND memberships_sold >= 0
                 ), 0),
                 updated_at = CURRENT_TIMESTAMP
-                WHERE target_category IN ('technician', 'hvac_maintenance', 'plumbing', 'electrical')
+                WHERE target_category IN ('technician', 'hvac_maintenance', 'commercial_hvac', 'plumbing', 'electrical')
                 AND target_name LIKE '%memberships_sold%'
                 """)
                 # HVAC Maintenance Targets - Average Ticket
@@ -509,6 +510,64 @@ class AdminDatabaseManager:
                 """)
 
                 logger.info(f"Updated hvac_maintenance targets")
+
+                # Commercial HVAC Targets - Average Ticket
+                cursor.execute("""
+                UPDATE performance_targets
+                SET current_value = COALESCE((
+                    SELECT ROUND(AVG(total_job_average_cents::DECIMAL / 100), 2)
+                    FROM commercial_hvac_performance
+                    WHERE period_type = 'mtd'
+                    AND total_job_average_cents > 0
+                ), 0),
+                updated_at = CURRENT_TIMESTAMP
+                WHERE target_category = 'commercial_hvac'
+                AND target_name LIKE '%avg_ticket%'
+                """)
+
+                # Commercial HVAC Targets - Close Rate
+                cursor.execute("""
+                UPDATE performance_targets
+                SET current_value = COALESCE((
+                    SELECT ROUND(AVG(close_rate_percent), 1)
+                    FROM commercial_hvac_performance
+                    WHERE period_type = 'mtd'
+                    AND close_rate_percent >= 0
+                ), 0),
+                updated_at = CURRENT_TIMESTAMP
+                WHERE target_category = 'commercial_hvac'
+                AND target_name LIKE '%close_rate%'
+                """)
+
+                # Commercial HVAC Targets - Recall Rate
+                cursor.execute("""
+                UPDATE performance_targets
+                SET current_value = COALESCE((
+                    SELECT ROUND(AVG(tech_recall_percent), 2)
+                    FROM commercial_hvac_performance
+                    WHERE period_type = 'mtd'
+                    AND tech_recall_percent >= 0
+                ), 0),
+                updated_at = CURRENT_TIMESTAMP
+                WHERE target_category = 'commercial_hvac'
+                AND target_name LIKE '%recall_rate%'
+                """)
+
+                # Commercial HVAC Targets - Memberships Sold
+                cursor.execute("""
+                UPDATE performance_targets
+                SET current_value = COALESCE((
+                    SELECT ROUND(AVG(memberships_sold), 1)
+                    FROM commercial_hvac_performance
+                    WHERE period_type = 'mtd'
+                    AND memberships_sold >= 0
+                ), 0),
+                updated_at = CURRENT_TIMESTAMP
+                WHERE target_category = 'commercial_hvac'
+                AND target_name LIKE '%memberships_sold%'
+                """)
+
+                logger.info(f"Updated commercial_hvac targets")
                 logger.info(f"Updated technician targets from {technician_count} records")
             else:
                 logger.info("No MTD technician data found, keeping default values")
