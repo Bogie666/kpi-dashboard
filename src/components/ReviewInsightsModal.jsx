@@ -13,7 +13,8 @@ import {
   Download,
   Sparkles,
   Target,
-  AlertCircle
+  AlertCircle,
+  User
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 
@@ -264,6 +265,40 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
       });
       yPos += 5;
 
+      // Technician Shoutouts Section
+      if (insights.technicianMentions && insights.technicianMentions.length > 0) {
+        checkPageBreak(40);
+        doc.setFillColor(243, 232, 255); // Light purple
+        doc.rect(margin, yPos, contentWidth, 8, 'F');
+        doc.setTextColor(147, 51, 234); // Purple
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text('👤 Technician Shoutouts', margin + 3, yPos + 5);
+        yPos += 12;
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        insights.technicianMentions
+          .sort((a, b) => b.mentions - a.mentions)
+          .slice(0, 8)
+          .forEach((tech) => {
+            checkPageBreak(15);
+            const sentimentIcon = tech.sentiment === 'positive' ? '✓' : tech.sentiment === 'negative' ? '✗' : '•';
+            doc.setFont(undefined, 'bold');
+            doc.text(`${sentimentIcon} ${tech.name} (${tech.mentions}x)`, margin + 3, yPos);
+            yPos += 4;
+            if (tech.samplePraise) {
+              doc.setFont(undefined, 'italic');
+              doc.setTextColor(75, 85, 99);
+              yPos = addText(`"${tech.samplePraise.substring(0, 80)}..."`, margin + 8, yPos, contentWidth - 12, 8);
+              doc.setTextColor(0, 0, 0);
+            }
+            yPos += 3;
+          });
+        yPos += 5;
+      }
+
       // AI Recommendations Section
       checkPageBreak(40);
       doc.setFillColor(219, 234, 254); // Light blue
@@ -444,6 +479,46 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
                     <span className={`text-xl font-bold ${getSentimentColor(insights.sentimentScore)}`}>
                       {getSentimentLabel(insights.sentimentScore)}
                     </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Technician Shoutouts */}
+              {insights.technicianMentions && insights.technicianMentions.length > 0 && (
+                <div className="bg-purple-900/20 border border-purple-700/30 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-purple-400 mb-4 flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    Technician Shoutouts
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {insights.technicianMentions
+                      .sort((a, b) => b.mentions - a.mentions)
+                      .map((tech, index) => (
+                      <div
+                        key={index}
+                        className={`p-4 rounded-lg border ${
+                          tech.sentiment === 'positive' ? 'bg-green-900/20 border-green-700/30' :
+                          tech.sentiment === 'negative' ? 'bg-red-900/20 border-red-700/30' :
+                          'bg-gray-900/50 border-gray-700/30'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium text-white">{tech.name}</h4>
+                          <span className={`px-2 py-1 text-xs rounded font-semibold ${
+                            tech.sentiment === 'positive' ? 'bg-green-600 text-white' :
+                            tech.sentiment === 'negative' ? 'bg-red-600 text-white' :
+                            'bg-gray-600 text-white'
+                          }`}>
+                            {tech.mentions}x
+                          </span>
+                        </div>
+                        {tech.samplePraise && (
+                          <p className="text-xs text-gray-400 italic">
+                            "{tech.samplePraise.substring(0, 100)}{tech.samplePraise.length > 100 ? '...' : ''}"
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

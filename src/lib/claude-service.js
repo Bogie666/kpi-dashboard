@@ -136,6 +136,14 @@ Analyze these reviews and provide insights in the following JSON format (return 
       "examples": ["short example quote from review"]
     }
   ],
+  "technicianMentions": [
+    {
+      "name": "Technician Name",
+      "mentions": <number of times mentioned>,
+      "sentiment": "positive" or "negative" or "mixed",
+      "samplePraise": "brief quote about this technician"
+    }
+  ],
   "recommendations": ["actionable recommendation 1", "actionable recommendation 2", "actionable recommendation 3", "actionable recommendation 4", "actionable recommendation 5"],
   "sentimentScore": <number between 0-100 representing overall customer satisfaction>
 }
@@ -144,6 +152,7 @@ Requirements:
 - Extract 5-7 specific things customers praised
 - Extract 3-5 specific issues mentioned
 - Identify 4-6 key themes with real quotes
+- Extract ALL technician/employee names mentioned by customers, with count of mentions and overall sentiment
 - Provide 5-7 actionable business recommendations
 - Calculate an overall sentiment score (0-100)
 - Be specific, reference actual review content
