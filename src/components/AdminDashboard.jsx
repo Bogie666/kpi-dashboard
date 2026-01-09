@@ -670,10 +670,14 @@ const AdminDashboard = () => {
 
   const deleteUser = async (userId) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
-    
+
     try {
+      const token = localStorage.getItem('dashboardToken');
       const response = await fetch(`${API_BASE}/users/${userId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       const data = await response.json();
       if (data.status === 'success') {
