@@ -12,6 +12,7 @@ import TopPerformersDashboard from './TopPerformersDashboard';
 import RevenueTTMDashboard from './RevenueTTMDashboard';
 import HistoricalRevenueDashboard from './HistoricalRevenueDashboard';
 import GoogleReviews from './GoogleReviews';
+import ToolsPage from './ToolsPage';
 
 const KpiDashboard = () => {
   const [activeView, setActiveView] = useState('financial');
@@ -58,6 +59,7 @@ useEffect(() => {
     { id: "technicians", label: "Technicians", icon: Wrench },
     { id: "operations", label: "Operations", icon: Phone },
     { id: "engagement", label: "Engagement", icon: MessageSquare },
+    { id: "tools", label: "Tools", icon: Settings },
   ];
 
   // Admin tab is now in the header, not in the main tabs
@@ -356,7 +358,7 @@ const startDisplayAutoRotation = () => {
 
   // Load dashboard data and targets
   useEffect(() => {
-    if (activeView !== 'admin') {
+    if (activeView !== 'admin' && activeView !== 'tools') {
       loadDashboardData();
     }
     loadTargets();
@@ -2686,6 +2688,8 @@ const EnhancedTotalRevenueCard = () => {
       );
     case "admin":
       return <AdminView />;
+    case "tools":
+      return <ToolsPage />;
     default:
       return <FinancialView />;
   }
@@ -2790,7 +2794,7 @@ if (!isAuthenticated) {
 )}
 
         {/* Main Content */}
-        {loading && activeView !== 'admin' ? (
+        {loading && activeView !== 'admin' && activeView !== 'tools' ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-base md:text-lg text-gray-400">Loading...</div>
           </div>
