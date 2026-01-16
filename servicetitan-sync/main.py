@@ -3067,7 +3067,7 @@ def fetch_unsold_estimates_data(period_type, start_date=None, end_date=None):
     """
     headers = get_auth_headers()
     tenant_id = "1498628772"
-    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/sales/reports/346111296/data"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/operations/reports/346111296/data"
 
     business_units = "124928941,124928174,124928938,455,161649734,8087,7698,6540,124468396,124467371,124692394,7831,6534,8085,154681094,154681497,154684495,154691820"
 
