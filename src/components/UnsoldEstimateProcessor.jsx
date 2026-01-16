@@ -89,16 +89,14 @@ const UnsoldEstimateProcessor = () => {
           };
         }
 
-        // Parse the Estimates Subtotal (stored as cents)
-        const subtotalCents = row.estimates_subtotal_cents || 0;
-        const subtotal = subtotalCents / 100;
+        // Parse the Estimates Subtotal (already in dollars from ServiceTitan)
+        const subtotal = row.estimates_subtotal_cents || 0;
         if (!isNaN(subtotal)) {
           grouped[opportunityNumber].estimateSubtotals.push(subtotal);
         }
 
-        // Parse the Discount Total (stored as cents)
-        const discountCents = row.estimates_discount_total_cents || 0;
-        const discount = discountCents / 100;
+        // Parse the Discount Total (already in dollars from ServiceTitan)
+        const discount = row.estimates_discount_total_cents || 0;
         if (!isNaN(discount)) {
           grouped[opportunityNumber].discountTotals.push(discount);
         }

@@ -773,7 +773,7 @@ class DatabaseManager:
                 if row:
                     return {
                         'totalOpportunities': row[0] or 0,
-                        'potentialRevenue': (row[1] or 0) / 100,  # Convert cents to dollars
+                        'potentialRevenue': row[1] or 0,  # Already in dollars from ServiceTitan
                         'totalEstimates': row[2] or 0,
                         'updatedAt': row[3].isoformat() if row[3] else None
                     }
