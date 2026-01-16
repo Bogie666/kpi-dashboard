@@ -2232,9 +2232,6 @@ const EnhancedTotalRevenueCard = () => {
             <p className="text-2xl font-bold text-purple-400">{totalOpportunities}</p>
             <span className="text-gray-400 text-sm">opps</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            {totalOpportunities > 0 ? `${Math.round((totalJobs / totalOpportunities) * 100)}% conversion` : 'No opportunities'}
-          </p>
         </div>
 
         <MetricCard

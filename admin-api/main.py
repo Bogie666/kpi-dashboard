@@ -201,6 +201,9 @@ def fetch_unsold_estimates_from_servicetitan(start_date, end_date):
                 continue
             raise
 
+    # If we get here without returning, return empty list
+    return []
+
 class AdminDatabaseManager:
     def __init__(self):
         pass
@@ -2410,6 +2413,9 @@ def admin_api(request):
 
                 try:
                     data = fetch_unsold_estimates_from_servicetitan(start_date, end_date)
+                    # Ensure data is a list
+                    if data is None:
+                        data = []
                     response = {
                         'status': 'success',
                         'data': data,
