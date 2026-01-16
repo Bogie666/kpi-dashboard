@@ -1201,9 +1201,17 @@ def safe_int(value, default=0):
         return default
 
 def safe_float(value, default=0.0):
-    """Safely convert to float"""
+    """Safely convert to float, handling comma-formatted numbers and currency symbols"""
     try:
-        return float(value) if value is not None else default
+        if value is None:
+            return default
+        # Convert to string and clean up formatting
+        str_value = str(value).strip()
+        # Remove currency symbols and commas
+        str_value = str_value.replace('$', '').replace(',', '').strip()
+        if not str_value:
+            return default
+        return float(str_value)
     except (ValueError, TypeError):
         return default
 
@@ -3092,133 +3100,138 @@ def fetch_unsold_estimates_data(period_type, start_date=None, end_date=None):
 
     payload = {
         "parameters": [
-            {"name": "DateType", "value": "0"},
+            {"name": "DateType", "value": "3"},  # 3 = Creation Date
             {"name": "BusinessUnitId", "value": business_units},
             {"name": "From", "value": from_date},
             {"name": "To", "value": to_date},
             {"name": "AggregatesOnly", "value": "false"},
             {"name": "TimeZone", "value": "America/Chicago"}
-        ]
+        ],
+        "pageSize": 5000
     }
 
     logger.info(f"Fetching unsold estimates for {period_type}: {from_date} to {to_date}")
 
-    max_retries = 2
-    for attempt in range(max_retries):
+    # Single request with timeout
+    logger.info(f"Making request to ServiceTitan API...")
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=120)
+        response.raise_for_status()
+    except requests.exceptions.Timeout:
+        logger.error("ServiceTitan API request timed out after 120 seconds")
+        return []
+    except Exception as e:
+        logger.error(f"ServiceTitan API request failed: {str(e)}")
+        raise
+
+    raw_data = response.json()
+    logger.info(f"Got response from ServiceTitan, type: {type(raw_data)}")
+
+    # Handle different response structures
+    all_records = []
+    if isinstance(raw_data, list):
+        all_records = raw_data
+    elif isinstance(raw_data, dict):
+        if "data" in raw_data:
+            data = raw_data["data"]
+            if isinstance(data, list):
+                all_records = data
+        # Try other keys if data not found
+        if not all_records:
+            for key in ["rows", "records", "results", "items"]:
+                if key in raw_data and isinstance(raw_data[key], list):
+                    all_records = raw_data[key]
+                    break
+
+    logger.info(f"Total records from ServiceTitan: {len(all_records)}")
+
+    if not isinstance(all_records, list) or len(all_records) == 0:
+        logger.error(f"Could not find list of records in unsold estimates response")
+        return []
+
+    processed_data = []
+    for i, record in enumerate(all_records):
         try:
-            response = requests.post(url, headers=headers, json=payload)
-            if response.status_code == 429:
-                logger.info(f"Rate limited. Retrying in 120 seconds... (attempt {attempt + 1}/{max_retries})")
-                time.sleep(120)
-                continue
-            response.raise_for_status()
-
-            raw_data = response.json()
-            logger.info(f"Unsold estimates API response type: {type(raw_data)}")
-
-            # Handle different response structures
-            records = []
-            if isinstance(raw_data, list):
-                records = raw_data
-            elif isinstance(raw_data, dict):
-                if "data" in raw_data:
-                    data = raw_data["data"]
-                    if isinstance(data, list):
-                        records = data
-                    elif isinstance(data, dict):
-                        for key in ["rows", "records", "results", "items"]:
-                            if key in data and isinstance(data[key], list):
-                                records = data[key]
-                                break
-                else:
-                    for key in ["rows", "records", "results", "items"]:
-                        if key in raw_data and isinstance(raw_data[key], list):
-                            records = raw_data[key]
-                            break
-
-            if not isinstance(records, list):
-                logger.error(f"Could not find list of records in unsold estimates response")
-                return []
-
-            processed_data = []
-            for i, record in enumerate(records):
-                try:
-                    if isinstance(record, list) and len(record) >= 23:
-                        # Parse date fields safely
-                        follow_up_date = None
-                        if record[15]:
-                            try:
-                                follow_up_date = datetime.strptime(str(record[15]).split('T')[0], "%Y-%m-%d").date()
-                            except:
-                                pass
-
-                        creation_date = None
-                        if record[21]:
-                            try:
-                                creation_date = datetime.strptime(str(record[21]).split('T')[0], "%Y-%m-%d").date()
-                            except:
-                                pass
-
-                        processed_data.append({
-                            "estimate_id": str(record[0]) if record[0] else None,
-                            "opportunity_number": str(record[2]) if record[2] else None,
-                            "customer_name": str(record[3]) if record[3] else None,
-                            "location_phone": str(record[4]) if record[4] else None,
-                            "customer_email": str(record[5]) if record[5] else None,
-                            "business_unit": str(record[6]) if record[6] else None,
-                            "email_sent": str(record[7]) if record[7] else None,
-                            "estimates_discount_total_cents": int(safe_float(record[11])),
-                            "estimates_subtotal_cents": int(safe_float(record[12])),
-                            "estimate_age_days": safe_int(record[14]),
-                            "follow_up_date": follow_up_date,
-                            "number_of_follow_ups": safe_int(record[16]),
-                            "creation_date": creation_date,
-                            "estimate_created_by": str(record[22]) if record[22] else None
-                        })
-                    elif isinstance(record, dict):
-                        # Handle dictionary format
-                        follow_up_date = None
-                        if record.get("FollowUpDate"):
-                            try:
-                                follow_up_date = datetime.strptime(str(record.get("FollowUpDate")).split('T')[0], "%Y-%m-%d").date()
-                            except:
-                                pass
-
-                        creation_date = None
-                        if record.get("CreationDate"):
-                            try:
-                                creation_date = datetime.strptime(str(record.get("CreationDate")).split('T')[0], "%Y-%m-%d").date()
-                            except:
-                                pass
-
-                        processed_data.append({
-                            "estimate_id": str(record.get("EstimateId")) if record.get("EstimateId") else None,
-                            "opportunity_number": str(record.get("OpportunityNumber")) if record.get("OpportunityNumber") else None,
-                            "customer_name": str(record.get("CustomerName")) if record.get("CustomerName") else None,
-                            "location_phone": str(record.get("LocationPhone")) if record.get("LocationPhone") else None,
-                            "customer_email": str(record.get("CustomerEmail")) if record.get("CustomerEmail") else None,
-                            "business_unit": str(record.get("BusinessUnit")) if record.get("BusinessUnit") else None,
-                            "email_sent": str(record.get("EmailSent")) if record.get("EmailSent") else None,
-                            "estimates_discount_total_cents": int(safe_float(record.get("EstimatesDiscountTotal", 0))),
-                            "estimates_subtotal_cents": int(safe_float(record.get("EstimatesSubtotal", 0))),
-                            "estimate_age_days": safe_int(record.get("EstimateAgeDays", 0)),
-                            "follow_up_date": follow_up_date,
-                            "number_of_follow_ups": safe_int(record.get("NumberOfFollowUps", 0)),
-                            "creation_date": creation_date,
-                            "estimate_created_by": str(record.get("EstimateCreatedBy")) if record.get("EstimateCreatedBy") else None
-                        })
-                except Exception as e:
-                    logger.error(f"Error processing unsold estimate record {i}: {str(e)}")
+            if isinstance(record, list) and len(record) >= 23:
+                # Filter out Won and Dismissed opportunities (column 8 = OpportunityStatus)
+                opportunity_status = str(record[8]).lower() if record[8] else ""
+                if opportunity_status in ["won", "dismissed"]:
                     continue
 
-            logger.info(f"Processed {len(processed_data)} unsold estimates records")
-            return processed_data
+                # Parse date fields safely
+                follow_up_date = None
+                if record[15]:
+                    try:
+                        follow_up_date = datetime.strptime(str(record[15]).split('T')[0], "%Y-%m-%d").date()
+                    except:
+                        pass
 
+                creation_date = None
+                if record[21]:
+                    try:
+                        creation_date = datetime.strptime(str(record[21]).split('T')[0], "%Y-%m-%d").date()
+                    except:
+                        pass
+
+                processed_data.append({
+                    "estimate_id": str(record[0]) if record[0] else None,
+                    "opportunity_number": str(record[2]) if record[2] else None,
+                    "customer_name": str(record[3]) if record[3] else None,
+                    "location_phone": str(record[4]) if record[4] else None,
+                    "customer_email": str(record[5]) if record[5] else None,
+                    "business_unit": str(record[6]) if record[6] else None,
+                    "email_sent": str(record[7]) if record[7] else None,
+                    "estimates_discount_total_cents": int(safe_float(record[11])),
+                    "estimates_subtotal_cents": int(safe_float(record[12])),
+                    "estimate_age_days": safe_int(record[14]),
+                    "follow_up_date": follow_up_date,
+                    "number_of_follow_ups": safe_int(record[16]),
+                    "creation_date": creation_date,
+                    "estimate_created_by": str(record[22]) if record[22] else None
+                })
+            elif isinstance(record, dict):
+                # Filter out Won and Dismissed opportunities
+                opportunity_status = str(record.get("OpportunityStatus", "")).lower() if record.get("OpportunityStatus") else ""
+                if opportunity_status in ["won", "dismissed"]:
+                    continue
+
+                # Handle dictionary format
+                follow_up_date = None
+                if record.get("FollowUpDate"):
+                    try:
+                        follow_up_date = datetime.strptime(str(record.get("FollowUpDate")).split('T')[0], "%Y-%m-%d").date()
+                    except:
+                        pass
+
+                creation_date = None
+                if record.get("CreationDate"):
+                    try:
+                        creation_date = datetime.strptime(str(record.get("CreationDate")).split('T')[0], "%Y-%m-%d").date()
+                    except:
+                        pass
+
+                processed_data.append({
+                    "estimate_id": str(record.get("EstimateId")) if record.get("EstimateId") else None,
+                    "opportunity_number": str(record.get("OpportunityNumber")) if record.get("OpportunityNumber") else None,
+                    "customer_name": str(record.get("CustomerName")) if record.get("CustomerName") else None,
+                    "location_phone": str(record.get("LocationPhone")) if record.get("LocationPhone") else None,
+                    "customer_email": str(record.get("CustomerEmail")) if record.get("CustomerEmail") else None,
+                    "business_unit": str(record.get("BusinessUnit")) if record.get("BusinessUnit") else None,
+                    "email_sent": str(record.get("EmailSent")) if record.get("EmailSent") else None,
+                    "estimates_discount_total_cents": int(safe_float(record.get("EstimatesDiscountTotal", 0))),
+                    "estimates_subtotal_cents": int(safe_float(record.get("EstimatesSubtotal", 0))),
+                    "estimate_age_days": safe_int(record.get("EstimateAgeDays", 0)),
+                    "follow_up_date": follow_up_date,
+                    "number_of_follow_ups": safe_int(record.get("NumberOfFollowUps", 0)),
+                    "creation_date": creation_date,
+                    "estimate_created_by": str(record.get("EstimateCreatedBy")) if record.get("EstimateCreatedBy") else None
+                })
         except Exception as e:
-            logger.error(f"Error in fetch_unsold_estimates_data: {str(e)}")
-            if attempt < max_retries - 1:
-                continue
-            raise
+            logger.error(f"Error processing unsold estimate record {i}: {str(e)}")
+            continue
+
+    logger.info(f"Processed {len(processed_data)} unsold estimates records")
+    return processed_data
 
 def aggregate_unsold_estimates(raw_data):
     """Aggregate raw unsold estimates data into summary for dashboard

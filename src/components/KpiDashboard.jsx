@@ -2207,7 +2207,7 @@ const EnhancedTotalRevenueCard = () => {
         <EnhancedTotalRevenueCard />
 
         {/* Potential Revenue Card - Unsold Estimates */}
-        <div className="bg-gray-800 border border-amber-500 rounded-lg p-4">
+        <div className="bg-gray-800 rounded-lg p-4 border-l-4 border-amber-500">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-gray-300 text-sm font-medium">Potential Revenue</h3>
             <span className="text-xs bg-amber-600 text-amber-100 px-2 py-0.5 rounded">Unsold</span>
@@ -2221,7 +2221,7 @@ const EnhancedTotalRevenueCard = () => {
         </div>
 
         {/* Combined Jobs & Opportunities Card */}
-        <div className="bg-gray-800 border border-blue-500 rounded-lg p-4">
+        <div className="bg-gray-800 rounded-lg p-4 border-l-4 border-blue-500">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-gray-300 text-sm font-medium">Jobs & Opportunities</h3>
           </div>
