@@ -401,7 +401,292 @@ class Database:
                     invoiced_revenue_cents, converted_revenue_cents, total_sales_cents, tech_lead_sales_cents,
                     converted_job_average_cents, opportunity_job_average_cents, total_job_average_cents,
                     opportunities, sales_opportunities, replacement_opportunities, closed_opportunities,
-                    close_rate_percent, memberships_sold, leads_set, tech_recall_percent, updated_at
+                    close_rate_percent, memberships_sold, leads_set, tech_recall_percent, first_call_arrival_time, updated_at
+                ) VALUES (
+                    CURRENT_DATE, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (employee_name, report_date, period_type)
+                DO UPDATE SET
+                    business_unit = EXCLUDED.business_unit,
+                    trade = EXCLUDED.trade,
+                    completed_jobs = EXCLUDED.completed_jobs,
+                    no_charge_jobs = EXCLUDED.no_charge_jobs,
+                    converted_jobs = EXCLUDED.converted_jobs,
+                    unconverted_jobs = EXCLUDED.unconverted_jobs,
+                    invoiced_jobs = EXCLUDED.invoiced_jobs,
+                    jobs_on_hold = EXCLUDED.jobs_on_hold,
+                    completed_revenue_cents = EXCLUDED.completed_revenue_cents,
+                    adjustment_revenue_cents = EXCLUDED.adjustment_revenue_cents,
+                    completed_revenue_with_adjustments_cents = EXCLUDED.completed_revenue_with_adjustments_cents,
+                    invoiced_revenue_cents = EXCLUDED.invoiced_revenue_cents,
+                    converted_revenue_cents = EXCLUDED.converted_revenue_cents,
+                    total_sales_cents = EXCLUDED.total_sales_cents,
+                    tech_lead_sales_cents = EXCLUDED.tech_lead_sales_cents,
+                    converted_job_average_cents = EXCLUDED.converted_job_average_cents,
+                    opportunity_job_average_cents = EXCLUDED.opportunity_job_average_cents,
+                    total_job_average_cents = EXCLUDED.total_job_average_cents,
+                    opportunities = EXCLUDED.opportunities,
+                    sales_opportunities = EXCLUDED.sales_opportunities,
+                    replacement_opportunities = EXCLUDED.replacement_opportunities,
+                    closed_opportunities = EXCLUDED.closed_opportunities,
+                    close_rate_percent = EXCLUDED.close_rate_percent,
+                    memberships_sold = EXCLUDED.memberships_sold,
+                    leads_set = EXCLUDED.leads_set,
+                    tech_recall_percent = EXCLUDED.tech_recall_percent,
+                    first_call_arrival_time = EXCLUDED.first_call_arrival_time,
+                    updated_at = EXCLUDED.updated_at
+                """
+
+                for record in data:
+                    try:
+                        cursor.execute(query, (
+                            record["period_type"],
+                            record["employee_name"],
+                            record["business_unit"],
+                            record["trade"],
+                            record["completed_jobs"],
+                            record["no_charge_jobs"],
+                            record["converted_jobs"],
+                            record["unconverted_jobs"],
+                            record["invoiced_jobs"],
+                            record["jobs_on_hold"],
+                            record["completed_revenue_cents"],
+                            record["adjustment_revenue_cents"],
+                            record["completed_revenue_with_adjustments_cents"],
+                            record["invoiced_revenue_cents"],
+                            record["converted_revenue_cents"],
+                            record["total_sales_cents"],
+                            record["tech_lead_sales_cents"],
+                            record["converted_job_average_cents"],
+                            record["opportunity_job_average_cents"],
+                            record["total_job_average_cents"],
+                            record["opportunities"],
+                            record["sales_opportunities"],
+                            record["replacement_opportunities"],
+                            record["closed_opportunities"],
+                            record["close_rate_percent"],
+                            record["memberships_sold"],
+                            record["leads_set"],
+                            record["tech_recall_percent"],
+                            record.get("first_call_arrival_time", ""),
+                            record["updated_at"]
+                        ))
+                    except Exception as e:
+                        logger.error(f"Error inserting HVAC tech record for {record['employee_name']}: {str(e)}")
+                        logger.error(f"Problem record data: {record}")
+                        raise
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} HVAC tech records for {period_type}")
+
+    def insert_hvac_maintenance_data(self, data, period_type):
+        """Insert HVAC maintenance data into hvac_maintenance_performance table"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Clear existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM hvac_maintenance_performance
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing HVAC maintenance '{period_type}' records")
+
+                query = """
+            INSERT INTO hvac_maintenance_performance (
+                report_date, period_type, employee_name, business_unit, trade,
+                completed_jobs, no_charge_jobs, converted_jobs, unconverted_jobs, invoiced_jobs, jobs_on_hold,
+                completed_revenue_cents, adjustment_revenue_cents, completed_revenue_with_adjustments_cents,
+                invoiced_revenue_cents, converted_revenue_cents, total_sales_cents, tech_lead_sales_cents,
+                converted_job_average_cents, opportunity_job_average_cents, total_job_average_cents,
+                opportunities, sales_opportunities, replacement_opportunities, closed_opportunities,
+                close_rate_percent, memberships_sold, leads_set, tech_recall_percent, first_call_arrival_time, updated_at
+            ) VALUES (
+                CURRENT_DATE, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
+            )
+            ON CONFLICT (employee_name, report_date, period_type)
+            DO UPDATE SET
+                business_unit = EXCLUDED.business_unit,
+                trade = EXCLUDED.trade,
+                completed_jobs = EXCLUDED.completed_jobs,
+                no_charge_jobs = EXCLUDED.no_charge_jobs,
+                converted_jobs = EXCLUDED.converted_jobs,
+                unconverted_jobs = EXCLUDED.unconverted_jobs,
+                invoiced_jobs = EXCLUDED.invoiced_jobs,
+                jobs_on_hold = EXCLUDED.jobs_on_hold,
+                completed_revenue_cents = EXCLUDED.completed_revenue_cents,
+                adjustment_revenue_cents = EXCLUDED.adjustment_revenue_cents,
+                completed_revenue_with_adjustments_cents = EXCLUDED.completed_revenue_with_adjustments_cents,
+                invoiced_revenue_cents = EXCLUDED.invoiced_revenue_cents,
+                converted_revenue_cents = EXCLUDED.converted_revenue_cents,
+                total_sales_cents = EXCLUDED.total_sales_cents,
+                tech_lead_sales_cents = EXCLUDED.tech_lead_sales_cents,
+                converted_job_average_cents = EXCLUDED.converted_job_average_cents,
+                opportunity_job_average_cents = EXCLUDED.opportunity_job_average_cents,
+                total_job_average_cents = EXCLUDED.total_job_average_cents,
+                opportunities = EXCLUDED.opportunities,
+                sales_opportunities = EXCLUDED.sales_opportunities,
+                replacement_opportunities = EXCLUDED.replacement_opportunities,
+                closed_opportunities = EXCLUDED.closed_opportunities,
+                close_rate_percent = EXCLUDED.close_rate_percent,
+                memberships_sold = EXCLUDED.memberships_sold,
+                leads_set = EXCLUDED.leads_set,
+                tech_recall_percent = EXCLUDED.tech_recall_percent,
+                first_call_arrival_time = EXCLUDED.first_call_arrival_time,
+                updated_at = EXCLUDED.updated_at
+                """
+
+                for record in data:
+                    cursor.execute(query, (
+                        record["period_type"],
+                        record["employee_name"],
+                        record["business_unit"],
+                        record["trade"],
+                        record["completed_jobs"],
+                        record["no_charge_jobs"],
+                        record["converted_jobs"],
+                        record["unconverted_jobs"],
+                        record["invoiced_jobs"],
+                        record["jobs_on_hold"],
+                        record["completed_revenue_cents"],
+                        record["adjustment_revenue_cents"],
+                        record["completed_revenue_with_adjustments_cents"],
+                        record["invoiced_revenue_cents"],
+                        record["converted_revenue_cents"],
+                        record["total_sales_cents"],
+                        record["tech_lead_sales_cents"],
+                        record["converted_job_average_cents"],
+                        record["opportunity_job_average_cents"],
+                        record["total_job_average_cents"],
+                        record["opportunities"],
+                        record["sales_opportunities"],
+                        record["replacement_opportunities"],
+                        record["closed_opportunities"],
+                        record["close_rate_percent"],
+                        record["memberships_sold"],
+                        record["leads_set"],
+                        record["tech_recall_percent"],
+                        record.get("first_call_arrival_time", ""),
+                        record["updated_at"]
+                    ))
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} HVAC maintenance records for {period_type}")
+
+    def insert_commercial_hvac_data(self, data, period_type, report_date=None):
+        """Insert Commercial HVAC data into commercial_hvac_performance table"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Clear existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM commercial_hvac_performance
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing Commercial HVAC '{period_type}' records")
+                elif period_type.startswith('monthly_'):
+                    # For monthly data, clear by period_type to allow re-sync
+                    cursor.execute("""
+                        DELETE FROM commercial_hvac_performance
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing Commercial HVAC '{period_type}' records")
+
+                # Determine report_date - use provided date or current date
+                date_value = report_date if report_date else 'CURRENT_DATE'
+
+                query = f"""
+                INSERT INTO commercial_hvac_performance (
+                    report_date, period_type, employee_name, business_unit, trade,
+                    completed_jobs, total_sales_cents, total_job_average_cents,
+                    close_rate_percent, opportunities, memberships_sold, leads_set,
+                    tech_recall_percent, first_call_arrival_time, updated_at
+                ) VALUES (
+                    {'%s' if report_date else 'CURRENT_DATE'}, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s
+                )
+                ON CONFLICT (employee_name, report_date, period_type)
+                DO UPDATE SET
+                    business_unit = EXCLUDED.business_unit,
+                    trade = EXCLUDED.trade,
+                    completed_jobs = EXCLUDED.completed_jobs,
+                    total_sales_cents = EXCLUDED.total_sales_cents,
+                    total_job_average_cents = EXCLUDED.total_job_average_cents,
+                    close_rate_percent = EXCLUDED.close_rate_percent,
+                    opportunities = EXCLUDED.opportunities,
+                    memberships_sold = EXCLUDED.memberships_sold,
+                    leads_set = EXCLUDED.leads_set,
+                    tech_recall_percent = EXCLUDED.tech_recall_percent,
+                    first_call_arrival_time = EXCLUDED.first_call_arrival_time,
+                    updated_at = EXCLUDED.updated_at
+                """
+
+                for record in data:
+                    try:
+                        params = []
+                        if report_date:
+                            params.append(report_date)
+                        params.extend([
+                            record["period_type"],
+                            record["employee_name"],
+                            record["business_unit"],
+                            record["trade"],
+                            record["completed_jobs"],
+                            record["total_sales_cents"],
+                            record["total_job_average_cents"],
+                            record["close_rate_percent"],
+                            record["opportunities"],
+                            record["memberships_sold"],
+                            record.get("leads_set", 0),
+                            record["tech_recall_percent"],
+                            record.get("first_call_arrival_time", ""),
+                            record["updated_at"]
+                        ])
+                        cursor.execute(query, params)
+                    except Exception as e:
+                        logger.error(f"Error inserting Commercial HVAC record for {record.get('employee_name', 'Unknown')}: {e}")
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} Commercial HVAC records for {period_type}")
+
+    def insert_plumbing_data(self, data, period_type):
+        """Insert Plumbing data into plumbing_tech_performance table"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Clear existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM plumbing_tech_performance
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing Plumbing '{period_type}' records")
+
+                query = """
+                INSERT INTO plumbing_tech_performance (
+                    report_date, period_type, employee_name, business_unit, trade,
+                    completed_jobs, no_charge_jobs, converted_jobs, unconverted_jobs, invoiced_jobs, jobs_on_hold,
+                    completed_revenue_cents, adjustment_revenue_cents, completed_revenue_with_adjustments_cents,
+                    invoiced_revenue_cents, converted_revenue_cents, total_sales_cents, tech_lead_sales_cents,
+                    converted_job_average_cents, opportunity_job_average_cents, total_job_average_cents,
+                    opportunities, sales_opportunities, replacement_opportunities, closed_opportunities,
+                    close_rate_percent, memberships_sold, tech_recall_percent, first_call_arrival_time, updated_at
                 ) VALUES (
                     CURRENT_DATE, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
@@ -437,271 +722,8 @@ class Database:
                     closed_opportunities = EXCLUDED.closed_opportunities,
                     close_rate_percent = EXCLUDED.close_rate_percent,
                     memberships_sold = EXCLUDED.memberships_sold,
-                    leads_set = EXCLUDED.leads_set,
                     tech_recall_percent = EXCLUDED.tech_recall_percent,
-                    updated_at = EXCLUDED.updated_at
-                """
-
-                for record in data:
-                    try:
-                        cursor.execute(query, (
-                            record["period_type"],
-                            record["employee_name"],
-                            record["business_unit"],
-                            record["trade"],
-                            record["completed_jobs"],
-                            record["no_charge_jobs"],
-                            record["converted_jobs"],
-                            record["unconverted_jobs"],
-                            record["invoiced_jobs"],
-                            record["jobs_on_hold"],
-                            record["completed_revenue_cents"],
-                            record["adjustment_revenue_cents"],
-                            record["completed_revenue_with_adjustments_cents"],
-                            record["invoiced_revenue_cents"],
-                            record["converted_revenue_cents"],
-                            record["total_sales_cents"],
-                            record["tech_lead_sales_cents"],
-                            record["converted_job_average_cents"],
-                            record["opportunity_job_average_cents"],
-                            record["total_job_average_cents"],
-                            record["opportunities"],
-                            record["sales_opportunities"],
-                            record["replacement_opportunities"],
-                            record["closed_opportunities"],
-                            record["close_rate_percent"],
-                            record["memberships_sold"],
-                            record["leads_set"],
-                            record["tech_recall_percent"],
-                            record["updated_at"]
-                        ))
-                    except Exception as e:
-                        logger.error(f"Error inserting HVAC tech record for {record['employee_name']}: {str(e)}")
-                        logger.error(f"Problem record data: {record}")
-                        raise
-
-                conn.commit()
-                logger.info(f"Inserted {len(data)} HVAC tech records for {period_type}")
-
-    def insert_hvac_maintenance_data(self, data, period_type):
-        """Insert HVAC maintenance data into hvac_maintenance_performance table"""
-        with self.get_connection() as conn:
-            with conn.cursor() as cursor:
-                # Clear existing data for this period
-                if period_type in ['mtd', 'ytd', 'last_month']:
-                    cursor.execute("""
-                        DELETE FROM hvac_maintenance_performance
-                        WHERE period_type = %s
-                    """, (period_type,))
-                    deleted_count = cursor.rowcount
-                    logger.info(f"Cleared {deleted_count} existing HVAC maintenance '{period_type}' records")
-
-                query = """
-            INSERT INTO hvac_maintenance_performance (
-                report_date, period_type, employee_name, business_unit, trade,
-                completed_jobs, no_charge_jobs, converted_jobs, unconverted_jobs, invoiced_jobs, jobs_on_hold,
-                completed_revenue_cents, adjustment_revenue_cents, completed_revenue_with_adjustments_cents,
-                invoiced_revenue_cents, converted_revenue_cents, total_sales_cents, tech_lead_sales_cents,
-                converted_job_average_cents, opportunity_job_average_cents, total_job_average_cents,
-                opportunities, sales_opportunities, replacement_opportunities, closed_opportunities,
-                close_rate_percent, memberships_sold, leads_set, tech_recall_percent, updated_at
-            ) VALUES (
-                CURRENT_DATE, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s, %s, %s
-            )
-            ON CONFLICT (employee_name, report_date, period_type)
-            DO UPDATE SET
-                business_unit = EXCLUDED.business_unit,
-                trade = EXCLUDED.trade,
-                completed_jobs = EXCLUDED.completed_jobs,
-                no_charge_jobs = EXCLUDED.no_charge_jobs,
-                converted_jobs = EXCLUDED.converted_jobs,
-                unconverted_jobs = EXCLUDED.unconverted_jobs,
-                invoiced_jobs = EXCLUDED.invoiced_jobs,
-                jobs_on_hold = EXCLUDED.jobs_on_hold,
-                completed_revenue_cents = EXCLUDED.completed_revenue_cents,
-                adjustment_revenue_cents = EXCLUDED.adjustment_revenue_cents,
-                completed_revenue_with_adjustments_cents = EXCLUDED.completed_revenue_with_adjustments_cents,
-                invoiced_revenue_cents = EXCLUDED.invoiced_revenue_cents,
-                converted_revenue_cents = EXCLUDED.converted_revenue_cents,
-                total_sales_cents = EXCLUDED.total_sales_cents,
-                tech_lead_sales_cents = EXCLUDED.tech_lead_sales_cents,
-                converted_job_average_cents = EXCLUDED.converted_job_average_cents,
-                opportunity_job_average_cents = EXCLUDED.opportunity_job_average_cents,
-                total_job_average_cents = EXCLUDED.total_job_average_cents,
-                opportunities = EXCLUDED.opportunities,
-                sales_opportunities = EXCLUDED.sales_opportunities,
-                replacement_opportunities = EXCLUDED.replacement_opportunities,
-                closed_opportunities = EXCLUDED.closed_opportunities,
-                close_rate_percent = EXCLUDED.close_rate_percent,
-                memberships_sold = EXCLUDED.memberships_sold,
-                leads_set = EXCLUDED.leads_set,
-                tech_recall_percent = EXCLUDED.tech_recall_percent,
-                updated_at = EXCLUDED.updated_at
-                """
-
-                for record in data:
-                    cursor.execute(query, (
-                        record["period_type"],
-                        record["employee_name"],
-                        record["business_unit"],
-                        record["trade"],
-                        record["completed_jobs"],
-                        record["no_charge_jobs"],
-                        record["converted_jobs"],
-                        record["unconverted_jobs"],
-                        record["invoiced_jobs"],
-                        record["jobs_on_hold"],
-                        record["completed_revenue_cents"],
-                        record["adjustment_revenue_cents"],
-                        record["completed_revenue_with_adjustments_cents"],
-                        record["invoiced_revenue_cents"],
-                        record["converted_revenue_cents"],
-                        record["total_sales_cents"],
-                        record["tech_lead_sales_cents"],
-                        record["converted_job_average_cents"],
-                        record["opportunity_job_average_cents"],
-                        record["total_job_average_cents"],
-                        record["opportunities"],
-                        record["sales_opportunities"],
-                        record["replacement_opportunities"],
-                        record["closed_opportunities"],
-                        record["close_rate_percent"],
-                        record["memberships_sold"],
-                        record["leads_set"],
-                        record["tech_recall_percent"],
-                        record["updated_at"]
-                    ))
-
-                conn.commit()
-                logger.info(f"Inserted {len(data)} HVAC maintenance records for {period_type}")
-
-    def insert_commercial_hvac_data(self, data, period_type):
-        """Insert Commercial HVAC data into commercial_hvac_performance table"""
-        with self.get_connection() as conn:
-            with conn.cursor() as cursor:
-                # Clear existing data for this period
-                if period_type in ['mtd', 'ytd', 'last_month']:
-                    cursor.execute("""
-                        DELETE FROM commercial_hvac_performance
-                        WHERE period_type = %s
-                    """, (period_type,))
-                    deleted_count = cursor.rowcount
-                    logger.info(f"Cleared {deleted_count} existing Commercial HVAC '{period_type}' records")
-
-                query = """
-                INSERT INTO commercial_hvac_performance (
-                    report_date, period_type, employee_name, business_unit, trade,
-                    completed_jobs, total_sales_cents, total_job_average_cents,
-                    close_rate_percent, opportunities, memberships_sold, leads_set,
-                    tech_recall_percent, updated_at
-                ) VALUES (
-                    CURRENT_DATE, %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s, %s,
-                    %s, %s
-                )
-                ON CONFLICT (employee_name, report_date, period_type)
-                DO UPDATE SET
-                    business_unit = EXCLUDED.business_unit,
-                    trade = EXCLUDED.trade,
-                    completed_jobs = EXCLUDED.completed_jobs,
-                    total_sales_cents = EXCLUDED.total_sales_cents,
-                    total_job_average_cents = EXCLUDED.total_job_average_cents,
-                    close_rate_percent = EXCLUDED.close_rate_percent,
-                    opportunities = EXCLUDED.opportunities,
-                    memberships_sold = EXCLUDED.memberships_sold,
-                    leads_set = EXCLUDED.leads_set,
-                    tech_recall_percent = EXCLUDED.tech_recall_percent,
-                    updated_at = EXCLUDED.updated_at
-                """
-
-                for record in data:
-                    try:
-                        cursor.execute(query, (
-                            record["period_type"],
-                            record["employee_name"],
-                            record["business_unit"],
-                            record["trade"],
-                            record["completed_jobs"],
-                            record["total_sales_cents"],
-                            record["total_job_average_cents"],
-                            record["close_rate_percent"],
-                            record["opportunities"],
-                            record["memberships_sold"],
-                            record.get("leads_set", 0),
-                            record["tech_recall_percent"],
-                            record["updated_at"]
-                        ))
-                    except Exception as e:
-                        logger.error(f"Error inserting Commercial HVAC record for {record.get('employee_name', 'Unknown')}: {e}")
-
-                conn.commit()
-                logger.info(f"Inserted {len(data)} Commercial HVAC records for {period_type}")
-
-    def insert_plumbing_data(self, data, period_type):
-        """Insert Plumbing data into plumbing_tech_performance table"""
-        with self.get_connection() as conn:
-            with conn.cursor() as cursor:
-                # Clear existing data for this period
-                if period_type in ['mtd', 'ytd', 'last_month']:
-                    cursor.execute("""
-                        DELETE FROM plumbing_tech_performance
-                        WHERE period_type = %s
-                    """, (period_type,))
-                    deleted_count = cursor.rowcount
-                    logger.info(f"Cleared {deleted_count} existing Plumbing '{period_type}' records")
-
-                query = """
-                INSERT INTO plumbing_tech_performance (
-                    report_date, period_type, employee_name, business_unit, trade,
-                    completed_jobs, no_charge_jobs, converted_jobs, unconverted_jobs, invoiced_jobs, jobs_on_hold,
-                    completed_revenue_cents, adjustment_revenue_cents, completed_revenue_with_adjustments_cents,
-                    invoiced_revenue_cents, converted_revenue_cents, total_sales_cents, tech_lead_sales_cents,
-                    converted_job_average_cents, opportunity_job_average_cents, total_job_average_cents,
-                    opportunities, sales_opportunities, replacement_opportunities, closed_opportunities,
-                    close_rate_percent, memberships_sold, tech_recall_percent, updated_at
-                ) VALUES (
-                    CURRENT_DATE, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s, %s,
-                    %s, %s, %s, %s
-                )
-                ON CONFLICT (employee_name, report_date, period_type)
-                DO UPDATE SET
-                    business_unit = EXCLUDED.business_unit,
-                    trade = EXCLUDED.trade,
-                    completed_jobs = EXCLUDED.completed_jobs,
-                    no_charge_jobs = EXCLUDED.no_charge_jobs,
-                    converted_jobs = EXCLUDED.converted_jobs,
-                    unconverted_jobs = EXCLUDED.unconverted_jobs,
-                    invoiced_jobs = EXCLUDED.invoiced_jobs,
-                    jobs_on_hold = EXCLUDED.jobs_on_hold,
-                    completed_revenue_cents = EXCLUDED.completed_revenue_cents,
-                    adjustment_revenue_cents = EXCLUDED.adjustment_revenue_cents,
-                    completed_revenue_with_adjustments_cents = EXCLUDED.completed_revenue_with_adjustments_cents,
-                    invoiced_revenue_cents = EXCLUDED.invoiced_revenue_cents,
-                    converted_revenue_cents = EXCLUDED.converted_revenue_cents,
-                    total_sales_cents = EXCLUDED.total_sales_cents,
-                    tech_lead_sales_cents = EXCLUDED.tech_lead_sales_cents,
-                    converted_job_average_cents = EXCLUDED.converted_job_average_cents,
-                    opportunity_job_average_cents = EXCLUDED.opportunity_job_average_cents,
-                    total_job_average_cents = EXCLUDED.total_job_average_cents,
-                    opportunities = EXCLUDED.opportunities,
-                    sales_opportunities = EXCLUDED.sales_opportunities,
-                    replacement_opportunities = EXCLUDED.replacement_opportunities,
-                    closed_opportunities = EXCLUDED.closed_opportunities,
-                    close_rate_percent = EXCLUDED.close_rate_percent,
-                    memberships_sold = EXCLUDED.memberships_sold,
-                    tech_recall_percent = EXCLUDED.tech_recall_percent,
+                    first_call_arrival_time = EXCLUDED.first_call_arrival_time,
                     updated_at = EXCLUDED.updated_at
                 """
 
@@ -734,6 +756,7 @@ class Database:
                         record["close_rate_percent"],
                         record["memberships_sold"],
                         record["tech_recall_percent"],
+                        record.get("first_call_arrival_time", ""),
                         record["updated_at"]
                     ))
 
@@ -761,7 +784,7 @@ class Database:
                     invoiced_revenue_cents, converted_revenue_cents, total_sales_cents, tech_lead_sales_cents,
                     converted_job_average_cents, opportunity_job_average_cents, total_job_average_cents,
                     opportunities, sales_opportunities, replacement_opportunities, closed_opportunities,
-                    close_rate_percent, memberships_sold, tech_recall_percent, updated_at
+                    close_rate_percent, memberships_sold, tech_recall_percent, first_call_arrival_time, updated_at
                 ) VALUES (
                     CURRENT_DATE, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
@@ -769,7 +792,7 @@ class Database:
                     %s, %s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s, %s,
-                    %s, %s, %s, %s
+                    %s, %s, %s, %s, %s
                 )
                 ON CONFLICT (employee_name, report_date, period_type)
                 DO UPDATE SET
@@ -798,6 +821,7 @@ class Database:
                     close_rate_percent = EXCLUDED.close_rate_percent,
                     memberships_sold = EXCLUDED.memberships_sold,
                     tech_recall_percent = EXCLUDED.tech_recall_percent,
+                    first_call_arrival_time = EXCLUDED.first_call_arrival_time,
                     updated_at = EXCLUDED.updated_at
                 """
 
@@ -830,6 +854,7 @@ class Database:
                         record["close_rate_percent"],
                         record["memberships_sold"],
                         record["tech_recall_percent"],
+                        record.get("first_call_arrival_time", ""),
                         record["updated_at"]
                     ))
 
@@ -1581,10 +1606,11 @@ def fetch_hvac_maintenance_data(period_type):
                     "memberships_sold": memberships_sold,  # [26]
                     "leads_set": leads_set,  # [27]
                     "tech_recall_percent": recall_rate,  # [7] * 100
+                    "first_call_arrival_time": str(row[13]) if len(row) > 13 and row[13] else "",
                     "updated_at": datetime.now()
                 }
                 processed_data.append(record)
-            
+
             logger.info(f"Successfully fetched {len(processed_data)} HVAC maintenance records for {period_type}")
             return processed_data
             
@@ -1665,6 +1691,7 @@ def fetch_commercial_hvac_data(period_type):
                             "memberships_sold": safe_int(safe_get(record, "MembershipsSold")),
                             "leads_set": safe_float(safe_get(record, "LeadsSet", 0)),
                             "tech_recall_percent": safe_float(safe_get(record, "TechRecall%", "0").replace('%', '') if safe_get(record, "TechRecall%") else 0) * 100,
+                            "first_call_arrival_time": safe_get(record, "FirstCallArrivalTime", ""),
                             "updated_at": datetime.now()
                         }
                         processed_data.append(processed_record)
@@ -1703,6 +1730,7 @@ def fetch_commercial_hvac_data(period_type):
                             "memberships_sold": memberships_sold,
                             "leads_set": leads_set,
                             "tech_recall_percent": recall_rate,
+                            "first_call_arrival_time": str(record[13]) if len(record) > 13 and record[13] else "",
                             "updated_at": datetime.now()
                         }
                         processed_data.append(processed_record)
@@ -1809,6 +1837,7 @@ def fetch_plumbing_data(period_type):
                     "close_rate_percent": close_rate,
                     "memberships_sold": memberships_sold,
                     "tech_recall_percent": recall_rate,
+                    "first_call_arrival_time": str(row[13]) if len(row) > 13 and row[13] else "",
                     "updated_at": datetime.now()
                 }
                 processed_data.append(record)
@@ -1911,6 +1940,7 @@ def fetch_electrical_data(period_type):
                     "close_rate_percent": close_rate,
                     "memberships_sold": memberships_sold,
                     "tech_recall_percent": recall_rate,
+                    "first_call_arrival_time": str(row[13]) if len(row) > 13 and row[13] else "",
                     "updated_at": datetime.now()
                 }
                 processed_data.append(record)
