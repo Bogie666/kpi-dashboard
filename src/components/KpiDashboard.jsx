@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, ReferenceLine } from 'recharts';
-import { UserCheck, Phone, DollarSign, Wrench, Users, Settings, TrendingUp, Target, AlertTriangle, Trophy, CheckCircle, Zap, Droplets, MessageSquare } from 'lucide-react';
+import { UserCheck, Phone, DollarSign, Wrench, Users, Settings, TrendingUp, Target, AlertTriangle, Trophy, CheckCircle, Zap, Droplets, MessageSquare, ChevronUp, ChevronDown } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
 import CompetitionLeaderboard from './CompetitionLeaderboard';
 import LoginScreen from './LoginScreen';
@@ -899,6 +899,9 @@ const startDisplayAutoRotation = () => {
 
   // Enhanced Performance Table with Color-Coded Performance
 const PerformanceTable = ({ data, targetValues, title }) => {
+  const [sortField, setSortField] = useState('sales');
+  const [sortDirection, setSortDirection] = useState('desc');
+
   const getValueColor = (value, target, isReverse = false) => {
     const status = getTargetStatus(value, target, isReverse);
     switch (status) {
@@ -909,6 +912,52 @@ const PerformanceTable = ({ data, targetValues, title }) => {
     }
   };
 
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortField !== field) return <ChevronDown className="h-3 w-3 text-gray-500 opacity-50" />;
+    return sortDirection === 'asc'
+      ? <ChevronUp className="h-3 w-3 text-blue-400" />
+      : <ChevronDown className="h-3 w-3 text-blue-400" />;
+  };
+
+  const sortedData = [...data].sort((a, b) => {
+    let aVal, bVal;
+    switch (sortField) {
+      case 'name': aVal = a.name || ''; bVal = b.name || ''; break;
+      case 'jobs': aVal = a.jobs || 0; bVal = b.jobs || 0; break;
+      case 'opportunities': aVal = a.opportunities || 0; bVal = b.opportunities || 0; break;
+      case 'closingPercent': aVal = a.closingPercent || 0; bVal = b.closingPercent || 0; break;
+      case 'averageDollar': aVal = a.averageDollar || 0; bVal = b.averageDollar || 0; break;
+      case 'optionsPerJob': aVal = a.optionsPerJob || 0; bVal = b.optionsPerJob || 0; break;
+      case 'sales': aVal = a.sales || 0; bVal = b.sales || 0; break;
+      default: aVal = a.sales || 0; bVal = b.sales || 0;
+    }
+    if (typeof aVal === 'string') {
+      return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    }
+    return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+  });
+
+  const SortableHeader = ({ field, children, className = '' }) => (
+    <th
+      className={`${className} text-gray-300 pb-3 text-sm cursor-pointer hover:text-white select-none`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center justify-center gap-1">
+        {children}
+        <SortIcon field={field} />
+      </div>
+    </th>
+  );
+
   return (
     <div className="bg-gray-800 rounded-lg p-4 md:p-6">
       <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
@@ -916,19 +965,17 @@ const PerformanceTable = ({ data, targetValues, title }) => {
         <table className="w-full min-w-[800px]">
           <thead>
             <tr className="border-b border-gray-700">
-              <th className="sticky left-0 z-10 bg-gray-800 text-left text-gray-300 pb-3 text-sm">Name</th>
-              <th className="text-center text-gray-300 pb-3 text-sm">Jobs</th>
-              <th className="text-center text-gray-300 pb-3 text-sm">Opportunities</th>
-              <th className="text-center text-gray-300 pb-3 text-sm">Close Rate</th>
-              <th className="text-center text-gray-300 pb-3 text-sm">Avg Sale</th>
-              <th className="text-center text-gray-300 pb-3 text-sm">Options/Opp</th>
-              <th className="text-center text-gray-300 pb-3 text-sm">Total Sales</th>
+              <SortableHeader field="name" className="sticky left-0 z-10 bg-gray-800 text-left">Name</SortableHeader>
+              <SortableHeader field="jobs" className="text-center">Jobs</SortableHeader>
+              <SortableHeader field="opportunities" className="text-center">Opportunities</SortableHeader>
+              <SortableHeader field="closingPercent" className="text-center">Close Rate</SortableHeader>
+              <SortableHeader field="averageDollar" className="text-center">Avg Sale</SortableHeader>
+              <SortableHeader field="optionsPerJob" className="text-center">Options/Opp</SortableHeader>
+              <SortableHeader field="sales" className="text-center">Total Sales</SortableHeader>
             </tr>
           </thead>
           <tbody>
-            {data
-              .sort((a, b) => (b.sales || 0) - (a.sales || 0))
-              .map((advisor, index) => {
+            {sortedData.map((advisor, index) => {
               const avgTicketColor = getValueColor(advisor.averageDollar, targetValues.avgTicket);
               const closeRateColor = getValueColor(advisor.closingPercent, targetValues.closeRate);
               
@@ -1425,6 +1472,60 @@ const TechnicianView = ({
     memberships: membershipsTarget
   };
 
+  // Sorting state for technician table
+  const [techSortField, setTechSortField] = useState('totalSales');
+  const [techSortDirection, setTechSortDirection] = useState('desc');
+
+  const handleTechSort = (field) => {
+    if (techSortField === field) {
+      setTechSortDirection(techSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setTechSortField(field);
+      setTechSortDirection('desc');
+    }
+  };
+
+  const TechSortIcon = ({ field }) => {
+    if (techSortField !== field) return <ChevronDown className="h-3 w-3 text-gray-500 opacity-50" />;
+    return techSortDirection === 'asc'
+      ? <ChevronUp className="h-3 w-3 text-blue-400" />
+      : <ChevronDown className="h-3 w-3 text-blue-400" />;
+  };
+
+  const sortedTechnicianData = [...technicianData].sort((a, b) => {
+    let aVal, bVal;
+    switch (techSortField) {
+      case 'name': aVal = a.name || ''; bVal = b.name || ''; break;
+      case 'trade': aVal = a.trade || ''; bVal = b.trade || ''; break;
+      case 'completedJobs': aVal = a.completedJobs || 0; bVal = b.completedJobs || 0; break;
+      case 'opportunities': aVal = a.opportunities || 0; bVal = b.opportunities || 0; break;
+      case 'closeRatePercent': aVal = a.closeRatePercent || 0; bVal = b.closeRatePercent || 0; break;
+      case 'totalJobAverage': aVal = a.totalJobAverage || 0; bVal = b.totalJobAverage || 0; break;
+      case 'techRecallPercent': aVal = a.techRecallPercent || 0; bVal = b.techRecallPercent || 0; break;
+      case 'membershipsSold': aVal = a.membershipsSold || 0; bVal = b.membershipsSold || 0; break;
+      case 'leadsSet': aVal = a.leadsSet || 0; bVal = b.leadsSet || 0; break;
+      case 'totalSales': aVal = a.totalSales || 0; bVal = b.totalSales || 0; break;
+      case 'firstCallArrivalTime': aVal = a.firstCallArrivalTime || ''; bVal = b.firstCallArrivalTime || ''; break;
+      default: aVal = a.totalSales || 0; bVal = b.totalSales || 0;
+    }
+    if (typeof aVal === 'string') {
+      return techSortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    }
+    return techSortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+  });
+
+  const TechSortableHeader = ({ field, children, className = '' }) => (
+    <th
+      className={`${className} text-gray-300 pb-3 text-sm cursor-pointer hover:text-white select-none`}
+      onClick={() => handleTechSort(field)}
+    >
+      <div className="flex items-center justify-center gap-1">
+        {children}
+        <TechSortIcon field={field} />
+      </div>
+    </th>
+  );
+
   return (
     <div className="space-y-4 md:space-y-6">
 
@@ -1511,24 +1612,24 @@ const TechnicianView = ({
       <div className="bg-gray-800 rounded-lg p-4 md:p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Individual {viewTitle} Performance</h3>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
+          <table className="w-full min-w-[1000px]">
             <thead>
               <tr className="border-b border-gray-700">
-                <th className="sticky left-0 z-10 bg-gray-800 text-left text-gray-300 pb-3 text-sm">Technician</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Trade</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Jobs</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Opportunities</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Close Rate</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Avg Ticket</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Recall Rate</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Memberships</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Flips</th>
-                <th className="text-center text-gray-300 pb-3 text-sm">Total Sales</th>
+                <TechSortableHeader field="name" className="sticky left-0 z-10 bg-gray-800 text-left">Technician</TechSortableHeader>
+                <TechSortableHeader field="trade" className="text-center">Trade</TechSortableHeader>
+                <TechSortableHeader field="completedJobs" className="text-center">Jobs</TechSortableHeader>
+                <TechSortableHeader field="opportunities" className="text-center">Opportunities</TechSortableHeader>
+                <TechSortableHeader field="closeRatePercent" className="text-center">Close Rate</TechSortableHeader>
+                <TechSortableHeader field="totalJobAverage" className="text-center">Avg Ticket</TechSortableHeader>
+                <TechSortableHeader field="techRecallPercent" className="text-center">Recall Rate</TechSortableHeader>
+                <TechSortableHeader field="membershipsSold" className="text-center">Memberships</TechSortableHeader>
+                <TechSortableHeader field="leadsSet" className="text-center">Flips</TechSortableHeader>
+                <TechSortableHeader field="firstCallArrivalTime" className="text-center">1st Call Arrival</TechSortableHeader>
+                <TechSortableHeader field="totalSales" className="text-center">Total Sales</TechSortableHeader>
               </tr>
             </thead>
             <tbody>
-              {technicianData
-                .sort((a, b) => (b.totalSales || 0) - (a.totalSales || 0))
+              {sortedTechnicianData
                 .slice(0, 20)
                 .map((tech, index) => {
                 const closeRateStatus = getTargetStatus(tech.closeRatePercent, closeRateTarget);
@@ -1602,6 +1703,11 @@ const TechnicianView = ({
                       }`}>
                         {tech.leadsSet || 0}
                       </span>
+                    </td>
+
+                    {/* First Call Arrival Time */}
+                    <td className="py-3 text-center text-gray-300 text-sm">
+                      {tech.firstCallArrivalTime || '-'}
                     </td>
 
                     {/* Total Sales */}
