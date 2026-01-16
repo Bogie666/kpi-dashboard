@@ -1084,6 +1084,81 @@ class Database:
                     'techRecallPercent': float(row[10]) if row[10] else 0
                 } for row in rows]
 
+    def insert_unsold_estimates_raw(self, data, period_type):
+        """Insert raw unsold estimates data for Tools page export"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Clear existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM unsold_estimates_raw
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing unsold_estimates_raw '{period_type}' records")
+
+                query = """
+                INSERT INTO unsold_estimates_raw (
+                    report_date, period_type, estimate_id, opportunity_number, customer_name,
+                    location_phone, customer_email, business_unit, email_sent,
+                    estimates_discount_total_cents, estimates_subtotal_cents, estimate_age_days,
+                    follow_up_date, number_of_follow_ups, creation_date, estimate_created_by
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+
+                for record in data:
+                    cursor.execute(query, (
+                        datetime.now().date(),
+                        period_type,
+                        record.get("estimate_id"),
+                        record.get("opportunity_number"),
+                        record.get("customer_name"),
+                        record.get("location_phone"),
+                        record.get("customer_email"),
+                        record.get("business_unit"),
+                        record.get("email_sent"),
+                        record.get("estimates_discount_total_cents", 0),
+                        record.get("estimates_subtotal_cents", 0),
+                        record.get("estimate_age_days", 0),
+                        record.get("follow_up_date"),
+                        record.get("number_of_follow_ups", 0),
+                        record.get("creation_date"),
+                        record.get("estimate_created_by")
+                    ))
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} unsold_estimates_raw records for {period_type}")
+
+    def insert_unsold_estimates_summary(self, summary_data, period_type):
+        """Insert aggregated unsold estimates summary for dashboard display"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Clear existing data for this period
+                if period_type in ['mtd', 'ytd', 'last_month']:
+                    cursor.execute("""
+                        DELETE FROM unsold_estimates_summary
+                        WHERE period_type = %s
+                    """, (period_type,))
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing unsold_estimates_summary '{period_type}' records")
+
+                query = """
+                INSERT INTO unsold_estimates_summary (
+                    report_date, period_type, total_opportunities, total_potential_revenue_cents, total_estimates
+                ) VALUES (%s, %s, %s, %s, %s)
+                """
+
+                cursor.execute(query, (
+                    datetime.now().date(),
+                    period_type,
+                    summary_data.get("total_opportunities", 0),
+                    summary_data.get("total_potential_revenue_cents", 0),
+                    summary_data.get("total_estimates", 0)
+                ))
+
+                conn.commit()
+                logger.info(f"Inserted unsold_estimates_summary for {period_type}: {summary_data}")
+
 def fetch_service_titan_token():
     project_id = "new-dashboard-2025"
     try:
@@ -2979,6 +3054,207 @@ def fetch_membership_data(period_type):
                 continue
             raise
 
+def fetch_unsold_estimates_data(period_type, start_date=None, end_date=None):
+    """Fetch unsold estimates from ServiceTitan Report ID: 346111296
+
+    Column order (23 total):
+    0: Estimate Id, 1: Parent Job Number, 2: Opportunity Number, 3: Customer Name,
+    4: Location Phone, 5: Customer Email, 6: Business Unit, 7: Email Sent,
+    8: Opportunity Status, 9: Sold On, 10: Install Job(s), 11: Estimates Discount Total,
+    12: Estimates Subtotal, 13: Estimate Sales Installed, 14: Estimate Age (Days),
+    15: Follow Up Date, 16: Number of Follow Ups, 17: Last Follow Up Date,
+    18: Estimate Status, 19: Recommended, 20: Sold By, 21: Creation Date, 22: Estimate Created By
+    """
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/sales/reports/346111296/data"
+
+    business_units = "124928941,124928174,124928938,455,161649734,8087,7698,6540,124468396,124467371,124692394,7831,6534,8085,154681094,154681497,154684495,154691820"
+
+    today = datetime.now()
+
+    # Calculate dates based on period_type or use custom dates
+    if start_date and end_date:
+        from_date = start_date
+        to_date = end_date
+    elif period_type == "mtd":
+        from_date = today.replace(day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "ytd":
+        from_date = today.replace(month=1, day=1).strftime("%Y-%m-%d")
+        to_date = today.strftime("%Y-%m-%d")
+    elif period_type == "last_month":
+        last_month = today.replace(day=1) - timedelta(days=1)
+        from_date = last_month.replace(day=1).strftime("%Y-%m-%d")
+        to_date = last_month.strftime("%Y-%m-%d")
+    else:
+        raise ValueError("Invalid period_type for unsold estimates data")
+
+    payload = {
+        "parameters": [
+            {"name": "DateType", "value": "0"},
+            {"name": "BusinessUnitId", "value": business_units},
+            {"name": "From", "value": from_date},
+            {"name": "To", "value": to_date},
+            {"name": "AggregatesOnly", "value": "false"},
+            {"name": "TimeZone", "value": "America/Chicago"}
+        ]
+    }
+
+    logger.info(f"Fetching unsold estimates for {period_type}: {from_date} to {to_date}")
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 429:
+                logger.info(f"Rate limited. Retrying in 120 seconds... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(120)
+                continue
+            response.raise_for_status()
+
+            raw_data = response.json()
+            logger.info(f"Unsold estimates API response type: {type(raw_data)}")
+
+            # Handle different response structures
+            records = []
+            if isinstance(raw_data, list):
+                records = raw_data
+            elif isinstance(raw_data, dict):
+                if "data" in raw_data:
+                    data = raw_data["data"]
+                    if isinstance(data, list):
+                        records = data
+                    elif isinstance(data, dict):
+                        for key in ["rows", "records", "results", "items"]:
+                            if key in data and isinstance(data[key], list):
+                                records = data[key]
+                                break
+                else:
+                    for key in ["rows", "records", "results", "items"]:
+                        if key in raw_data and isinstance(raw_data[key], list):
+                            records = raw_data[key]
+                            break
+
+            if not isinstance(records, list):
+                logger.error(f"Could not find list of records in unsold estimates response")
+                return []
+
+            processed_data = []
+            for i, record in enumerate(records):
+                try:
+                    if isinstance(record, list) and len(record) >= 23:
+                        # Parse date fields safely
+                        follow_up_date = None
+                        if record[15]:
+                            try:
+                                follow_up_date = datetime.strptime(str(record[15]).split('T')[0], "%Y-%m-%d").date()
+                            except:
+                                pass
+
+                        creation_date = None
+                        if record[21]:
+                            try:
+                                creation_date = datetime.strptime(str(record[21]).split('T')[0], "%Y-%m-%d").date()
+                            except:
+                                pass
+
+                        processed_data.append({
+                            "estimate_id": str(record[0]) if record[0] else None,
+                            "opportunity_number": str(record[2]) if record[2] else None,
+                            "customer_name": str(record[3]) if record[3] else None,
+                            "location_phone": str(record[4]) if record[4] else None,
+                            "customer_email": str(record[5]) if record[5] else None,
+                            "business_unit": str(record[6]) if record[6] else None,
+                            "email_sent": str(record[7]) if record[7] else None,
+                            "estimates_discount_total_cents": int(safe_float(record[11]) * 100),
+                            "estimates_subtotal_cents": int(safe_float(record[12]) * 100),
+                            "estimate_age_days": safe_int(record[14]),
+                            "follow_up_date": follow_up_date,
+                            "number_of_follow_ups": safe_int(record[16]),
+                            "creation_date": creation_date,
+                            "estimate_created_by": str(record[22]) if record[22] else None
+                        })
+                    elif isinstance(record, dict):
+                        # Handle dictionary format
+                        follow_up_date = None
+                        if record.get("FollowUpDate"):
+                            try:
+                                follow_up_date = datetime.strptime(str(record.get("FollowUpDate")).split('T')[0], "%Y-%m-%d").date()
+                            except:
+                                pass
+
+                        creation_date = None
+                        if record.get("CreationDate"):
+                            try:
+                                creation_date = datetime.strptime(str(record.get("CreationDate")).split('T')[0], "%Y-%m-%d").date()
+                            except:
+                                pass
+
+                        processed_data.append({
+                            "estimate_id": str(record.get("EstimateId")) if record.get("EstimateId") else None,
+                            "opportunity_number": str(record.get("OpportunityNumber")) if record.get("OpportunityNumber") else None,
+                            "customer_name": str(record.get("CustomerName")) if record.get("CustomerName") else None,
+                            "location_phone": str(record.get("LocationPhone")) if record.get("LocationPhone") else None,
+                            "customer_email": str(record.get("CustomerEmail")) if record.get("CustomerEmail") else None,
+                            "business_unit": str(record.get("BusinessUnit")) if record.get("BusinessUnit") else None,
+                            "email_sent": str(record.get("EmailSent")) if record.get("EmailSent") else None,
+                            "estimates_discount_total_cents": int(safe_float(record.get("EstimatesDiscountTotal", 0)) * 100),
+                            "estimates_subtotal_cents": int(safe_float(record.get("EstimatesSubtotal", 0)) * 100),
+                            "estimate_age_days": safe_int(record.get("EstimateAgeDays", 0)),
+                            "follow_up_date": follow_up_date,
+                            "number_of_follow_ups": safe_int(record.get("NumberOfFollowUps", 0)),
+                            "creation_date": creation_date,
+                            "estimate_created_by": str(record.get("EstimateCreatedBy")) if record.get("EstimateCreatedBy") else None
+                        })
+                except Exception as e:
+                    logger.error(f"Error processing unsold estimate record {i}: {str(e)}")
+                    continue
+
+            logger.info(f"Processed {len(processed_data)} unsold estimates records")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_unsold_estimates_data: {str(e)}")
+            if attempt < max_retries - 1:
+                continue
+            raise
+
+def aggregate_unsold_estimates(raw_data):
+    """Aggregate raw unsold estimates data into summary for dashboard
+
+    Groups by opportunity_number, calculates average estimate per opportunity,
+    and sums up the totals.
+    """
+    if not raw_data:
+        return {
+            "total_opportunities": 0,
+            "total_potential_revenue_cents": 0,
+            "total_estimates": 0
+        }
+
+    # Group by opportunity number
+    opportunities = {}
+    for record in raw_data:
+        opp_num = record.get("opportunity_number")
+        if opp_num:
+            if opp_num not in opportunities:
+                opportunities[opp_num] = []
+            opportunities[opp_num].append(record.get("estimates_subtotal_cents", 0))
+
+    # Calculate average for each opportunity and sum
+    total_potential_revenue_cents = 0
+    for opp_num, subtotals in opportunities.items():
+        if subtotals:
+            avg_subtotal = sum(subtotals) / len(subtotals)
+            total_potential_revenue_cents += int(avg_subtotal)
+
+    return {
+        "total_opportunities": len(opportunities),
+        "total_potential_revenue_cents": total_potential_revenue_cents,
+        "total_estimates": len(raw_data)
+    }
+
 def get_existing_monthly_data(year=None):
     """Check what monthly data already exists in database"""
     if year is None:
@@ -3592,6 +3868,18 @@ def sync_servicetitan_data(request):
                         logger.info("No Membership data returned")
                 except Exception as e:
                     logger.error(f"Failed to sync Membership data: {str(e)}")
+                # Unsold Estimates data: supports mtd, ytd, last_month
+                try:
+                    unsold_data = fetch_unsold_estimates_data(period)
+                    if unsold_data:
+                        db.insert_unsold_estimates_raw(unsold_data, period)
+                        summary = aggregate_unsold_estimates(unsold_data)
+                        db.insert_unsold_estimates_summary(summary, period)
+                        logger.info(f"Inserted {len(unsold_data)} Unsold Estimates records, summary: {summary}")
+                    else:
+                        logger.info("No Unsold Estimates data returned")
+                except Exception as e:
+                    logger.error(f"Failed to sync Unsold Estimates data: {str(e)}")
             # Call Center data: supports all periods including 'today'
             try:
                 call_center_data, report_date = fetch_call_center_data(period)

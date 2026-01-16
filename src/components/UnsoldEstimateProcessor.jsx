@@ -1,76 +1,106 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
-import { Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Download, FileSpreadsheet, AlertCircle, CheckCircle, Calendar, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+const ADMIN_API = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/admin-api';
+
 const UnsoldEstimateProcessor = () => {
-  const [file, setFile] = useState(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [fetching, setFetching] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const fileInputRef = useRef(null);
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      if (!selectedFile.name.endsWith('.xlsx')) {
-        setError('Please select an Excel file (.xlsx)');
-        setFile(null);
-        return;
-      }
-      setFile(selectedFile);
-      setError(null);
-      setResult(null);
+  // Set default dates to current month
+  React.useEffect(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const today = new Date();
+
+    setStartDate(firstDay.toISOString().split('T')[0]);
+    setEndDate(today.toISOString().split('T')[0]);
+  }, []);
+
+  const fetchAndProcess = async () => {
+    if (!startDate || !endDate) {
+      setError('Please select both start and end dates');
+      return;
     }
-  };
 
-  const processFile = async () => {
-    if (!file) return;
-
-    setProcessing(true);
+    setFetching(true);
+    setProcessing(false);
     setError(null);
+    setResult(null);
 
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      // Fetch data from admin-api
+      const response = await fetch(`${ADMIN_API}/unsold-estimates/fetch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+        }),
+      });
 
-      if (jsonData.length === 0) {
-        throw new Error('The file appears to be empty');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch data from ServiceTitan');
       }
+
+      const fetchedData = await response.json();
+
+      if (!fetchedData.data || fetchedData.data.length === 0) {
+        throw new Error('No unsold estimates found for the selected date range');
+      }
+
+      setFetching(false);
+      setProcessing(true);
+
+      // Process the fetched data
+      const jsonData = fetchedData.data;
 
       // Group by Opportunity Number
       const grouped = {};
       jsonData.forEach((row) => {
-        const opportunityNumber = row['Opportunity Number'];
+        const opportunityNumber = row.opportunity_number;
         if (!opportunityNumber) return;
 
         if (!grouped[opportunityNumber]) {
           grouped[opportunityNumber] = {
             opportunityNumber,
-            customerName: row['Customer Name'],
-            locationPhone: row['Location Phone'],
-            customerEmail: row['Customer Email'],
-            businessUnit: row['Business Unit'],
-            estimateCreatedBy: row['Estimate Created By'],
-            creationDate: row['Creation Date'],
-            followUpDate: row['Follow Up Date'],
-            numberOfFollowUps: row['Number of Follow Ups'],
-            estimateAgeDays: row['Estimate Age (Days)'],
+            customerName: row.customer_name,
+            locationPhone: row.location_phone,
+            customerEmail: row.customer_email,
+            businessUnit: row.business_unit,
+            emailSent: row.email_sent,
+            estimateCreatedBy: row.estimate_created_by,
+            creationDate: row.creation_date,
+            followUpDate: row.follow_up_date,
+            numberOfFollowUps: row.number_of_follow_ups,
+            estimateAgeDays: row.estimate_age_days,
             estimateSubtotals: [],
+            discountTotals: [],
           };
         }
 
-        // Parse the Estimates Subtotal
-        let subtotal = row['Estimates Subtotal'];
-        if (typeof subtotal === 'string') {
-          subtotal = parseFloat(subtotal.replace(/[$,]/g, ''));
-        }
+        // Parse the Estimates Subtotal (stored as cents)
+        const subtotalCents = row.estimates_subtotal_cents || 0;
+        const subtotal = subtotalCents / 100;
         if (!isNaN(subtotal)) {
           grouped[opportunityNumber].estimateSubtotals.push(subtotal);
+        }
+
+        // Parse the Discount Total (stored as cents)
+        const discountCents = row.estimates_discount_total_cents || 0;
+        const discount = discountCents / 100;
+        if (!isNaN(discount)) {
+          grouped[opportunityNumber].discountTotals.push(discount);
         }
       });
 
@@ -81,13 +111,20 @@ const UnsoldEstimateProcessor = () => {
             ? group.estimateSubtotals.reduce((a, b) => a + b, 0) / group.estimateSubtotals.length
             : 0;
 
+        const avgDiscount =
+          group.discountTotals.length > 0
+            ? group.discountTotals.reduce((a, b) => a + b, 0) / group.discountTotals.length
+            : 0;
+
         return {
           'Opportunity Number': group.opportunityNumber,
           'Customer Name': group.customerName,
           'Location Phone': group.locationPhone,
           'Customer Email': group.customerEmail,
           'Business Unit': group.businessUnit,
+          'Email Sent': group.emailSent,
           'Average Estimate': Math.round(avgEstimate * 100) / 100,
+          'Average Discount': Math.round(avgDiscount * 100) / 100,
           'Number of Options': group.estimateSubtotals.length,
           'Estimate Created By': group.estimateCreatedBy,
           'Creation Date': group.creationDate,
@@ -104,32 +141,33 @@ const UnsoldEstimateProcessor = () => {
       const totalOpportunities = outputRows.length;
       const totalRealisticRevenue = outputRows.reduce((sum, row) => sum + row['Average Estimate'], 0);
 
-      // Create CSV
-      const csvWorksheet = XLSX.utils.json_to_sheet(outputRows);
-      const csvContent = XLSX.utils.sheet_to_csv(csvWorksheet);
+      // Create XLSX workbook
+      const worksheet = XLSX.utils.json_to_sheet(outputRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Unsold Estimates');
+
+      // Generate filename with date range
+      const fileName = `unsold_estimates_${startDate}_to_${endDate}.xlsx`;
 
       setResult({
-        csvContent,
+        workbook,
         totalOpportunities,
         totalRealisticRevenue,
-        fileName: file.name.replace('.xlsx', '_processed.csv'),
+        totalEstimates: jsonData.length,
+        fileName,
       });
     } catch (err) {
-      setError(err.message || 'An error occurred while processing the file');
+      setError(err.message || 'An error occurred while fetching or processing the data');
     } finally {
+      setFetching(false);
       setProcessing(false);
     }
   };
 
-  const downloadCsv = () => {
+  const downloadXlsx = () => {
     if (!result) return;
 
-    const blob = new Blob([result.csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = result.fileName;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    XLSX.writeFile(result.workbook, result.fileName);
   };
 
   const formatCurrency = (value) => {
@@ -149,29 +187,37 @@ const UnsoldEstimateProcessor = () => {
       </div>
 
       <p className="text-gray-400 text-sm mb-6">
-        Upload a ServiceTitan unsold estimate Excel file to process it into a CSV with one row per
-        opportunity, averaging multiple estimate options per customer.
+        Select a date range to fetch unsold estimates from ServiceTitan. The data will be processed
+        into a spreadsheet with one row per opportunity, averaging multiple estimate options per customer.
       </p>
 
-      {/* File Upload */}
+      {/* Date Range Selection */}
       <div className="space-y-4">
-        <div
-          className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".xlsx"
-            className="hidden"
-          />
-          <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-          {file ? (
-            <p className="text-blue-400">{file.name}</p>
-          ) : (
-            <p className="text-gray-400">Click to select an Excel file (.xlsx)</p>
-          )}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Start Date</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg py-2 pl-10 pr-3 text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">End Date</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg py-2 pl-10 pr-3 text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -182,17 +228,27 @@ const UnsoldEstimateProcessor = () => {
           </div>
         )}
 
-        {/* Process Button */}
+        {/* Fetch Button */}
         <button
-          onClick={processFile}
-          disabled={!file || processing}
-          className={`w-full py-3 rounded-lg font-medium transition-colors ${
-            !file || processing
+          onClick={fetchAndProcess}
+          disabled={!startDate || !endDate || fetching || processing}
+          className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 ${
+            !startDate || !endDate || fetching || processing
               ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
               : 'bg-blue-600 text-white hover:bg-blue-700'
           }`}
         >
-          {processing ? 'Processing...' : 'Process File'}
+          {fetching || processing ? (
+            <>
+              <RefreshCw className="h-5 w-5 animate-spin" />
+              <span>{fetching ? 'Fetching from ServiceTitan...' : 'Processing data...'}</span>
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-5 w-5" />
+              <span>Fetch & Process</span>
+            </>
+          )}
         </button>
 
         {/* Results */}
@@ -204,13 +260,17 @@ const UnsoldEstimateProcessor = () => {
                 <CheckCircle className="h-5 w-5" />
                 <span className="font-medium">Processing Complete</span>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-gray-400 text-sm">Total Opportunities</p>
                   <p className="text-2xl font-bold">{result.totalOpportunities}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Total Realistic Revenue</p>
+                  <p className="text-gray-400 text-sm">Total Estimates</p>
+                  <p className="text-2xl font-bold text-blue-400">{result.totalEstimates}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Potential Revenue</p>
                   <p className="text-2xl font-bold text-green-400">
                     {formatCurrency(result.totalRealisticRevenue)}
                   </p>
@@ -220,7 +280,7 @@ const UnsoldEstimateProcessor = () => {
 
             {/* Download Button */}
             <button
-              onClick={downloadCsv}
+              onClick={downloadXlsx}
               className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
             >
               <Download className="h-5 w-5" />

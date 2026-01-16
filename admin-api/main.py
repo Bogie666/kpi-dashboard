@@ -8,6 +8,9 @@ import jwt
 import hashlib
 import secrets
 from decimal import Decimal
+import requests
+import time
+from google.cloud import secretmanager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +24,182 @@ class CustomEncoder(json.JSONEncoder):
         if isinstance(obj, datetime):
             return obj.isoformat()
         return super().default(obj)
+
+# ============================================================================
+# ServiceTitan API Helpers
+# ============================================================================
+
+def access_secret_version(project_id, secret_id, version_id="latest"):
+    """Access a secret from Secret Manager"""
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    try:
+        response = client.access_secret_version(request={"name": name})
+        return response.payload.data.decode("UTF-8")
+    except Exception as e:
+        logger.error(f"Error accessing secret {secret_id}: {str(e)}")
+        raise
+
+def fetch_service_titan_token():
+    """Get ServiceTitan OAuth token"""
+    project_id = "new-dashboard-2025"
+    try:
+        client_id = access_secret_version(project_id, "st-client-id")
+        client_secret = access_secret_version(project_id, "st-client-secret")
+        url = "https://auth.servicetitan.io/connect/token"
+        payload = f"grant_type=client_credentials&client_id={client_id}&client_secret={client_secret}"
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        response = requests.post(url, data=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()["access_token"]
+    except Exception as e:
+        logger.error(f"Error fetching ServiceTitan token: {str(e)}")
+        raise
+
+def get_st_auth_headers():
+    """Get ServiceTitan API headers with authentication"""
+    project_id = "new-dashboard-2025"
+    try:
+        app_key = access_secret_version(project_id, "st-app-key")
+        return {
+            "Authorization": f"Bearer {fetch_service_titan_token()}",
+            "ST-App-Key": app_key,
+            "Content-Type": "application/json"
+        }
+    except Exception as e:
+        logger.error(f"Error getting auth headers: {str(e)}")
+        raise
+
+def safe_float(value, default=0.0):
+    """Safely convert to float"""
+    try:
+        return float(value) if value is not None else default
+    except (ValueError, TypeError):
+        return default
+
+def safe_int(value, default=0):
+    """Safely convert to int"""
+    try:
+        return int(float(value)) if value is not None else default
+    except (ValueError, TypeError):
+        return default
+
+def fetch_unsold_estimates_from_servicetitan(start_date, end_date):
+    """Fetch unsold estimates from ServiceTitan Report ID: 346111296
+
+    Column order (23 total):
+    0: Estimate Id, 1: Parent Job Number, 2: Opportunity Number, 3: Customer Name,
+    4: Location Phone, 5: Customer Email, 6: Business Unit, 7: Email Sent,
+    8: Opportunity Status, 9: Sold On, 10: Install Job(s), 11: Estimates Discount Total,
+    12: Estimates Subtotal, 13: Estimate Sales Installed, 14: Estimate Age (Days),
+    15: Follow Up Date, 16: Number of Follow Ups, 17: Last Follow Up Date,
+    18: Estimate Status, 19: Recommended, 20: Sold By, 21: Creation Date, 22: Estimate Created By
+    """
+    headers = get_st_auth_headers()
+    tenant_id = "1498628772"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/sales/reports/346111296/data"
+
+    business_units = "124928941,124928174,124928938,455,161649734,8087,7698,6540,124468396,124467371,124692394,7831,6534,8085,154681094,154681497,154684495,154691820"
+
+    payload = {
+        "parameters": [
+            {"name": "DateType", "value": "0"},
+            {"name": "BusinessUnitId", "value": business_units},
+            {"name": "From", "value": start_date},
+            {"name": "To", "value": end_date},
+            {"name": "AggregatesOnly", "value": "false"},
+            {"name": "TimeZone", "value": "America/Chicago"}
+        ]
+    }
+
+    logger.info(f"Fetching unsold estimates for: {start_date} to {end_date}")
+
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 429:
+                logger.info(f"Rate limited. Retrying in 60 seconds... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(60)
+                continue
+            response.raise_for_status()
+
+            raw_data = response.json()
+            logger.info(f"Unsold estimates API response type: {type(raw_data)}")
+
+            # Handle different response structures
+            records = []
+            if isinstance(raw_data, list):
+                records = raw_data
+            elif isinstance(raw_data, dict):
+                if "data" in raw_data:
+                    data = raw_data["data"]
+                    if isinstance(data, list):
+                        records = data
+                    elif isinstance(data, dict):
+                        for key in ["rows", "records", "results", "items"]:
+                            if key in data and isinstance(data[key], list):
+                                records = data[key]
+                                break
+                else:
+                    for key in ["rows", "records", "results", "items"]:
+                        if key in raw_data and isinstance(raw_data[key], list):
+                            records = raw_data[key]
+                            break
+
+            if not isinstance(records, list):
+                logger.error(f"Could not find list of records in unsold estimates response")
+                return []
+
+            processed_data = []
+            for i, record in enumerate(records):
+                try:
+                    if isinstance(record, list) and len(record) >= 23:
+                        processed_data.append({
+                            "estimate_id": str(record[0]) if record[0] else None,
+                            "opportunity_number": str(record[2]) if record[2] else None,
+                            "customer_name": str(record[3]) if record[3] else None,
+                            "location_phone": str(record[4]) if record[4] else None,
+                            "customer_email": str(record[5]) if record[5] else None,
+                            "business_unit": str(record[6]) if record[6] else None,
+                            "email_sent": str(record[7]) if record[7] else None,
+                            "estimates_discount_total_cents": int(safe_float(record[11]) * 100),
+                            "estimates_subtotal_cents": int(safe_float(record[12]) * 100),
+                            "estimate_age_days": safe_int(record[14]),
+                            "follow_up_date": str(record[15]).split('T')[0] if record[15] else None,
+                            "number_of_follow_ups": safe_int(record[16]),
+                            "creation_date": str(record[21]).split('T')[0] if record[21] else None,
+                            "estimate_created_by": str(record[22]) if record[22] else None
+                        })
+                    elif isinstance(record, dict):
+                        processed_data.append({
+                            "estimate_id": str(record.get("EstimateId")) if record.get("EstimateId") else None,
+                            "opportunity_number": str(record.get("OpportunityNumber")) if record.get("OpportunityNumber") else None,
+                            "customer_name": str(record.get("CustomerName")) if record.get("CustomerName") else None,
+                            "location_phone": str(record.get("LocationPhone")) if record.get("LocationPhone") else None,
+                            "customer_email": str(record.get("CustomerEmail")) if record.get("CustomerEmail") else None,
+                            "business_unit": str(record.get("BusinessUnit")) if record.get("BusinessUnit") else None,
+                            "email_sent": str(record.get("EmailSent")) if record.get("EmailSent") else None,
+                            "estimates_discount_total_cents": int(safe_float(record.get("EstimatesDiscountTotal", 0)) * 100),
+                            "estimates_subtotal_cents": int(safe_float(record.get("EstimatesSubtotal", 0)) * 100),
+                            "estimate_age_days": safe_int(record.get("EstimateAgeDays", 0)),
+                            "follow_up_date": str(record.get("FollowUpDate")).split('T')[0] if record.get("FollowUpDate") else None,
+                            "number_of_follow_ups": safe_int(record.get("NumberOfFollowUps", 0)),
+                            "creation_date": str(record.get("CreationDate")).split('T')[0] if record.get("CreationDate") else None,
+                            "estimate_created_by": str(record.get("EstimateCreatedBy")) if record.get("EstimateCreatedBy") else None
+                        })
+                except Exception as e:
+                    logger.error(f"Error processing unsold estimate record {i}: {str(e)}")
+                    continue
+
+            logger.info(f"Processed {len(processed_data)} unsold estimates records")
+            return processed_data
+
+        except Exception as e:
+            logger.error(f"Error in fetch_unsold_estimates_from_servicetitan: {str(e)}")
+            if attempt < max_retries - 1:
+                continue
+            raise
 
 class AdminDatabaseManager:
     def __init__(self):
@@ -2213,7 +2392,41 @@ def admin_api(request):
                     'timestamp': datetime.now().isoformat()
                 }
                 return (json.dumps(response, cls=CustomEncoder), 200, headers)
-        
+
+        # Unsold Estimates Fetch Route (for Tools page)
+        elif path_parts[0] == 'unsold-estimates':
+            if len(path_parts) > 1 and path_parts[1] == 'fetch' and method == 'POST':
+                request_data = request.get_json()
+                start_date = request_data.get('startDate')
+                end_date = request_data.get('endDate')
+
+                if not start_date or not end_date:
+                    response = {
+                        'status': 'error',
+                        'error': 'startDate and endDate are required',
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, cls=CustomEncoder), 400, headers)
+
+                try:
+                    data = fetch_unsold_estimates_from_servicetitan(start_date, end_date)
+                    response = {
+                        'status': 'success',
+                        'data': data,
+                        'count': len(data),
+                        'dateRange': {'startDate': start_date, 'endDate': end_date},
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, cls=CustomEncoder), 200, headers)
+                except Exception as e:
+                    logger.error(f"Error fetching unsold estimates: {str(e)}")
+                    response = {
+                        'status': 'error',
+                        'error': f'Failed to fetch unsold estimates: {str(e)}',
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return (json.dumps(response, cls=CustomEncoder), 500, headers)
+
         # Default route - show available endpoints
         else:
             response = {
@@ -2232,7 +2445,8 @@ def admin_api(request):
                     'DELETE /users/{id} - Delete user',
                     'GET /settings - Get system settings',
                     'PUT /settings - Update system settings',
-                    'GET /status - Get system status'
+                    'GET /status - Get system status',
+                    'POST /unsold-estimates/fetch - Fetch unsold estimates from ServiceTitan'
                 ],
                 'timestamp': datetime.now().isoformat()
             }

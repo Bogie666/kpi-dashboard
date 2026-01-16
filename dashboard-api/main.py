@@ -751,6 +751,39 @@ class DatabaseManager:
                     }
                 return {}
 
+    def get_unsold_estimates_summary(self, period_type: str):
+        """Get unsold estimates summary for dashboard display"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                query = """
+                SELECT
+                    total_opportunities,
+                    total_potential_revenue_cents,
+                    total_estimates,
+                    updated_at
+                FROM unsold_estimates_summary
+                WHERE period_type = %s
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """
+
+                cursor.execute(query, (period_type,))
+                row = cursor.fetchone()
+
+                if row:
+                    return {
+                        'totalOpportunities': row[0] or 0,
+                        'potentialRevenue': (row[1] or 0) / 100,  # Convert cents to dollars
+                        'totalEstimates': row[2] or 0,
+                        'updatedAt': row[3].isoformat() if row[3] else None
+                    }
+                return {
+                    'totalOpportunities': 0,
+                    'potentialRevenue': 0,
+                    'totalEstimates': 0,
+                    'updatedAt': None
+                }
+
     def get_financial_ttm_data(self, start_year: int, start_month: int, end_year: int, end_month: int):
         """Get trailing twelve months financial data with monthly aggregates"""
         with self.get_connection() as conn:
@@ -1445,6 +1478,22 @@ def dashboard_api(request):
             }
             return (json.dumps(response, cls=DecimalEncoder), 200, headers)
 
+        # Route: /unsold-estimates/{period_type}
+        elif len(path_parts) == 2 and path_parts[0] == 'unsold-estimates':
+            period_type = path_parts[1]
+
+            if period_type not in ['mtd', 'ytd', 'last_month']:
+                return (json.dumps({'error': 'Invalid period type for unsold estimates data'}, cls=DecimalEncoder), 400, headers)
+
+            data = db.get_unsold_estimates_summary(period_type)
+            response = {
+                'status': 'success',
+                'data': data,
+                'period': period_type,
+                'timestamp': datetime.now().isoformat()
+            }
+            return (json.dumps(response, cls=DecimalEncoder), 200, headers)
+
         # Route: /health
         elif path == 'health':
             response = {
@@ -1542,6 +1591,9 @@ def dashboard_api(request):
                     '/membership-summary/mtd',
                     '/membership-summary/ytd',
                     '/membership-summary/last_month',
+                    '/unsold-estimates/mtd',
+                    '/unsold-estimates/ytd',
+                    '/unsold-estimates/last_month',
                     '/health',
                     '/last-sync'
                 ],

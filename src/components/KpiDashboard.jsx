@@ -487,10 +487,20 @@ const startDisplayAutoRotation = () => {
         }));
       }
     } else if (effectiveView === 'financial' || activeView === 'financial') {
-      const response = await fetch(`${DASHBOARD_API}/financial/${timePeriod}`);
-      const data = await response.json();
-      if (data.status === 'success') {
-        setDashboardData(prev => ({ ...prev, financial: data.data }));
+      // Load both financial data and unsold estimates in parallel
+      const [financialResponse, unsoldResponse] = await Promise.all([
+        fetch(`${DASHBOARD_API}/financial/${timePeriod}`),
+        fetch(`${DASHBOARD_API}/unsold-estimates/${timePeriod}`)
+      ]);
+
+      const financialData = await financialResponse.json();
+      const unsoldData = await unsoldResponse.json();
+
+      if (financialData.status === 'success') {
+        setDashboardData(prev => ({ ...prev, financial: financialData.data }));
+      }
+      if (unsoldData.status === 'success') {
+        setDashboardData(prev => ({ ...prev, unsoldEstimates: unsoldData.data }));
       }
     } else if (effectiveView === 'memberships') {
       // Load both membership data and summary
@@ -1913,6 +1923,11 @@ const FinancialView = () => {
   const totalOpportunities = financialData.reduce((sum, dept) => sum + (dept.opportunities || 0), 0);
   const totalMembershipRevenue = financialData.reduce((sum, dept) => sum + (dept.membershipRevenue || 0), 0);
 
+  // Get unsold estimates data for Potential Revenue card
+  const unsoldEstimates = dashboardData.unsoldEstimates || {};
+  const potentialRevenue = unsoldEstimates.potentialRevenue || 0;
+  const unsoldOpportunities = unsoldEstimates.totalOpportunities || 0;
+
   // Calculate total budget from all departments
   const getTotalBudgetForPeriod = (timePeriod) => {
   return financialData.reduce((sum, dept) => {
@@ -2191,20 +2206,37 @@ const EnhancedTotalRevenueCard = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
         <EnhancedTotalRevenueCard />
 
-        <MetricCard
-          title="Total Jobs"
-          value={totalJobs}
-          unit=" jobs"
-          showDetailedStatus={false}
-          colorScheme="blue"
-        />
-        <MetricCard
-          title="Total Opportunities"
-          value={totalOpportunities}
-          unit=" opps"
-          showDetailedStatus={false}
-          colorScheme="purple"
-        />
+        {/* Potential Revenue Card - Unsold Estimates */}
+        <div className="bg-gray-800 border border-amber-500 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-gray-300 text-sm font-medium">Potential Revenue</h3>
+            <span className="text-xs bg-amber-600 text-amber-100 px-2 py-0.5 rounded">Unsold</span>
+          </div>
+          <p className="text-2xl font-bold text-amber-400">
+            ${potentialRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            {unsoldOpportunities} open opportunities
+          </p>
+        </div>
+
+        {/* Combined Jobs & Opportunities Card */}
+        <div className="bg-gray-800 border border-blue-500 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-gray-300 text-sm font-medium">Jobs & Opportunities</h3>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <p className="text-2xl font-bold text-blue-400">{totalJobs}</p>
+            <span className="text-gray-400 text-sm">jobs</span>
+            <span className="text-gray-500 mx-1">|</span>
+            <p className="text-2xl font-bold text-purple-400">{totalOpportunities}</p>
+            <span className="text-gray-400 text-sm">opps</span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            {totalOpportunities > 0 ? `${Math.round((totalJobs / totalOpportunities) * 100)}% conversion` : 'No opportunities'}
+          </p>
+        </div>
+
         <MetricCard
           title="Daily Average Revenue"
           value={dailyAverageRevenue}
