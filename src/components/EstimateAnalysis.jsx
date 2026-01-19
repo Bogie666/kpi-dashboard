@@ -75,8 +75,9 @@ const groupBy = (array, key) => {
 
 const EstimateAnalysis = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [dateRange, setDateRange] = useState('Last 6 Months');
-  const [rawData, setRawData] = useState([]);
+  const [dateRange, setDateRange] = useState('Last 12 Months');
+  const [fullData, setFullData] = useState([]);  // Full 12-month data
+  const [loadedDateRange, setLoadedDateRange] = useState(null);  // Track what's loaded
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [customStartDate, setCustomStartDate] = useState('');
@@ -120,19 +121,14 @@ const EstimateAnalysis = () => {
     { id: 'tyler', label: 'Tyler', color: colors.purple, closeRateTarget: 50, avgTicketTarget: 1200 },
   ];
 
-  // Fetch data when date range changes
+  // Initial data load - always fetch Last 12 Months
   useEffect(() => {
-    // Skip fetch if Custom is selected but dates aren't set
-    if (dateRange === 'Custom' && (!customStartDate || !customEndDate)) {
-      return;
-    }
-
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const { start, end } = getDateRange(dateRange, customStartDate, customEndDate);
+        const { start, end } = getDateRange('Last 12 Months');
         const response = await fetch(
           `${SYNC_API}/estimate-analysis?start_date=${start}&end_date=${end}`
         );
@@ -143,7 +139,8 @@ const EstimateAnalysis = () => {
 
         const result = await response.json();
         if (result.status === 'success' && result.data) {
-          setRawData(result.data);
+          setFullData(result.data);
+          setLoadedDateRange({ start, end });
         } else {
           throw new Error(result.error || 'Failed to fetch data');
         }
@@ -155,8 +152,64 @@ const EstimateAnalysis = () => {
       }
     };
 
-    fetchData();
-  }, [dateRange, customStartDate, customEndDate]);
+    fetchInitialData();
+  }, []);
+
+  // Handle Custom date range that might need refetch
+  useEffect(() => {
+    if (dateRange !== 'Custom' || !customStartDate || !customEndDate || !loadedDateRange) {
+      return;
+    }
+
+    // Check if custom range is outside loaded data
+    if (customStartDate < loadedDateRange.start || customEndDate > loadedDateRange.end) {
+      const fetchCustomData = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+          const response = await fetch(
+            `${SYNC_API}/estimate-analysis?start_date=${customStartDate}&end_date=${customEndDate}`
+          );
+
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+
+          const result = await response.json();
+          if (result.status === 'success' && result.data) {
+            setFullData(result.data);
+            setLoadedDateRange({ start: customStartDate, end: customEndDate });
+          } else {
+            throw new Error(result.error || 'Failed to fetch data');
+          }
+        } catch (err) {
+          console.error('Error fetching custom date range:', err);
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchCustomData();
+    }
+  }, [dateRange, customStartDate, customEndDate, loadedDateRange]);
+
+  // Filter fullData based on selected date range (client-side filtering)
+  const rawData = useMemo(() => {
+    if (!fullData || fullData.length === 0) return [];
+
+    // For Custom, use custom dates; otherwise calculate from preset
+    const { start, end } = dateRange === 'Custom' && customStartDate && customEndDate
+      ? { start: customStartDate, end: customEndDate }
+      : getDateRange(dateRange);
+
+    return fullData.filter(record => {
+      const creationDate = record.creation_date;
+      if (!creationDate) return false;
+      return creationDate >= start && creationDate <= end;
+    });
+  }, [fullData, dateRange, customStartDate, customEndDate]);
 
   // Process raw data into analytics - memoized for performance
   const processedData = useMemo(() => {
