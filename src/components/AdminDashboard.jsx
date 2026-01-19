@@ -129,6 +129,7 @@ const AdminDashboard = () => {
     comfort_advisor: true,
     technician: true,
     hvac_maintenance: true,
+    commercial_hvac: true,
     plumbing: true,
     electrical: true,
     call_center: true,
