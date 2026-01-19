@@ -3360,7 +3360,7 @@ def fetch_estimate_analysis_data(start_date, end_date):
                     "business_unit": str(record[6]) if record[6] else None,
                     "opportunity_status": str(record[8]) if record[8] else None,
                     "sold_on": sold_on,
-                    "estimates_subtotal": safe_float(record[12]) / 100 if record[12] else 0,  # Convert cents to dollars
+                    "estimates_subtotal": safe_float(record[12]) if record[12] else 0,
                     "estimate_status": str(record[18]) if record[18] else None,
                     "creation_date": creation_date,
                     "estimate_created_by": str(record[22]) if record[22] else None
@@ -3388,7 +3388,7 @@ def fetch_estimate_analysis_data(start_date, end_date):
                     "business_unit": str(record.get("BusinessUnit")) if record.get("BusinessUnit") else None,
                     "opportunity_status": str(record.get("OpportunityStatus")) if record.get("OpportunityStatus") else None,
                     "sold_on": sold_on,
-                    "estimates_subtotal": safe_float(record.get("EstimatesSubtotal", 0)) / 100,  # Convert cents to dollars
+                    "estimates_subtotal": safe_float(record.get("EstimatesSubtotal", 0)),
                     "estimate_status": str(record.get("EstimateStatus")) if record.get("EstimateStatus") else None,
                     "creation_date": creation_date,
                     "estimate_created_by": str(record.get("EstimateCreatedBy")) if record.get("EstimateCreatedBy") else None
