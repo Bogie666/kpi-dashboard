@@ -31,11 +31,13 @@ const getDepartment = (businessUnit) => {
 };
 
 // Calculate date range based on period type
-const getDateRange = (periodType) => {
+const getDateRange = (periodType, customStart = null, customEnd = null) => {
   const today = new Date();
   let startDate, endDate;
 
-  if (periodType === 'MTD') {
+  if (periodType === 'Custom' && customStart && customEnd) {
+    return { start: customStart, end: customEnd };
+  } else if (periodType === 'MTD') {
     startDate = new Date(today.getFullYear(), today.getMonth(), 1);
     endDate = today;
   } else if (periodType === 'YTD') {
@@ -45,6 +47,12 @@ const getDateRange = (periodType) => {
     const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     startDate = lastMonth;
     endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+  } else if (periodType === 'Last 6 Months') {
+    startDate = new Date(today.getFullYear(), today.getMonth() - 6, 1);
+    endDate = today;
+  } else if (periodType === 'Last 12 Months') {
+    startDate = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+    endDate = today;
   }
 
   return {
@@ -67,10 +75,12 @@ const groupBy = (array, key) => {
 
 const EstimateAnalysis = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [dateRange, setDateRange] = useState('YTD');
+  const [dateRange, setDateRange] = useState('Last 6 Months');
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   // Color palette matching existing dashboard
   const colors = {
@@ -93,7 +103,7 @@ const EstimateAnalysis = () => {
   const departments = [
     { id: 'all', label: 'All Departments', color: colors.accent, closeRateTarget: 45, avgTicketTarget: 5000 },
     { id: 'sales', label: 'Sales', color: colors.accent, closeRateTarget: 60, avgTicketTarget: 15000 },
-    { id: 'demand', label: 'Demand Calls', color: colors.success, closeRateTarget: 55, avgTicketTarget: 2000 },
+    { id: 'demand', label: 'Service', color: colors.success, closeRateTarget: 55, avgTicketTarget: 2000 },
     { id: 'maintenance', label: 'Maintenance', color: colors.orange, closeRateTarget: 30, avgTicketTarget: 2500 },
     { id: 'plumbing', label: 'Plumbing', color: colors.cyan, closeRateTarget: 50, avgTicketTarget: 1800 },
     { id: 'electrical', label: 'Electrical', color: colors.warning, closeRateTarget: 50, avgTicketTarget: 1500 },
@@ -102,12 +112,17 @@ const EstimateAnalysis = () => {
 
   // Fetch data when date range changes
   useEffect(() => {
+    // Skip fetch if Custom is selected but dates aren't set
+    if (dateRange === 'Custom' && (!customStartDate || !customEndDate)) {
+      return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const { start, end } = getDateRange(dateRange);
+        const { start, end } = getDateRange(dateRange, customStartDate, customEndDate);
         const response = await fetch(
           `${SYNC_API}/estimate-analysis?start_date=${start}&end_date=${end}`
         );
@@ -131,7 +146,7 @@ const EstimateAnalysis = () => {
     };
 
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, customStartDate, customEndDate]);
 
   // Process raw data into analytics - memoized for performance
   const processedData = useMemo(() => {
@@ -673,19 +688,52 @@ const EstimateAnalysis = () => {
       {/* Header */}
       <div style={styles.header}>
         <h1 style={styles.title}>Estimate Analysis</h1>
-        <div style={styles.dateButtons}>
-          {['MTD', 'YTD', 'Last Month'].map((range) => (
-            <button
-              key={range}
-              onClick={() => setDateRange(range)}
-              style={{
-                ...styles.dateButton,
-                ...(dateRange === range ? styles.dateButtonActive : styles.dateButtonInactive),
-              }}
-            >
-              {range}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={styles.dateButtons}>
+            {['MTD', 'Last Month', 'Last 6 Months', 'Last 12 Months', 'YTD', 'Custom'].map((range) => (
+              <button
+                key={range}
+                onClick={() => setDateRange(range)}
+                style={{
+                  ...styles.dateButton,
+                  ...(dateRange === range ? styles.dateButtonActive : styles.dateButtonInactive),
+                }}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+          {dateRange === 'Custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #374151',
+                  backgroundColor: '#374151',
+                  color: '#fff',
+                  fontSize: '14px',
+                }}
+              />
+              <span style={{ color: '#9ca3af' }}>to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #374151',
+                  backgroundColor: '#374151',
+                  color: '#fff',
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -734,8 +782,8 @@ const EstimateAnalysis = () => {
             </div>
             <div style={{ ...styles.kpiCard, borderLeftColor: colors.warning }}>
               <div style={styles.kpiLabel}>Realistic Unsold Revenue</div>
-              <div style={{ ...styles.kpiValue, color: colors.warning }}>
-                ${(processedData.realisticUnsold / 1000000).toFixed(2)}M
+              <div style={{ ...styles.kpiValue, color: colors.warning, fontSize: processedData.realisticUnsold >= 1000000 ? '24px' : '28px' }}>
+                ${processedData.realisticUnsold.toLocaleString()}
               </div>
               <div style={styles.kpiSubtext}>Weighted calculation</div>
             </div>
@@ -904,7 +952,7 @@ const EstimateAnalysis = () => {
                       <span style={{ ...styles.badge, backgroundColor: colors.accent }}>Sales</span>
                     </th>
                     <th style={styles.th}>
-                      <span style={{ ...styles.badge, backgroundColor: colors.success }}>Demand</span>
+                      <span style={{ ...styles.badge, backgroundColor: colors.success }}>Service</span>
                     </th>
                     <th style={styles.th}>
                       <span style={{ ...styles.badge, backgroundColor: colors.orange }}>Maint.</span>
