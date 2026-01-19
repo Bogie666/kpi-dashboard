@@ -116,7 +116,7 @@ const AdminDashboard = () => {
   const [editingTarget, setEditingTarget] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedSyncPeriods, setSelectedSyncPeriods] = useState(['today', 'mtd']);
+  const [selectedSyncPeriods, setSelectedSyncPeriods] = useState(['today', 'mtd', 'last_month']);
   const [selectedSyncYear, setSelectedSyncYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedTargetYear, setSelectedTargetYear] = useState(new Date().getFullYear());

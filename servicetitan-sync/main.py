@@ -3759,7 +3759,7 @@ def sync_servicetitan_data(request):
                 return (json.dumps({"error": f"Debug endpoint failed: {str(e)}"}), 500, headers)
 
         # Regular sync
-        periods = request.args.get('periods', 'mtd').split(',')
+        periods = request.args.get('periods', 'mtd,ytd,last_month').split(',')
         valid_periods = ["today", "week", "mtd", "ytd", "last_month"]
         periods = [p.strip() for p in periods if p.strip() in valid_periods]
         
