@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ReferenceLine } from 'recharts';
 
 const SYNC_API = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/sync_servicetitan_data';
@@ -82,6 +82,15 @@ const EstimateAnalysis = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showRevenueTooltip, setShowRevenueTooltip] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Handle responsive layout
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Color palette matching existing dashboard
   const colors = {
@@ -466,35 +475,38 @@ const EstimateAnalysis = () => {
     { name: '8+ Days', value: processedData.timeToClose.beyond7, color: colors.danger },
   ] : [];
 
-  // Styles
+  // Styles - responsive based on isMobile
   const styles = {
     container: {
       minHeight: '100vh',
-      padding: '24px',
+      padding: isMobile ? '12px' : '24px',
       backgroundColor: colors.background,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     },
     header: {
       display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '24px',
+      alignItems: isMobile ? 'flex-start' : 'center',
+      gap: isMobile ? '12px' : '0',
+      marginBottom: isMobile ? '16px' : '24px',
     },
     title: {
-      fontSize: '24px',
+      fontSize: isMobile ? '20px' : '24px',
       fontWeight: 'bold',
       color: colors.textPrimary,
       margin: 0,
     },
     dateButtons: {
       display: 'flex',
-      gap: '8px',
+      flexWrap: 'wrap',
+      gap: isMobile ? '4px' : '8px',
     },
     dateButton: {
-      padding: '8px 16px',
+      padding: isMobile ? '6px 10px' : '8px 16px',
       borderRadius: '6px',
       border: 'none',
-      fontSize: '14px',
+      fontSize: isMobile ? '12px' : '14px',
       fontWeight: '500',
       cursor: 'pointer',
       transition: 'all 0.2s',
@@ -509,15 +521,15 @@ const EstimateAnalysis = () => {
     },
     tabs: {
       display: 'flex',
-      gap: '8px',
-      marginBottom: '24px',
+      gap: isMobile ? '4px' : '8px',
+      marginBottom: isMobile ? '16px' : '24px',
       flexWrap: 'wrap',
     },
     tab: {
-      padding: '10px 20px',
+      padding: isMobile ? '8px 12px' : '10px 20px',
       borderRadius: '6px',
       border: 'none',
-      fontSize: '14px',
+      fontSize: isMobile ? '12px' : '14px',
       fontWeight: '500',
       cursor: 'pointer',
       transition: 'all 0.2s',
@@ -528,108 +540,120 @@ const EstimateAnalysis = () => {
     },
     kpiRow: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(4, 1fr)',
-      gap: '16px',
-      marginBottom: '24px',
+      gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+      gap: isMobile ? '8px' : '16px',
+      marginBottom: isMobile ? '16px' : '24px',
     },
     kpiCard: {
       backgroundColor: colors.cardBg,
-      borderRadius: '12px',
-      padding: '20px',
+      borderRadius: isMobile ? '8px' : '12px',
+      padding: isMobile ? '12px' : '20px',
       borderLeft: '4px solid',
     },
     kpiLabel: {
-      fontSize: '13px',
+      fontSize: isMobile ? '11px' : '13px',
       color: '#9ca3af',
-      marginBottom: '8px',
+      marginBottom: isMobile ? '4px' : '8px',
     },
     kpiValue: {
-      fontSize: '28px',
+      fontSize: isMobile ? '18px' : '28px',
       fontWeight: '700',
       marginBottom: '4px',
     },
     kpiSubtext: {
-      fontSize: '12px',
+      fontSize: isMobile ? '10px' : '12px',
       color: '#6b7280',
     },
     chartRow: {
       display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: '16px',
-      marginBottom: '24px',
+      gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+      gap: isMobile ? '12px' : '16px',
+      marginBottom: isMobile ? '16px' : '24px',
     },
     chartCard: {
       backgroundColor: colors.cardBg,
-      borderRadius: '12px',
-      padding: '20px',
+      borderRadius: isMobile ? '8px' : '12px',
+      padding: isMobile ? '12px' : '20px',
     },
     chartTitle: {
-      fontSize: '16px',
+      fontSize: isMobile ? '14px' : '16px',
       fontWeight: '600',
       color: colors.textPrimary,
-      marginBottom: '16px',
+      marginBottom: isMobile ? '12px' : '16px',
     },
     chartContainer: {
       display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      gap: isMobile ? '12px' : '0',
     },
     legendContainer: {
       display: 'flex',
-      flexDirection: 'column',
-      gap: '12px',
-      paddingLeft: '16px',
+      flexDirection: isMobile ? 'row' : 'column',
+      flexWrap: 'wrap',
+      gap: isMobile ? '8px' : '12px',
+      paddingLeft: isMobile ? '0' : '16px',
+      justifyContent: isMobile ? 'center' : 'flex-start',
     },
     legendItem: {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      minWidth: '140px',
+      minWidth: isMobile ? 'auto' : '140px',
+      gap: isMobile ? '4px' : '0',
     },
     legendDot: {
-      width: '12px',
-      height: '12px',
+      width: isMobile ? '10px' : '12px',
+      height: isMobile ? '10px' : '12px',
       borderRadius: '50%',
-      marginRight: '8px',
+      marginRight: isMobile ? '4px' : '8px',
     },
     legendLabel: {
       color: '#9ca3af',
-      fontSize: '14px',
+      fontSize: isMobile ? '11px' : '14px',
     },
     legendValue: {
       color: colors.textPrimary,
       fontWeight: '600',
-      fontSize: '14px',
+      fontSize: isMobile ? '11px' : '14px',
     },
     fullWidthCard: {
       backgroundColor: colors.cardBg,
-      borderRadius: '12px',
-      padding: '20px',
-      marginBottom: '24px',
+      borderRadius: isMobile ? '8px' : '12px',
+      padding: isMobile ? '12px' : '20px',
+      marginBottom: isMobile ? '16px' : '24px',
+    },
+    tableWrapper: {
+      overflowX: 'auto',
+      WebkitOverflowScrolling: 'touch',
     },
     table: {
       width: '100%',
       borderCollapse: 'collapse',
+      minWidth: isMobile ? '600px' : 'auto',
     },
     th: {
       textAlign: 'center',
-      padding: '12px 16px',
-      fontSize: '12px',
+      padding: isMobile ? '8px 6px' : '12px 16px',
+      fontSize: isMobile ? '10px' : '12px',
       fontWeight: '600',
       color: '#9ca3af',
       borderBottom: '1px solid #374151',
       textTransform: 'uppercase',
       letterSpacing: '0.05em',
+      whiteSpace: 'nowrap',
     },
     thLeft: {
       textAlign: 'left',
     },
     td: {
-      padding: '14px 16px',
-      fontSize: '14px',
+      padding: isMobile ? '10px 6px' : '14px 16px',
+      fontSize: isMobile ? '12px' : '14px',
       color: colors.textPrimary,
       borderBottom: '1px solid #2d3548',
       textAlign: 'center',
+      whiteSpace: 'nowrap',
     },
     tdLeft: {
       textAlign: 'left',
@@ -637,9 +661,9 @@ const EstimateAnalysis = () => {
     },
     badge: {
       display: 'inline-block',
-      padding: '4px 10px',
+      padding: isMobile ? '3px 6px' : '4px 10px',
       borderRadius: '4px',
-      fontSize: '11px',
+      fontSize: isMobile ? '9px' : '11px',
       fontWeight: '600',
       color: colors.textPrimary,
     },
@@ -648,7 +672,7 @@ const EstimateAnalysis = () => {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: '400px',
+      minHeight: isMobile ? '300px' : '400px',
       color: colors.textSecondary,
     },
     errorContainer: {
@@ -858,15 +882,15 @@ const EstimateAnalysis = () => {
             <div style={styles.chartCard}>
               <div style={styles.chartTitle}>Customer Tier Selection</div>
               <div style={styles.chartContainer}>
-                <div style={{ width: '50%', height: 200 }}>
+                <div style={{ width: isMobile ? '100%' : '50%', height: isMobile ? 180 : 200 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={tierData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
+                        innerRadius={isMobile ? 40 : 50}
+                        outerRadius={isMobile ? 65 : 80}
                         paddingAngle={2}
                         dataKey="value"
                       >
@@ -899,15 +923,15 @@ const EstimateAnalysis = () => {
             <div style={styles.chartCard}>
               <div style={styles.chartTitle}>Time to Close</div>
               <div style={styles.chartContainer}>
-                <div style={{ width: '50%', height: 200 }}>
+                <div style={{ width: isMobile ? '100%' : '50%', height: isMobile ? 180 : 200 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={timeToCloseData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
+                        innerRadius={isMobile ? 40 : 50}
+                        outerRadius={isMobile ? 65 : 80}
                         paddingAngle={2}
                         dataKey="value"
                       >
@@ -941,7 +965,7 @@ const EstimateAnalysis = () => {
           {processedData.seasonality && processedData.seasonality.length > 0 && (
             <div style={styles.fullWidthCard}>
               <div style={styles.chartTitle}>Close Rate & Avg Ticket by Month</div>
-              <div style={{ height: 300 }}>
+              <div style={{ height: isMobile ? 250 : 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={processedData.seasonality}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#2d3548" />
@@ -979,18 +1003,18 @@ const EstimateAnalysis = () => {
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '16px', height: '12px', backgroundColor: currentDept.color, borderRadius: '2px' }} />
-                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>Close Rate</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: isMobile ? '12px' : '24px', marginTop: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px' }}>
+                  <div style={{ width: isMobile ? '12px' : '16px', height: isMobile ? '8px' : '12px', backgroundColor: currentDept.color, borderRadius: '2px' }} />
+                  <span style={{ color: '#9ca3af', fontSize: isMobile ? '10px' : '12px' }}>Close Rate</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '16px', height: '3px', backgroundColor: colors.cyan, borderRadius: '2px' }} />
-                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>Avg Ticket</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px' }}>
+                  <div style={{ width: isMobile ? '12px' : '16px', height: '3px', backgroundColor: colors.cyan, borderRadius: '2px' }} />
+                  <span style={{ color: '#9ca3af', fontSize: isMobile ? '10px' : '12px' }}>Avg Ticket</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '16px', height: '2px', backgroundColor: colors.danger, borderStyle: 'dashed' }} />
-                  <span style={{ color: '#9ca3af', fontSize: '12px' }}>Target: {processedData.closeRateTarget}%</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px' }}>
+                  <div style={{ width: isMobile ? '12px' : '16px', height: '2px', backgroundColor: colors.danger, borderStyle: 'dashed' }} />
+                  <span style={{ color: '#9ca3af', fontSize: isMobile ? '10px' : '12px' }}>Target: {processedData.closeRateTarget}%</span>
                 </div>
               </div>
             </div>
@@ -1000,6 +1024,7 @@ const EstimateAnalysis = () => {
           {comparisonData.length > 0 && (
             <div style={styles.fullWidthCard}>
               <div style={styles.chartTitle}>Department Comparison</div>
+              <div style={styles.tableWrapper}>
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -1038,6 +1063,7 @@ const EstimateAnalysis = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
