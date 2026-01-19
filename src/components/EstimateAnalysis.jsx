@@ -81,6 +81,7 @@ const EstimateAnalysis = () => {
   const [error, setError] = useState(null);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [showRevenueTooltip, setShowRevenueTooltip] = useState(false);
 
   // Color palette matching existing dashboard
   const colors = {
@@ -780,8 +781,63 @@ const EstimateAnalysis = () => {
               </div>
               <div style={styles.kpiSubtext}>Target: {processedData.closeRateTarget}%</div>
             </div>
-            <div style={{ ...styles.kpiCard, borderLeftColor: colors.warning }}>
-              <div style={styles.kpiLabel}>Realistic Unsold Revenue</div>
+            <div style={{ ...styles.kpiCard, borderLeftColor: colors.warning, position: 'relative' }}>
+              <div style={{ ...styles.kpiLabel, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Realistic Unsold Revenue
+                <span
+                  onMouseEnter={() => setShowRevenueTooltip(true)}
+                  onMouseLeave={() => setShowRevenueTooltip(false)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    backgroundColor: '#374151',
+                    color: '#9ca3af',
+                    fontSize: '11px',
+                    cursor: 'help',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  ?
+                </span>
+                {showRevenueTooltip && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '45px',
+                    left: '0',
+                    right: '0',
+                    backgroundColor: '#1f2937',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    zIndex: 100,
+                    fontSize: '12px',
+                    color: '#d1d5db',
+                    lineHeight: '1.5',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  }}>
+                    <div style={{ fontWeight: '600', color: '#fff', marginBottom: '8px' }}>How this is calculated:</div>
+                    <div style={{ marginBottom: '6px' }}>
+                      <strong style={{ color: colors.accent }}>Sales:</strong> Weighted average based on historical tier selection (45.6% low, 34.5% mid, 19.9% high)
+                    </div>
+                    <div style={{ marginBottom: '6px' }}>
+                      <strong style={{ color: colors.success }}>Service:</strong> Minimum estimate × 1.70
+                    </div>
+                    <div style={{ marginBottom: '6px' }}>
+                      <strong style={{ color: colors.orange }}>Maintenance:</strong> Minimum estimate × 1.60
+                    </div>
+                    <div>
+                      <strong style={{ color: '#9ca3af' }}>Others:</strong> Minimum estimate × 1.65
+                    </div>
+                    <div style={{ marginTop: '8px', fontSize: '11px', color: '#6b7280' }}>
+                      This avoids overstating revenue by using the mean of all options.
+                    </div>
+                  </div>
+                )}
+              </div>
               <div style={{ ...styles.kpiValue, color: colors.warning, fontSize: processedData.realisticUnsold >= 1000000 ? '24px' : '28px' }}>
                 ${processedData.realisticUnsold.toLocaleString()}
               </div>
