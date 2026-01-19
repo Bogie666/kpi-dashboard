@@ -3268,6 +3268,138 @@ def aggregate_unsold_estimates(raw_data):
         "total_estimates": len(raw_data)
     }
 
+def fetch_estimate_analysis_data(start_date, end_date):
+    """Fetch ALL estimates (including won/dismissed) for estimate analysis from ServiceTitan Report ID: 399168856
+
+    This is a copy of the unsold estimates report but we include ALL records for analysis.
+    Column order (23 total):
+    0: Estimate Id, 1: Parent Job Number, 2: Opportunity Number, 3: Customer Name,
+    4: Location Phone, 5: Customer Email, 6: Business Unit, 7: Email Sent,
+    8: Opportunity Status, 9: Sold On, 10: Install Job(s), 11: Estimates Discount Total,
+    12: Estimates Subtotal, 13: Estimate Sales Installed, 14: Estimate Age (Days),
+    15: Follow Up Date, 16: Number of Follow Ups, 17: Last Follow Up Date,
+    18: Estimate Status, 19: Recommended, 20: Sold By, 21: Creation Date, 22: Estimate Created By
+    """
+    headers = get_auth_headers()
+    tenant_id = "1498628772"
+    url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/operations/reports/399168856/data"
+
+    business_units = "124928941,124928174,124928938,455,161649734,8087,7698,6540,124468396,124467371,124692394,7831,6534,8085,154681094,154681497,154684495,154691820"
+
+    payload = {
+        "parameters": [
+            {"name": "DateType", "value": "3"},  # 3 = Creation Date
+            {"name": "BusinessUnitId", "value": business_units},
+            {"name": "From", "value": start_date},
+            {"name": "To", "value": end_date},
+            {"name": "AggregatesOnly", "value": "false"},
+            {"name": "TimeZone", "value": "America/Chicago"}
+        ],
+        "pageSize": 5000
+    }
+
+    logger.info(f"Fetching estimate analysis data: {start_date} to {end_date}")
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=120)
+        response.raise_for_status()
+    except requests.exceptions.Timeout:
+        logger.error("ServiceTitan API request timed out after 120 seconds")
+        return []
+    except Exception as e:
+        logger.error(f"ServiceTitan API request failed: {str(e)}")
+        raise
+
+    raw_data = response.json()
+    logger.info(f"Got response from ServiceTitan, type: {type(raw_data)}")
+
+    # Handle different response structures
+    all_records = []
+    if isinstance(raw_data, list):
+        all_records = raw_data
+    elif isinstance(raw_data, dict):
+        if "data" in raw_data:
+            data = raw_data["data"]
+            if isinstance(data, list):
+                all_records = data
+        if not all_records:
+            for key in ["rows", "records", "results", "items"]:
+                if key in raw_data and isinstance(raw_data[key], list):
+                    all_records = raw_data[key]
+                    break
+
+    logger.info(f"Total records from ServiceTitan: {len(all_records)}")
+
+    if not isinstance(all_records, list) or len(all_records) == 0:
+        logger.error(f"Could not find list of records in estimate analysis response")
+        return []
+
+    processed_data = []
+    for i, record in enumerate(all_records):
+        try:
+            if isinstance(record, list) and len(record) >= 23:
+                # Parse date fields safely
+                sold_on = None
+                if record[9]:
+                    try:
+                        sold_on = datetime.strptime(str(record[9]).split('T')[0], "%Y-%m-%d").date().isoformat()
+                    except:
+                        pass
+
+                creation_date = None
+                if record[21]:
+                    try:
+                        creation_date = datetime.strptime(str(record[21]).split('T')[0], "%Y-%m-%d").date().isoformat()
+                    except:
+                        pass
+
+                processed_data.append({
+                    "estimate_id": str(record[0]) if record[0] else None,
+                    "opportunity_number": str(record[2]) if record[2] else None,
+                    "customer_name": str(record[3]) if record[3] else None,
+                    "business_unit": str(record[6]) if record[6] else None,
+                    "opportunity_status": str(record[8]) if record[8] else None,
+                    "sold_on": sold_on,
+                    "estimates_subtotal": safe_float(record[12]) / 100 if record[12] else 0,  # Convert cents to dollars
+                    "estimate_status": str(record[18]) if record[18] else None,
+                    "creation_date": creation_date,
+                    "estimate_created_by": str(record[22]) if record[22] else None
+                })
+            elif isinstance(record, dict):
+                # Handle dictionary format
+                sold_on = None
+                if record.get("SoldOn"):
+                    try:
+                        sold_on = datetime.strptime(str(record.get("SoldOn")).split('T')[0], "%Y-%m-%d").date().isoformat()
+                    except:
+                        pass
+
+                creation_date = None
+                if record.get("CreationDate"):
+                    try:
+                        creation_date = datetime.strptime(str(record.get("CreationDate")).split('T')[0], "%Y-%m-%d").date().isoformat()
+                    except:
+                        pass
+
+                processed_data.append({
+                    "estimate_id": str(record.get("EstimateId")) if record.get("EstimateId") else None,
+                    "opportunity_number": str(record.get("OpportunityNumber")) if record.get("OpportunityNumber") else None,
+                    "customer_name": str(record.get("CustomerName")) if record.get("CustomerName") else None,
+                    "business_unit": str(record.get("BusinessUnit")) if record.get("BusinessUnit") else None,
+                    "opportunity_status": str(record.get("OpportunityStatus")) if record.get("OpportunityStatus") else None,
+                    "sold_on": sold_on,
+                    "estimates_subtotal": safe_float(record.get("EstimatesSubtotal", 0)) / 100,  # Convert cents to dollars
+                    "estimate_status": str(record.get("EstimateStatus")) if record.get("EstimateStatus") else None,
+                    "creation_date": creation_date,
+                    "estimate_created_by": str(record.get("EstimateCreatedBy")) if record.get("EstimateCreatedBy") else None
+                })
+        except Exception as e:
+            logger.error(f"Error processing estimate analysis record {i}: {str(e)}")
+            continue
+
+    logger.info(f"Processed {len(processed_data)} estimate analysis records")
+    return processed_data
+
 def get_existing_monthly_data(year=None):
     """Check what monthly data already exists in database"""
     if year is None:
@@ -3715,6 +3847,37 @@ def sync_servicetitan_data(request):
                     'timestamp': datetime.now().isoformat()
                 }
                 return (json.dumps(response, default=str, indent=2), 500, headers)
+
+        # Estimate Analysis endpoint - returns raw estimate data for analysis dashboard
+        if request.path and '/estimate-analysis' in request.path:
+            start_date = request.args.get('start_date')
+            end_date = request.args.get('end_date')
+
+            if not start_date or not end_date:
+                return (json.dumps({
+                    'error': 'Missing required parameters: start_date and end_date (YYYY-MM-DD format)'
+                }), 400, headers)
+
+            logger.info(f"Estimate analysis endpoint called: {start_date} to {end_date}")
+
+            try:
+                data = fetch_estimate_analysis_data(start_date, end_date)
+                response = {
+                    'status': 'success',
+                    'data': data,
+                    'count': len(data),
+                    'startDate': start_date,
+                    'endDate': end_date,
+                    'timestamp': datetime.now().isoformat()
+                }
+                return (json.dumps(response, default=str), 200, headers)
+            except Exception as e:
+                logger.error(f"Estimate analysis endpoint error: {str(e)}")
+                return (json.dumps({
+                    'status': 'error',
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }), 500, headers)
 
         # Debug endpoint
         if request.path and '/debug' in request.path:

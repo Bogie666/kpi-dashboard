@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, ReferenceLine } from 'recharts';
-import { UserCheck, Phone, DollarSign, Wrench, Users, Settings, TrendingUp, Target, AlertTriangle, Trophy, CheckCircle, Zap, Droplets, MessageSquare, ChevronUp, ChevronDown } from 'lucide-react';
+import { UserCheck, Phone, DollarSign, Wrench, Users, Settings, TrendingUp, Target, AlertTriangle, Trophy, CheckCircle, Zap, Droplets, MessageSquare, ChevronUp, ChevronDown, BarChart2 } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
 import CompetitionLeaderboard from './CompetitionLeaderboard';
 import LoginScreen from './LoginScreen';
@@ -13,6 +13,7 @@ import RevenueTTMDashboard from './RevenueTTMDashboard';
 import HistoricalRevenueDashboard from './HistoricalRevenueDashboard';
 import GoogleReviews from './GoogleReviews';
 import ToolsPage from './ToolsPage';
+import EstimateAnalysis from './EstimateAnalysis';
 
 const KpiDashboard = () => {
   const [activeView, setActiveView] = useState('financial');
@@ -59,6 +60,7 @@ useEffect(() => {
     { id: "technicians", label: "Technicians", icon: Wrench },
     { id: "operations", label: "Operations", icon: Phone },
     { id: "engagement", label: "Engagement", icon: MessageSquare },
+    { id: "analyze", label: "Analyze", icon: BarChart2 },
     { id: "tools", label: "Tools", icon: Settings },
   ];
 
@@ -2823,6 +2825,8 @@ const EnhancedTotalRevenueCard = () => {
       );
     case "admin":
       return <AdminView />;
+    case "analyze":
+      return <EstimateAnalysis />;
     case "tools":
       return <ToolsPage />;
     default:
