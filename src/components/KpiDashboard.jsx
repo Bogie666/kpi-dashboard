@@ -1516,6 +1516,7 @@ const TechnicianView = ({
       case 'techRecallPercent': aVal = a.techRecallPercent || 0; bVal = b.techRecallPercent || 0; break;
       case 'membershipsSold': aVal = a.membershipsSold || 0; bVal = b.membershipsSold || 0; break;
       case 'leadsSet': aVal = a.leadsSet || 0; bVal = b.leadsSet || 0; break;
+      case 'techLeadSales': aVal = a.techLeadSales || 0; bVal = b.techLeadSales || 0; break;
       case 'totalSales': aVal = a.totalSales || 0; bVal = b.totalSales || 0; break;
       case 'firstCallArrivalTime': aVal = a.firstCallArrivalTime || ''; bVal = b.firstCallArrivalTime || ''; break;
       default: aVal = a.totalSales || 0; bVal = b.totalSales || 0;
@@ -1624,7 +1625,7 @@ const TechnicianView = ({
       <div className="bg-gray-800 rounded-lg p-4 md:p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Individual {viewTitle} Performance</h3>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
+          <table className="w-full min-w-[1100px]">
             <thead>
               <tr className="border-b border-gray-700">
                 <TechSortableHeader field="name" className="sticky left-0 z-10 bg-gray-800 text-left">Technician</TechSortableHeader>
@@ -1636,6 +1637,7 @@ const TechnicianView = ({
                 <TechSortableHeader field="techRecallPercent" className="text-center">Recall Rate</TechSortableHeader>
                 <TechSortableHeader field="membershipsSold" className="text-center">Memberships</TechSortableHeader>
                 <TechSortableHeader field="leadsSet" className="text-center">Flips</TechSortableHeader>
+                <TechSortableHeader field="techLeadSales" className="text-center">Flip Sales</TechSortableHeader>
                 <TechSortableHeader field="firstCallArrivalTime" className="text-center">1st Call Arrival</TechSortableHeader>
                 <TechSortableHeader field="totalSales" className="text-center">Total Sales</TechSortableHeader>
               </tr>
@@ -1714,6 +1716,15 @@ const TechnicianView = ({
                         (tech.leadsSet || 0) > 0 ? 'text-green-400' : 'text-gray-300'
                       }`}>
                         {tech.leadsSet || 0}
+                      </span>
+                    </td>
+
+                    {/* Flip Sales */}
+                    <td className="py-3 text-center">
+                      <span className={`font-medium ${
+                        (tech.techLeadSales || 0) > 0 ? 'text-green-400' : 'text-gray-300'
+                      }`}>
+                        ${(tech.techLeadSales || 0).toLocaleString()}
                       </span>
                     </td>
 
