@@ -39,11 +39,16 @@ export async function GET() {
 
     console.log(`✅ Returned ${reviews.length} cached reviews`)
 
+    // Use Google's reported totals if available (these are the accurate counts shown on Google Maps)
+    // Fall back to actual fetched counts if not available
+    const reportedTotals = syncStatus?.reported_totals || locationStats;
+
     return NextResponse.json({
       success: true,
       reviews,
       totalCount: reviews.length,
-      locationStats,
+      locationStats,  // Actual fetched counts
+      reportedTotals, // What Google reports (use this for display)
       syncStatus: syncStatus ? {
         lastSync: syncStatus.last_sync_at,
         status: syncStatus.sync_status

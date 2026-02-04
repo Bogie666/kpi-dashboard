@@ -9,6 +9,7 @@ const GoogleReviews = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [locationStats, setLocationStats] = useState({});
+  const [reportedTotals, setReportedTotals] = useState({}); // Google's actual totals (higher than fetched)
   const [showInsightsModal, setShowInsightsModal] = useState(false);
 
   // Check if in display mode (hide admin features)
@@ -48,11 +49,14 @@ const GoogleReviews = () => {
       if (data.success && data.reviews) {
         setReviews(data.reviews);
         setLocationStats(data.locationStats || {});
+        // Use Google's reported totals for display (these match what's shown on Google Maps)
+        setReportedTotals(data.reportedTotals || data.locationStats || {});
       } else {
         console.error('Failed to load reviews:', data.error);
         setError(data.error || 'Failed to load reviews');
         setReviews([]);
         setLocationStats({});
+        setReportedTotals({});
       }
 
       setLoading(false);
@@ -115,8 +119,9 @@ const GoogleReviews = () => {
       .filter(r => r.locationId === locationId)
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Use the actual total from the API if available, otherwise fallback to filtered count
-    const actualTotal = locationStats[locationId] || locationReviews.length;
+    // Use Google's reported total for display (matches Google Maps count)
+    // This is higher than what we fetch due to Google API limitations
+    const actualTotal = reportedTotals[locationId] || locationStats[locationId] || locationReviews.length;
 
     if (locationReviews.length === 0) {
       return {

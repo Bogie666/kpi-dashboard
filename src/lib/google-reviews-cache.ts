@@ -28,6 +28,7 @@ export interface SyncStatus {
   sync_status: string;
   error_message: string | null;
   location_stats: Record<string, number>;
+  reported_totals?: Record<string, number>; // What Google reports as total (may be higher than fetched)
 }
 
 export interface ReviewData {
@@ -96,19 +97,56 @@ export class GoogleReviewsCacheService {
 
   /**
    * Sync reviews from Google API to cache
+   * @param force - If true, skip the validation check and always sync
+   * @param reportedTotals - What Google reports as total counts (may be higher than fetched due to API limitations)
    */
-  async syncReviews(reviews: ReviewData[], locationStats: Record<string, number>): Promise<void> {
+  async syncReviews(reviews: ReviewData[], locationStats: Record<string, number>, force: boolean = false, reportedTotals?: Record<string, number>): Promise<{ skipped: boolean; reason?: string; previousCount?: number }> {
     if (!pool) {
       console.warn('⚠️ DATABASE_URL not configured - skipping sync');
-      return;
+      return { skipped: true, reason: 'DATABASE_URL not configured' };
     }
 
     const client = await pool.connect();
 
     try {
+      // Check current count before deleting
+      const currentCountResult = await client.query('SELECT COUNT(*) as count FROM google_reviews_cache');
+      const currentCount = parseInt(currentCountResult.rows[0].count);
+
+      // Only proceed if we got at least 95% of the reviews we had before
+      // (allows for some reviews being legitimately removed by Google)
+      const minimumRequired = Math.floor(currentCount * 0.95);
+
+      if (reviews.length < minimumRequired && currentCount > 100 && !force) {
+        console.warn(`⚠️ API returned fewer reviews than expected: ${reviews.length} vs ${currentCount} cached. Skipping sync to prevent data loss.`);
+
+        // Log the failed sync attempt - still store reported totals for reference
+        const statsToStore = {
+          fetched: locationStats,
+          reported: reportedTotals || locationStats
+        };
+        await client.query(`
+          INSERT INTO google_reviews_sync_status (
+            last_sync_at,
+            total_reviews_synced,
+            sync_status,
+            error_message,
+            location_stats
+          ) VALUES ($1, $2, $3, $4, $5)
+        `, [
+          new Date(),
+          reviews.length,
+          'skipped',
+          `API returned ${reviews.length} reviews but cache has ${currentCount}. Sync skipped to prevent data loss.`,
+          JSON.stringify(statsToStore)
+        ]);
+
+        return { skipped: true, reason: `API returned ${reviews.length} reviews but cache has ${currentCount}`, previousCount: currentCount };
+      }
+
       await client.query('BEGIN');
 
-      // Clear old reviews (optional - or you can do upserts)
+      // Clear old reviews - safe to do now since we validated the count
       await client.query('DELETE FROM google_reviews_cache');
 
       // Insert new reviews
@@ -149,7 +187,11 @@ export class GoogleReviewsCacheService {
         ]);
       }
 
-      // Update sync status
+      // Update sync status - store both fetched and reported totals
+      const statsToStore = {
+        fetched: locationStats,
+        reported: reportedTotals || locationStats // Fall back to fetched if no reported totals
+      };
       await client.query(`
         INSERT INTO google_reviews_sync_status (
           last_sync_at,
@@ -161,11 +203,12 @@ export class GoogleReviewsCacheService {
         new Date(),
         reviews.length,
         'success',
-        JSON.stringify(locationStats)
+        JSON.stringify(statsToStore)
       ]);
 
       await client.query('COMMIT');
-      console.log(`✅ Successfully synced ${reviews.length} reviews to cache`);
+      console.log(`✅ Successfully synced ${reviews.length} reviews to cache (was ${currentCount})`);
+      return { skipped: false };
     } catch (error) {
       await client.query('ROLLBACK');
       console.error('❌ Error syncing reviews to cache:', error);
@@ -189,6 +232,8 @@ export class GoogleReviewsCacheService {
     } finally {
       client.release();
     }
+
+    return { skipped: false };
   }
 
   /**
@@ -218,7 +263,35 @@ export class GoogleReviewsCacheService {
         return null;
       }
 
-      return result.rows[0];
+      const row = result.rows[0];
+
+      // Parse location_stats - handle both old format (flat) and new format (nested with fetched/reported)
+      let locationStats: Record<string, number> = {};
+      let reportedTotals: Record<string, number> | undefined;
+
+      if (row.location_stats) {
+        const stats = typeof row.location_stats === 'string'
+          ? JSON.parse(row.location_stats)
+          : row.location_stats;
+
+        if (stats.fetched && stats.reported) {
+          // New format
+          locationStats = stats.fetched;
+          reportedTotals = stats.reported;
+        } else {
+          // Old format - flat object
+          locationStats = stats;
+        }
+      }
+
+      return {
+        last_sync_at: row.last_sync_at,
+        total_reviews_synced: row.total_reviews_synced,
+        sync_status: row.sync_status,
+        error_message: row.error_message,
+        location_stats: locationStats,
+        reported_totals: reportedTotals
+      };
     } finally {
       client.release();
     }
