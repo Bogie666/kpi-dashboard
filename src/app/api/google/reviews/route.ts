@@ -4,6 +4,17 @@ import { GoogleReviewsCacheService } from '@/lib/google-reviews-cache'
 import { GoogleBusinessService } from '@/lib/google-business'
 import { getTokenManager } from '@/lib/google-token-manager'
 
+// Allow cross-origin requests so embeddable review widgets on external sites can fetch
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders })
+}
+
 export async function GET() {
   try {
     console.log('📖 Fetching reviews from cache...')
@@ -33,7 +44,7 @@ export async function GET() {
           locationStats: result.locationStats,
           syncStatus: null,
           cached: false
-        })
+        }, { headers: corsHeaders })
       }
     }
 
@@ -54,13 +65,13 @@ export async function GET() {
         status: syncStatus.sync_status
       } : null,
       cached: true
-    })
+    }, { headers: corsHeaders })
 
   } catch (error) {
     console.error('💥 Error fetching reviews:', error)
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    }, { status: 500, headers: corsHeaders })
   }
 }

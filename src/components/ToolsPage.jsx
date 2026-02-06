@@ -1,8 +1,31 @@
 "use client";
 
-import React from 'react';
-import { Wrench } from 'lucide-react';
+import React, { useState } from 'react';
+import { Wrench, FileSpreadsheet, Globe, ChevronDown, ChevronRight } from 'lucide-react';
 import UnsoldEstimateProcessor from './UnsoldEstimateProcessor';
+import WordPressReviewPlugin from './WordPressReviewPlugin';
+
+const CollapsibleSection = ({ icon: Icon, iconColor, title, children }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="bg-gray-800 rounded-lg">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center space-x-3 w-full p-6 text-left hover:bg-gray-750 transition-colors rounded-lg"
+      >
+        {open ? <ChevronDown className="h-5 w-5 text-gray-400 flex-shrink-0" /> : <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />}
+        <Icon className={`h-5 w-5 ${iconColor} flex-shrink-0`} />
+        <h3 className="text-lg font-medium">{title}</h3>
+      </button>
+      {open && (
+        <div className="px-6 pb-6 -mt-2">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ToolsPage = () => {
   return (
@@ -12,7 +35,13 @@ const ToolsPage = () => {
         <h2 className="text-xl font-semibold">Tools</h2>
       </div>
 
-      <UnsoldEstimateProcessor />
+      <CollapsibleSection icon={FileSpreadsheet} iconColor="text-green-400" title="Unsold Estimate Processor">
+        <UnsoldEstimateProcessor hideHeader />
+      </CollapsibleSection>
+
+      <CollapsibleSection icon={Globe} iconColor="text-purple-400" title="Review Carousel Embed">
+        <WordPressReviewPlugin hideHeader />
+      </CollapsibleSection>
     </div>
   );
 };

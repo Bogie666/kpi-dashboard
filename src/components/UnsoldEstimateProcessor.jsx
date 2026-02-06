@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx';
 
 const ADMIN_API = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/admin-api';
 
-const UnsoldEstimateProcessor = () => {
+const UnsoldEstimateProcessor = ({ hideHeader }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [fetching, setFetching] = useState(false);
@@ -178,11 +178,13 @@ const UnsoldEstimateProcessor = () => {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6">
-      <div className="flex items-center space-x-3 mb-4">
-        <FileSpreadsheet className="h-5 w-5 text-green-400" />
-        <h3 className="text-lg font-medium">Unsold Estimate Processor</h3>
-      </div>
+    <div className={hideHeader ? '' : 'bg-gray-800 rounded-lg p-6'}>
+      {!hideHeader && (
+        <div className="flex items-center space-x-3 mb-4">
+          <FileSpreadsheet className="h-5 w-5 text-green-400" />
+          <h3 className="text-lg font-medium">Unsold Estimate Processor</h3>
+        </div>
+      )}
 
       <p className="text-gray-400 text-sm mb-6">
         Select a date range to fetch unsold estimates from ServiceTitan. The data will be processed
