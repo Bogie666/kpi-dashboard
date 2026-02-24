@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Wrench, FileSpreadsheet, Globe, ChevronDown, ChevronRight } from 'lucide-react';
+import { Wrench, FileSpreadsheet, Globe, Mail, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 import UnsoldEstimateProcessor from './UnsoldEstimateProcessor';
 import WordPressReviewPlugin from './WordPressReviewPlugin';
+import EmailSignatureGenerator from './EmailSignatureGenerator';
+import SchedulerWidget from './SchedulerWidget';
 
 const CollapsibleSection = ({ icon: Icon, iconColor, title, children }) => {
   const [open, setOpen] = useState(false);
@@ -41,6 +43,14 @@ const ToolsPage = () => {
 
       <CollapsibleSection icon={Globe} iconColor="text-purple-400" title="Review Carousel Embed">
         <WordPressReviewPlugin hideHeader />
+      </CollapsibleSection>
+
+      <CollapsibleSection icon={Mail} iconColor="text-yellow-400" title="Email Signature Generator">
+        <EmailSignatureGenerator hideHeader />
+      </CollapsibleSection>
+
+      <CollapsibleSection icon={Calendar} iconColor="text-blue-300" title="Scheduler Widget">
+        <SchedulerWidget hideHeader />
       </CollapsibleSection>
     </div>
   );
