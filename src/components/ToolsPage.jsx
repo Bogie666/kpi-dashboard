@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Wrench, FileSpreadsheet, Globe, Mail, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import { Wrench, FileSpreadsheet, Globe, Mail, Calendar, Zap, ChevronDown, ChevronRight } from 'lucide-react';
 import UnsoldEstimateProcessor from './UnsoldEstimateProcessor';
 import WordPressReviewPlugin from './WordPressReviewPlugin';
 import EmailSignatureGenerator from './EmailSignatureGenerator';
 import SchedulerWidget from './SchedulerWidget';
+import SeerSavingsCalculator from './SeerSavingsCalculator';
 
 const CollapsibleSection = ({ icon: Icon, iconColor, title, children }) => {
   const [open, setOpen] = useState(false);
@@ -51,6 +52,10 @@ const ToolsPage = () => {
 
       <CollapsibleSection icon={Calendar} iconColor="text-blue-300" title="Scheduler Widget">
         <SchedulerWidget hideHeader />
+      </CollapsibleSection>
+
+      <CollapsibleSection icon={Zap} iconColor="text-cyan-400" title="SEER Savings Calculator">
+        <SeerSavingsCalculator hideHeader />
       </CollapsibleSection>
     </div>
   );

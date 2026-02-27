@@ -211,7 +211,7 @@ const WordPressReviewPlugin = ({ hideHeader }) => {
       </div>
 
       {/* Expandable Code Preview */}
-      <div className="bg-gray-900 rounded-lg overflow-hidden">
+      <div className="bg-gray-900 rounded-lg overflow-hidden mb-6">
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center space-x-2 w-full px-4 py-3 text-sm text-gray-400 hover:text-white transition-colors"
@@ -224,6 +224,20 @@ const WordPressReviewPlugin = ({ hideHeader }) => {
             <code>{generateEmbedSnippet(LOCATIONS[0], apiUrl)}</code>
           </pre>
         )}
+      </div>
+
+      {/* Live Preview */}
+      <div>
+        <h4 className="text-sm font-medium text-gray-400 mb-2">Live Preview (Lex)</h4>
+        <div className="bg-white rounded-lg overflow-hidden border border-gray-700">
+          <iframe
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:0;padding:10px 0;background:#fff;font-family:Arial,sans-serif;}</style></head><body>${generateEmbedSnippet(LOCATIONS[0], apiUrl)}</body></html>`}
+            title="Review Carousel Preview"
+            className="w-full border-0"
+            style={{ height: '340px' }}
+            sandbox="allow-scripts"
+          />
+        </div>
       </div>
     </div>
   );

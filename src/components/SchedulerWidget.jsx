@@ -118,6 +118,20 @@ const SchedulerWidget = ({ hideHeader }) => {
       <CopyBlock label="Embeddable Schedule Box" code={EMBED_BOX_CODE} />
       <CopyBlock label="Configuration Options" code={CONFIG_CODE} />
       <CopyBlock label="Manual Control (JavaScript)" code={MANUAL_CONTROL_CODE} />
+
+      {/* Live Preview */}
+      <div>
+        <h4 className="text-sm font-medium text-gray-400 mb-2">Live Preview</h4>
+        <div className="bg-white rounded-lg overflow-hidden border border-gray-700">
+          <iframe
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="https://scheduler-mu-three.vercel.app/lex-scheduler.css"><style>body{margin:0;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;}</style></head><body>${EMBED_BOX_CODE}<script>window.LEXSchedulerConfig={apiEndpoint:'https://scheduler-mu-three.vercel.app/api/lex-booking',autoButton:false,buttonText:'Book Online',position:'bottom-right'};</script><script src="https://scheduler-mu-three.vercel.app/lex-scheduler.iife.js"></script></body></html>`}
+            title="Scheduler Widget Preview"
+            className="w-full border-0"
+            style={{ height: '280px' }}
+            sandbox="allow-scripts allow-forms allow-same-origin"
+          />
+        </div>
+      </div>
     </div>
   );
 };
