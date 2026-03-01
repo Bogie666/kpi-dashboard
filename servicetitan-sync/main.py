@@ -8,6 +8,14 @@ import logging
 import traceback
 import time
 import functions_framework
+import pytz
+
+# Business timezone - all date calculations should use this
+BUSINESS_TZ = pytz.timezone('America/Chicago')
+
+def now_central():
+    """Get current datetime in Central (business) timezone"""
+    return datetime.now(BUSINESS_TZ)
 
 BUSINESS_UNIT_DEPARTMENT_MAPPING = {
     "*DO NOT USE - LYONS IAQ ": "ignore",
@@ -290,7 +298,7 @@ class Database:
                 
                 for record in data:
                     cursor.execute(query, (
-                        datetime.now().date(),
+                        now_central().date(),
                         record["period_type"],
                         record["department_name"],
                         record["invoiced_revenue_cents"],
@@ -1159,6 +1167,129 @@ class Database:
                 conn.commit()
                 logger.info(f"Inserted unsold_estimates_summary for {period_type}: {summary_data}")
 
+    def ensure_estimate_analysis_table(self):
+        """Create estimate_analysis_raw table if it doesn't exist"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS estimate_analysis_raw (
+                        id SERIAL PRIMARY KEY,
+                        sync_date DATE NOT NULL,
+                        estimate_id VARCHAR(50),
+                        opportunity_number VARCHAR(50),
+                        customer_name VARCHAR(255),
+                        business_unit VARCHAR(100),
+                        opportunity_status VARCHAR(50),
+                        estimate_status VARCHAR(50),
+                        sold_on DATE,
+                        estimates_subtotal_cents BIGINT DEFAULT 0,
+                        creation_date DATE,
+                        estimate_created_by VARCHAR(100),
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                # Create indexes if they don't exist
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_estimate_analysis_sync_date ON estimate_analysis_raw(sync_date);
+                    CREATE INDEX IF NOT EXISTS idx_estimate_analysis_opportunity ON estimate_analysis_raw(opportunity_number);
+                    CREATE INDEX IF NOT EXISTS idx_estimate_analysis_creation_date ON estimate_analysis_raw(creation_date);
+                """)
+                conn.commit()
+                logger.info("Ensured estimate_analysis_raw table exists")
+
+    def insert_estimate_analysis_data(self, data, business_units=None):
+        """Insert estimate analysis data (incremental update by business unit)
+
+        If business_units is provided, only delete data for those BUs first.
+        This allows partial syncs to accumulate data over time.
+        """
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # If specific BUs provided, only clear those; otherwise clear all
+                if business_units:
+                    placeholders = ','.join(['%s'] * len(business_units))
+                    cursor.execute(f"DELETE FROM estimate_analysis_raw WHERE business_unit IN ({placeholders})", business_units)
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} records for BUs: {business_units}")
+                else:
+                    cursor.execute("DELETE FROM estimate_analysis_raw")
+                    deleted_count = cursor.rowcount
+                    logger.info(f"Cleared {deleted_count} existing estimate_analysis_raw records")
+
+                query = """
+                INSERT INTO estimate_analysis_raw (
+                    sync_date, estimate_id, opportunity_number, customer_name,
+                    business_unit, opportunity_status, estimate_status, sold_on,
+                    estimates_subtotal_cents, creation_date, estimate_created_by
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+
+                today = now_central().date()
+                for record in data:
+                    # Convert subtotal to cents for storage
+                    subtotal_cents = int((record.get("estimates_subtotal") or 0) * 100)
+
+                    cursor.execute(query, (
+                        today,
+                        record.get("estimate_id"),
+                        record.get("opportunity_number"),
+                        record.get("customer_name"),
+                        record.get("business_unit"),
+                        record.get("opportunity_status"),
+                        record.get("estimate_status"),
+                        record.get("sold_on"),
+                        subtotal_cents,
+                        record.get("creation_date"),
+                        record.get("estimate_created_by")
+                    ))
+
+                conn.commit()
+                logger.info(f"Inserted {len(data)} estimate_analysis_raw records")
+                return len(data)
+
+    def get_estimate_analysis_data(self, start_date=None, end_date=None):
+        """Retrieve estimate analysis data from database"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Get the sync date to return in response
+                cursor.execute("SELECT MAX(sync_date) FROM estimate_analysis_raw")
+                sync_date_row = cursor.fetchone()
+                sync_date = sync_date_row[0] if sync_date_row else None
+
+                # Build query with optional date filtering
+                query = """
+                    SELECT estimate_id, opportunity_number, customer_name, business_unit,
+                           opportunity_status, estimate_status, sold_on,
+                           estimates_subtotal_cents, creation_date, estimate_created_by
+                    FROM estimate_analysis_raw
+                """
+                params = []
+
+                if start_date and end_date:
+                    query += " WHERE creation_date >= %s AND creation_date <= %s"
+                    params = [start_date, end_date]
+
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+
+                data = []
+                for row in rows:
+                    data.append({
+                        "estimate_id": row[0],
+                        "opportunity_number": row[1],
+                        "customer_name": row[2],
+                        "business_unit": row[3],
+                        "opportunity_status": row[4],
+                        "estimate_status": row[5],
+                        "sold_on": row[6].isoformat() if row[6] else None,
+                        "estimates_subtotal": row[7] / 100 if row[7] else 0,  # Convert cents to dollars
+                        "creation_date": row[8].isoformat() if row[8] else None,
+                        "estimate_created_by": row[9]
+                    })
+
+                logger.info(f"Retrieved {len(data)} estimate analysis records from database")
+                return data, sync_date
+
 def fetch_service_titan_token():
     project_id = "new-dashboard-2025"
     try:
@@ -1230,7 +1361,7 @@ def fetch_comfort_advisor_data(period_type):
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/374338685/data"
-    today = datetime.now()
+    today = now_central()
     
     if period_type == "today":
         from_date = today.strftime("%Y-%m-%d")
@@ -1398,7 +1529,7 @@ def fetch_technician_data(period_type):
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/374367121/data"
-    today = datetime.now()
+    today = now_central()
     
     if period_type == "today":
         from_date = today.strftime("%Y-%m-%d")
@@ -1440,7 +1571,15 @@ def fetch_technician_data(period_type):
             
             raw_data = response.json()
             logger.info(f"Technician API raw response (type: {type(raw_data)}): {json.dumps(raw_data, indent=2)[:1000]}...")
-            
+
+            # Debug: Log fields if available
+            if isinstance(raw_data, dict) and "fields" in raw_data:
+                fields = raw_data.get("fields", [])
+                logger.info(f"🔍 HVAC Tech Report Fields ({len(fields)} columns):")
+                for idx, field in enumerate(fields):
+                    field_name = field.get("name", field) if isinstance(field, dict) else field
+                    logger.info(f"  [{idx}] = {field_name}")
+
             records = []
             if isinstance(raw_data, list):
                 records = raw_data
@@ -1471,6 +1610,10 @@ def fetch_technician_data(period_type):
             for i, record in enumerate(records):
                 try:
                     if isinstance(record, dict):
+                        # Debug: Log available keys for first record
+                        if i == 0:
+                            logger.info(f"🔍 HVAC Tech Dict Keys: {list(record.keys())}")
+                            logger.info(f"🔍 TotalTechLeadSales value: {record.get('TotalTechLeadSales', 'KEY NOT FOUND')}")
                         # Handle dictionary format
                         processed_data.append({
                             "employee_name": safe_get(record, "Name") or safe_get(record, "Technician", ""),
@@ -1592,7 +1735,7 @@ def fetch_hvac_maintenance_data(period_type):
     tenant_id = "1498628772"
     # NEW REPORT: 374418414
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/374418414/data"
-    today = datetime.now()
+    today = now_central()
     
     if period_type == "today":
         from_date = today.strftime("%Y-%m-%d")
@@ -1635,7 +1778,13 @@ def fetch_hvac_maintenance_data(period_type):
             data = response.json()
             fields = data.get("fields", [])
             rows = data.get("data", [])
-            
+
+            # Debug: Log all field names with their indices
+            logger.info(f"🔍 HVAC Maintenance Report Fields ({len(fields)} columns):")
+            for idx, field in enumerate(fields):
+                field_name = field.get("name", field) if isinstance(field, dict) else field
+                logger.info(f"  [{idx}] = {field_name}")
+
             processed_data = []
             for row in rows:
                 # CORRECTED ARRAY MAPPING for HVAC Maintenance
@@ -1708,7 +1857,7 @@ def fetch_commercial_hvac_data(period_type):
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/398188829/data"
-    today = datetime.now()
+    today = now_central()
 
     if period_type == "today":
         from_date = today.strftime("%Y-%m-%d")
@@ -1836,7 +1985,7 @@ def fetch_plumbing_data(period_type):
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/392071756/data"
-    today = datetime.now()
+    today = now_central()
 
     if period_type == "today":
         from_date = today.strftime("%Y-%m-%d")
@@ -1939,7 +2088,7 @@ def fetch_electrical_data(period_type):
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/392071757/data"
-    today = datetime.now()
+    today = now_central()
 
     if period_type == "today":
         from_date = today.strftime("%Y-%m-%d")
@@ -2044,7 +2193,7 @@ def fetch_items_sold_data(period_type):
     tenant_id = "1498628772"
     # Report ID for Item Sold Report
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/marketing/reports/394027220/data"
-    today = datetime.now()
+    today = now_central()
 
     if period_type == "today":
         from_date = today.strftime("%Y-%m-%d")
@@ -2127,7 +2276,7 @@ def fetch_sold_flips_data(period_type):
     tenant_id = "1498628772"
     # Technician Leads Sold Report
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/technician/reports/394041816/data"
-    today = datetime.now()
+    today = now_central()
 
     if period_type == "today":
         from_date = today.strftime("%Y-%m-%d")
@@ -2372,9 +2521,7 @@ def fetch_call_center_data(period_type, retry_count=0, max_retries=2):
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/operations/reports/2665/data"
     
     # Use Chicago timezone like your Apps Script
-    import pytz
-    chicago_tz = pytz.timezone('America/Chicago')
-    today_chicago = datetime.now(chicago_tz)
+    today_chicago = now_central()
     
     # Handle different period types with Chicago timezone
     if period_type == "today":
@@ -2528,8 +2675,10 @@ def fetch_financial_data(period_type):
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/accounting/reports/128062649/data"
-    today = datetime.now()
-    
+
+    # Use Chicago timezone to match business hours
+    today = now_central()
+
     if period_type == "mtd":
         from_date = today.replace(day=1).strftime("%Y-%m-%d")
         to_date = today.strftime("%Y-%m-%d")
@@ -2675,13 +2824,13 @@ def fetch_financial_data(period_type):
 def fetch_monthly_financial_data_for_year(year=None, start_month=1, end_month=12):
     """Fetch financial data for each completed month of the year"""
     if year is None:
-        year = datetime.now().year
+        year = now_central().year
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/accounting/reports/128062649/data"
-    
+
     monthly_data = {}
-    current_date = datetime.now()
+    current_date = now_central()
     
     # Define months to fetch (January through current month)
     months_to_fetch = []
@@ -2935,7 +3084,7 @@ def fetch_membership_data(period_type):
     headers = get_auth_headers()
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/marketing/reports/371386314/data"
-    today = datetime.now()
+    today = now_central()
     
     if period_type == "mtd":
         from_date = today.replace(day=1).strftime("%Y-%m-%d")
@@ -3079,7 +3228,7 @@ def fetch_unsold_estimates_data(period_type, start_date=None, end_date=None):
 
     business_units = "124928941,124928174,124928938,455,161649734,8087,7698,6540,124468396,124467371,124692394,7831,6534,8085,154681094,154681497,154684495,154691820"
 
-    today = datetime.now()
+    today = now_central()
 
     # Calculate dates based on period_type or use custom dates
     if start_date and end_date:
@@ -3268,10 +3417,18 @@ def aggregate_unsold_estimates(raw_data):
         "total_estimates": len(raw_data)
     }
 
-def fetch_estimate_analysis_data(start_date, end_date):
+def fetch_estimate_analysis_data(start_date, end_date, batch=None):
     """Fetch ALL estimates (including won/dismissed) for estimate analysis from ServiceTitan Report ID: 399168856
 
     This is a copy of the unsold estimates report but we include ALL records for analysis.
+    Fetches by business unit to avoid pagination issues with ServiceTitan's 1000 record limit.
+
+    batch: Optional batch number (1, 2, or 3) to fetch only a subset of BUs.
+           - Batch 1: BUs 1-6
+           - Batch 2: BUs 7-12
+           - Batch 3: BUs 13-18
+           - None: All BUs (original behavior)
+
     Column order (23 total):
     0: Estimate Id, 1: Parent Job Number, 2: Opportunity Number, 3: Customer Name,
     4: Location Phone, 5: Customer Email, 6: Business Unit, 7: Email Sent,
@@ -3284,54 +3441,114 @@ def fetch_estimate_analysis_data(start_date, end_date):
     tenant_id = "1498628772"
     url = f"https://api.servicetitan.io/reporting/v2/tenant/{tenant_id}/report-category/operations/reports/399168856/data"
 
-    business_units = "124928941,124928174,124928938,455,161649734,8087,7698,6540,124468396,124467371,124692394,7831,6534,8085,154681094,154681497,154684495,154691820"
+    # All business units
+    all_business_units = [
+        "124928941", "124928174", "124928938", "455", "161649734",
+        "8087", "7698", "6540", "124468396", "124467371",
+        "124692394", "7831", "6534", "8085", "154681094",
+        "154681497", "154684495", "154691820"
+    ]
 
-    payload = {
-        "parameters": [
-            {"name": "DateType", "value": "3"},  # 3 = Creation Date
-            {"name": "BusinessUnitId", "value": business_units},
-            {"name": "From", "value": start_date},
-            {"name": "To", "value": end_date},
-            {"name": "AggregatesOnly", "value": "false"},
-            {"name": "TimeZone", "value": "America/Chicago"}
-        ],
-        "pageSize": 5000
-    }
+    # Select subset based on batch parameter (4 BUs per batch for rate limit safety)
+    if batch == 1:
+        business_unit_list = all_business_units[0:4]
+        logger.info(f"Batch 1: Processing BUs 1-4")
+    elif batch == 2:
+        business_unit_list = all_business_units[4:8]
+        logger.info(f"Batch 2: Processing BUs 5-8")
+    elif batch == 3:
+        business_unit_list = all_business_units[8:12]
+        logger.info(f"Batch 3: Processing BUs 9-12")
+    elif batch == 4:
+        business_unit_list = all_business_units[12:16]
+        logger.info(f"Batch 4: Processing BUs 13-16")
+    elif batch == 5:
+        business_unit_list = all_business_units[16:18]
+        logger.info(f"Batch 5: Processing BUs 17-18")
+    else:
+        business_unit_list = all_business_units
+        logger.info(f"Processing all {len(all_business_units)} BUs")
 
-    logger.info(f"Fetching estimate analysis data: {start_date} to {end_date}")
+    logger.info(f"Fetching estimate analysis data: {start_date} to {end_date} for {len(business_unit_list)} business units")
 
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=120)
-        response.raise_for_status()
-    except requests.exceptions.Timeout:
-        logger.error("ServiceTitan API request timed out after 120 seconds")
-        return []
-    except Exception as e:
-        logger.error(f"ServiceTitan API request failed: {str(e)}")
-        raise
-
-    raw_data = response.json()
-    logger.info(f"Got response from ServiceTitan, type: {type(raw_data)}")
-
-    # Handle different response structures
     all_records = []
-    if isinstance(raw_data, list):
-        all_records = raw_data
-    elif isinstance(raw_data, dict):
-        if "data" in raw_data:
-            data = raw_data["data"]
-            if isinstance(data, list):
-                all_records = data
-        if not all_records:
-            for key in ["rows", "records", "results", "items"]:
-                if key in raw_data and isinstance(raw_data[key], list):
-                    all_records = raw_data[key]
-                    break
+    bu_count = 0
 
-    logger.info(f"Total records from ServiceTitan: {len(all_records)}")
+    for bu_id in business_unit_list:
+        bu_count += 1
+        logger.info(f"Fetching BU {bu_count}/{len(business_unit_list)}: {bu_id}")
 
-    if not isinstance(all_records, list) or len(all_records) == 0:
-        logger.error(f"Could not find list of records in estimate analysis response")
+        payload = {
+            "parameters": [
+                {"name": "DateType", "value": "3"},  # 3 = Creation Date
+                {"name": "BusinessUnitId", "value": bu_id},
+                {"name": "From", "value": start_date},
+                {"name": "To", "value": end_date},
+                {"name": "AggregatesOnly", "value": "false"},
+                {"name": "TimeZone", "value": "America/Chicago"}
+            ],
+            "pageSize": 5000
+        }
+
+        # Retry logic for rate limiting
+        max_retries = 2
+        retry_delay = 15  # 15 seconds between retries for MTD data
+        bu_success = False
+
+        for retry in range(max_retries):
+            try:
+                response = requests.post(url, headers=headers, json=payload, timeout=120)
+                response.raise_for_status()
+                bu_success = True
+                break
+            except requests.exceptions.HTTPError as e:
+                if response.status_code == 429:
+                    if retry < max_retries - 1:
+                        wait_time = retry_delay * (retry + 1)
+                        logger.warning(f"Rate limited on BU {bu_id}, waiting {wait_time}s (retry {retry + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.warning(f"Max retries for BU {bu_id}, skipping...")
+                        break
+                logger.error(f"API request failed for BU {bu_id}: {str(e)}")
+                raise
+            except requests.exceptions.Timeout:
+                logger.error(f"Request timed out for BU {bu_id}")
+                if retry < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                break
+            except Exception as e:
+                logger.error(f"Request failed for BU {bu_id}: {str(e)}")
+                raise
+
+        if bu_success:
+            raw_data = response.json()
+
+            # Extract records
+            bu_records = []
+            if isinstance(raw_data, dict):
+                if "data" in raw_data and isinstance(raw_data["data"], list):
+                    bu_records = raw_data["data"]
+                has_more = raw_data.get("hasMore", False)
+                if has_more:
+                    logger.warning(f"BU {bu_id} has more pages ({len(bu_records)} records) - some data may be missing")
+            elif isinstance(raw_data, list):
+                bu_records = raw_data
+
+            all_records.extend(bu_records)
+            logger.info(f"BU {bu_id}: got {len(bu_records)} records (total: {len(all_records)})")
+
+        # Delay between business units to avoid rate limiting
+        # Using 5 seconds for MTD data (smaller dataset)
+        if bu_count < len(business_unit_list):
+            time.sleep(5)
+
+    logger.info(f"Total records fetched from ServiceTitan: {len(all_records)}")
+
+    if len(all_records) == 0:
+        logger.error(f"No records found in estimate analysis response")
         return []
 
     processed_data = []
@@ -3403,7 +3620,7 @@ def fetch_estimate_analysis_data(start_date, end_date):
 def get_existing_monthly_data(year=None):
     """Check what monthly data already exists in database"""
     if year is None:
-        year = datetime.now().year
+        year = now_central().year
     db = Database()
     
     with db.get_connection() as conn:
@@ -3443,11 +3660,11 @@ def get_existing_monthly_data(year=None):
 def smart_monthly_financial_sync(year=None):
     """Intelligently sync only needed monthly financial data"""
     if year is None:
-        year = datetime.now().year
+        year = now_central().year
     logger.info(f"Starting smart monthly financial sync for {year}")
-    
+
     # Get current date info
-    current_date = datetime.now()
+    current_date = now_central()
     current_month = current_date.month
     current_year = current_date.year
     
@@ -3544,8 +3761,8 @@ def smart_monthly_financial_sync(year=None):
 def monthly_cleanup_sync():
     """Monthly cleanup - finalize previous month, update targets"""
     logger.info("Starting monthly cleanup sync")
-    
-    current_date = datetime.now()
+
+    current_date = now_central()
     last_month = current_date.replace(day=1) - timedelta(days=1)
     
     try:
@@ -3654,7 +3871,7 @@ def sync_servicetitan_data(request):
 
         # Check for yearly-financial endpoint FIRST
         if request.path and '/yearly-financial' in request.path:
-            year = int(request.args.get('year', datetime.now().year))
+            year = int(request.args.get('year', now_central().year))
             start_month = int(request.args.get('start_month', 1))
             end_month = int(request.args.get('end_month', 12))
 
@@ -3702,8 +3919,8 @@ def sync_servicetitan_data(request):
 
         # Check for smart-monthly endpoint
         if request.path and '/smart-monthly' in request.path:
-            year = int(request.args.get('year', datetime.now().year))
-            
+            year = int(request.args.get('year', now_central().year))
+
             logger.info(f"Starting smart monthly sync for {year}")
             
             try:
@@ -3848,26 +4065,69 @@ def sync_servicetitan_data(request):
                 }
                 return (json.dumps(response, default=str, indent=2), 500, headers)
 
-        # Estimate Analysis endpoint - returns raw estimate data for analysis dashboard
+        # Estimate Analysis SYNC endpoint - fetches MTD data from ServiceTitan and stores in database
+        if request.path and '/estimate-analysis-sync' in request.path:
+            logger.info("Estimate analysis SYNC endpoint called")
+
+            try:
+                db = Database()
+                db.ensure_estimate_analysis_table()
+
+                # Fetch Month to Date data only (smaller dataset, avoids rate limits)
+                today = now_central()
+                start_date = today.replace(day=1).strftime("%Y-%m-%d")  # First of current month
+                end_date = today.strftime("%Y-%m-%d")
+
+                logger.info(f"Syncing estimate analysis MTD data: {start_date} to {end_date}")
+                data = fetch_estimate_analysis_data(start_date, end_date)
+
+                if data:
+                    # Clear and replace all data (MTD is small enough)
+                    count = db.insert_estimate_analysis_data(data)
+                    response = {
+                        'status': 'success',
+                        'message': f'Synced {count} MTD estimate records',
+                        'count': count,
+                        'startDate': start_date,
+                        'endDate': end_date,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                else:
+                    response = {
+                        'status': 'warning',
+                        'message': 'No MTD data returned from ServiceTitan',
+                        'count': 0,
+                        'timestamp': datetime.now().isoformat()
+                    }
+
+                return (json.dumps(response, default=str), 200, headers)
+            except Exception as e:
+                logger.error(f"Estimate analysis sync error: {str(e)}")
+                return (json.dumps({
+                    'status': 'error',
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }), 500, headers)
+
+        # Estimate Analysis endpoint - returns data from database (fast)
         if request.path and '/estimate-analysis' in request.path:
             start_date = request.args.get('start_date')
             end_date = request.args.get('end_date')
 
-            if not start_date or not end_date:
-                return (json.dumps({
-                    'error': 'Missing required parameters: start_date and end_date (YYYY-MM-DD format)'
-                }), 400, headers)
-
             logger.info(f"Estimate analysis endpoint called: {start_date} to {end_date}")
 
             try:
-                data = fetch_estimate_analysis_data(start_date, end_date)
+                db = Database()
+                db.ensure_estimate_analysis_table()
+                data, sync_date = db.get_estimate_analysis_data(start_date, end_date)
+
                 response = {
                     'status': 'success',
                     'data': data,
                     'count': len(data),
                     'startDate': start_date,
                     'endDate': end_date,
+                    'syncDate': sync_date.isoformat() if sync_date else None,
                     'timestamp': datetime.now().isoformat()
                 }
                 return (json.dumps(response, default=str), 200, headers)
