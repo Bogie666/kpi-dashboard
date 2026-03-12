@@ -4,6 +4,7 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Respons
 const SYNC_API = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/sync_servicetitan_data';
 
 // Department mapping from ServiceTitan business units
+// Note: Raw values may have trailing spaces - getDepartment trims before lookup
 const departmentMapping = {
   'Service Sales': 'sales',
   'LYONS Sales': 'sales',
@@ -11,17 +12,13 @@ const departmentMapping = {
   'LYONS Service': 'demand',
   'Service Maintenance': 'maintenance',
   'LYONS Maintenance': 'maintenance',
-  'Plumbing': 'plumbing',
   'Plumbing Service': 'plumbing',
-  'Plumbing Sales': 'plumbing',
   'Plumbing Maintenance': 'plumbing',
-  'Electrical': 'electrical',
   'Electrical Service': 'electrical',
-  'Electrical Sales': 'electrical',
   'Electrical Maintenance': 'electrical',
   'Tyler Service': 'tyler',
   'Tyler Maintenance': 'tyler',
-  'Tyler Sales': 'tyler',
+  'Tyler Sales Dept.': 'tyler',
 };
 
 const getDepartment = (businessUnit) => {
@@ -75,13 +72,9 @@ const groupBy = (array, key) => {
 
 const EstimateAnalysis = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [dateRange, setDateRange] = useState('Last 12 Months');
-  const [fullData, setFullData] = useState([]);  // Full 12-month data
-  const [loadedDateRange, setLoadedDateRange] = useState(null);  // Track what's loaded
+  const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
   const [showRevenueTooltip, setShowRevenueTooltip] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -121,14 +114,14 @@ const EstimateAnalysis = () => {
     { id: 'tyler', label: 'Tyler', color: colors.purple, closeRateTarget: 50, avgTicketTarget: 1200 },
   ];
 
-  // Initial data load - always fetch Last 12 Months
+  // Fetch Month to Date data
   useEffect(() => {
-    const fetchInitialData = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const { start, end } = getDateRange('Last 12 Months');
+        const { start, end } = getDateRange('MTD');
         const response = await fetch(
           `${SYNC_API}/estimate-analysis?start_date=${start}&end_date=${end}`
         );
@@ -139,8 +132,7 @@ const EstimateAnalysis = () => {
 
         const result = await response.json();
         if (result.status === 'success' && result.data) {
-          setFullData(result.data);
-          setLoadedDateRange({ start, end });
+          setRawData(result.data);
         } else {
           throw new Error(result.error || 'Failed to fetch data');
         }
@@ -152,64 +144,8 @@ const EstimateAnalysis = () => {
       }
     };
 
-    fetchInitialData();
+    fetchData();
   }, []);
-
-  // Handle Custom date range that might need refetch
-  useEffect(() => {
-    if (dateRange !== 'Custom' || !customStartDate || !customEndDate || !loadedDateRange) {
-      return;
-    }
-
-    // Check if custom range is outside loaded data
-    if (customStartDate < loadedDateRange.start || customEndDate > loadedDateRange.end) {
-      const fetchCustomData = async () => {
-        setLoading(true);
-        setError(null);
-
-        try {
-          const response = await fetch(
-            `${SYNC_API}/estimate-analysis?start_date=${customStartDate}&end_date=${customEndDate}`
-          );
-
-          if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
-          }
-
-          const result = await response.json();
-          if (result.status === 'success' && result.data) {
-            setFullData(result.data);
-            setLoadedDateRange({ start: customStartDate, end: customEndDate });
-          } else {
-            throw new Error(result.error || 'Failed to fetch data');
-          }
-        } catch (err) {
-          console.error('Error fetching custom date range:', err);
-          setError(err.message);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchCustomData();
-    }
-  }, [dateRange, customStartDate, customEndDate, loadedDateRange]);
-
-  // Filter fullData based on selected date range (client-side filtering)
-  const rawData = useMemo(() => {
-    if (!fullData || fullData.length === 0) return [];
-
-    // For Custom, use custom dates; otherwise calculate from preset
-    const { start, end } = dateRange === 'Custom' && customStartDate && customEndDate
-      ? { start: customStartDate, end: customEndDate }
-      : getDateRange(dateRange);
-
-    return fullData.filter(record => {
-      const creationDate = record.creation_date;
-      if (!creationDate) return false;
-      return creationDate >= start && creationDate <= end;
-    });
-  }, [fullData, dateRange, customStartDate, customEndDate]);
 
   // Process raw data into analytics - memoized for performance
   const processedData = useMemo(() => {
@@ -223,9 +159,10 @@ const EstimateAnalysis = () => {
       department: getDepartment(record.business_unit)
     }));
 
-    // Filter by selected department
+    // Filter by selected department (exclude 'other' from all views)
+    const mainDepts = ['sales', 'demand', 'maintenance', 'plumbing', 'electrical', 'tyler'];
     const filteredData = selectedDepartment === 'all'
-      ? dataWithDept
+      ? dataWithDept.filter(r => mainDepts.includes(r.department))
       : dataWithDept.filter(r => r.department === selectedDepartment);
 
     if (filteredData.length === 0) {
@@ -277,6 +214,9 @@ const EstimateAnalysis = () => {
       // Find the sold estimate
       const soldEstimate = sorted.find(e => e.estimate_status?.toLowerCase() === 'sold');
       if (!soldEstimate) continue;
+
+      // Skip if minimum estimate is 0 or negative
+      if ((sorted[0]?.estimates_subtotal || 0) <= 0) continue;
 
       // Find its rank
       const rank = sorted.findIndex(e => e.estimates_subtotal === soldEstimate.estimates_subtotal) + 1;
@@ -374,38 +314,36 @@ const EstimateAnalysis = () => {
           : 0
       }));
 
-    // Calculate realistic unsold revenue using department-specific method
+    // Calculate realistic unsold revenue using MIN × multiplier method
     const dept = departments.find(d => d.id === selectedDepartment);
     let realisticUnsold = 0;
 
     const multipliers = {
-      sales: { method: 'weighted', weights: { low: 0.456, mid: 0.345, high: 0.199 } },
-      demand: { method: 'minMultiplier', multiplier: 1.70 },
-      maintenance: { method: 'minMultiplier', multiplier: 1.60 },
-      plumbing: { method: 'minMultiplier', multiplier: 1.65 },
-      electrical: { method: 'minMultiplier', multiplier: 1.65 },
-      tyler: { method: 'minMultiplier', multiplier: 1.65 },
-      all: { method: 'minMultiplier', multiplier: 1.65 }
+      sales: 1.70,
+      demand: 1.70,
+      maintenance: 1.60,
+      plumbing: 1.65,
+      electrical: 1.65,
+      tyler: 1.65
     };
 
-    const config = multipliers[selectedDepartment] || multipliers.all;
-
-    for (const [, estimates] of Object.entries(unsoldOpps)) {
-      if (config.method === 'weighted') {
-        if (estimates.length === 1) {
-          realisticUnsold += estimates[0].estimates_subtotal || 0;
-        } else {
-          const sorted = [...estimates].sort((a, b) => (a.estimates_subtotal || 0) - (b.estimates_subtotal || 0));
-          const low = sorted[0]?.estimates_subtotal || 0;
-          const high = sorted[sorted.length - 1]?.estimates_subtotal || 0;
-          const mid = sorted.length > 2
-            ? sorted[Math.floor(sorted.length / 2)]?.estimates_subtotal || 0
-            : (low + high) / 2;
-          realisticUnsold += (low * config.weights.low) + (mid * config.weights.mid) + (high * config.weights.high);
+    if (selectedDepartment === 'all') {
+      // For 'all', calculate each department separately then sum
+      const mainDepts = ['sales', 'demand', 'maintenance', 'plumbing', 'electrical', 'tyler'];
+      for (const deptId of mainDepts) {
+        const deptMultiplier = multipliers[deptId];
+        for (const [, estimates] of Object.entries(unsoldOpps)) {
+          // Check if this opportunity belongs to this department
+          if (estimates[0]?.department !== deptId) continue;
+          const minEstimate = Math.min(...estimates.map(e => e.estimates_subtotal || 0));
+          realisticUnsold += minEstimate * deptMultiplier;
         }
-      } else {
+      }
+    } else {
+      const multiplier = multipliers[selectedDepartment] || 1.65;
+      for (const [, estimates] of Object.entries(unsoldOpps)) {
         const minEstimate = Math.min(...estimates.map(e => e.estimates_subtotal || 0));
-        realisticUnsold += minEstimate * config.multiplier;
+        realisticUnsold += minEstimate * multiplier;
       }
     }
 
@@ -463,6 +401,8 @@ const EstimateAnalysis = () => {
         const sorted = [...estimates].sort((a, b) => (a.estimates_subtotal || 0) - (b.estimates_subtotal || 0));
         const soldEstimate = sorted.find(e => e.estimate_status?.toLowerCase() === 'sold');
         if (!soldEstimate) continue;
+        // Skip if minimum estimate is 0 or negative
+        if ((sorted[0]?.estimates_subtotal || 0) <= 0) continue;
         const rank = sorted.findIndex(e => e.estimates_subtotal === soldEstimate.estimates_subtotal) + 1;
         if (rank === 1) tierLow++;
         else if (rank === sorted.length) tierHigh++;
@@ -766,52 +706,15 @@ const EstimateAnalysis = () => {
       {/* Header */}
       <div style={styles.header}>
         <h1 style={styles.title}>Estimate Analysis</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={styles.dateButtons}>
-            {['MTD', 'Last Month', 'Last 6 Months', 'Last 12 Months', 'YTD', 'Custom'].map((range) => (
-              <button
-                key={range}
-                onClick={() => setDateRange(range)}
-                style={{
-                  ...styles.dateButton,
-                  ...(dateRange === range ? styles.dateButtonActive : styles.dateButtonInactive),
-                }}
-              >
-                {range}
-              </button>
-            ))}
-          </div>
-          {dateRange === 'Custom' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #374151',
-                  backgroundColor: '#374151',
-                  color: '#fff',
-                  fontSize: '14px',
-                }}
-              />
-              <span style={{ color: '#9ca3af' }}>to</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #374151',
-                  backgroundColor: '#374151',
-                  color: '#fff',
-                  fontSize: '14px',
-                }}
-              />
-            </div>
-          )}
+        <div style={{
+          padding: '8px 16px',
+          borderRadius: '6px',
+          backgroundColor: colors.accent,
+          color: colors.textPrimary,
+          fontSize: '14px',
+          fontWeight: '500',
+        }}>
+          Month to Date
         </div>
       </div>
 
@@ -898,19 +801,16 @@ const EstimateAnalysis = () => {
                   }}>
                     <div style={{ fontWeight: '600', color: '#fff', marginBottom: '8px' }}>How this is calculated:</div>
                     <div style={{ marginBottom: '6px' }}>
-                      <strong style={{ color: colors.accent }}>Sales:</strong> Weighted average based on historical tier selection (45.6% low, 34.5% mid, 19.9% high)
-                    </div>
-                    <div style={{ marginBottom: '6px' }}>
-                      <strong style={{ color: colors.success }}>Service:</strong> Minimum estimate × 1.70
+                      <strong style={{ color: colors.accent }}>Sales / Service:</strong> Minimum estimate × 1.70
                     </div>
                     <div style={{ marginBottom: '6px' }}>
                       <strong style={{ color: colors.orange }}>Maintenance:</strong> Minimum estimate × 1.60
                     </div>
                     <div>
-                      <strong style={{ color: '#9ca3af' }}>Others:</strong> Minimum estimate × 1.65
+                      <strong style={{ color: '#9ca3af' }}>Plumbing / Electrical / Tyler:</strong> Minimum estimate × 1.65
                     </div>
                     <div style={{ marginTop: '8px', fontSize: '11px', color: '#6b7280' }}>
-                      This avoids overstating revenue by using the mean of all options.
+                      Uses the minimum estimate option × multiplier to avoid overstating potential revenue.
                     </div>
                   </div>
                 )}
@@ -918,7 +818,7 @@ const EstimateAnalysis = () => {
               <div style={{ ...styles.kpiValue, color: colors.warning, fontSize: processedData.realisticUnsold >= 1000000 ? '24px' : '28px' }}>
                 ${processedData.realisticUnsold.toLocaleString()}
               </div>
-              <div style={styles.kpiSubtext}>Weighted calculation</div>
+              <div style={styles.kpiSubtext}>Min × multiplier method</div>
             </div>
             <div style={{ ...styles.kpiCard, borderLeftColor: getStatusColor(processedData.avgTicket, processedData.avgTicketTarget) }}>
               <div style={styles.kpiLabel}>Avg Ticket</div>

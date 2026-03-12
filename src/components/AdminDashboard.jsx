@@ -585,8 +585,8 @@ const AdminDashboard = () => {
   const saveTarget = async (targetData) => {
     try {
       console.log('saveTarget called with:', targetData);
-      const method = editingTarget ? 'PUT' : 'POST';
-      const url = editingTarget
+      const method = editingTarget?.id ? 'PUT' : 'POST';
+      const url = editingTarget?.id
         ? `${API_BASE}/targets/${editingTarget.id}`
         : `${API_BASE}/targets`;
 
@@ -1561,7 +1561,7 @@ const AdminDashboard = () => {
                       let monthlyTotal = 0;
                       
                       Object.values(targets.financial.monthly).forEach(departmentTargets => {
-                        const monthTarget = departmentTargets.find(t => t.month === monthNum);
+                        const monthTarget = departmentTargets.find(t => t.month === monthNum && t.year === selectedTargetYear);
                         if (monthTarget) {
                           monthlyTotal += monthTarget.value || 0;
                         }
@@ -1583,7 +1583,7 @@ const AdminDashboard = () => {
                       let monthlyTotal = 0;
                       
                       Object.values(targets.financial.monthly).forEach(departmentTargets => {
-                        const monthTarget = departmentTargets.find(t => t.month === monthNum);
+                        const monthTarget = departmentTargets.find(t => t.month === monthNum && t.year === selectedTargetYear);
                         if (monthTarget) {
                           monthlyTotal += monthTarget.value || 0;
                         }
@@ -1645,7 +1645,7 @@ const AdminDashboard = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3">
                           {MONTHS.slice(0, 6).map((month, index) => {
                             const monthNum = index + 1;
-                            const target = monthlyTargets.find(t => t.month === monthNum);
+                            const target = monthlyTargets.find(t => t.month === monthNum && t.year === selectedTargetYear);
                             
                             return (
                               <div key={month} className="bg-gray-800 p-2 md:p-3 rounded border border-gray-600">
@@ -1704,7 +1704,7 @@ const AdminDashboard = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3 mt-2 md:mt-3">
                           {MONTHS.slice(6, 12).map((month, index) => {
                             const monthNum = index + 7;
-                            const target = monthlyTargets.find(t => t.month === monthNum);
+                            const target = monthlyTargets.find(t => t.month === monthNum && t.year === selectedTargetYear);
                             
                             return (
                               <div key={month} className="bg-gray-800 p-2 md:p-3 rounded border border-gray-600">

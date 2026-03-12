@@ -1788,7 +1788,8 @@ const FinancialView = () => {
   const getBudgetTarget = (department) => {
     const monthlyTargets = targets.financial?.monthly?.[department];
     if (monthlyTargets) {
-      const currentMonthTarget = monthlyTargets.find(t => t.month === new Date().getMonth() + 1);
+      const now = new Date();
+      const currentMonthTarget = monthlyTargets.find(t => t.month === now.getMonth() + 1 && t.year === now.getFullYear());
       return currentMonthTarget?.value || 0;
     }
     return 0;
@@ -2431,6 +2432,124 @@ const EnhancedTotalRevenueCard = () => {
                   </tr>
                 );
               })}
+              {/* Totals Row */}
+              {(() => {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                let totalRevenue = 0;
+                let totalBudget = 0;
+                let totalDailyGoal = 0;
+                let totalAdjustedTarget = 0;
+                let totalTechJobs = 0;
+                let totalMarketingJobs = 0;
+                let totalOpportunities = 0;
+                let budgetPercentages = [];
+
+                financialData.forEach(dept => {
+                  totalRevenue += dept.totalRevenue || 0;
+                  totalTechJobs += dept.techLeadJobs || 0;
+                  totalMarketingJobs += dept.marketingLeadJobs || 0;
+                  totalOpportunities += dept.opportunities || 0;
+
+                  // Budget target calculation (same as row logic)
+                  const deptTargets = targets?.financial?.monthly?.[dept.department];
+                  let budgetTarget = 0;
+                  if (deptTargets) {
+                    if (timePeriod === 'ytd') {
+                      const currentMonth = now.getMonth() + 1;
+                      for (let month = 1; month <= currentMonth; month++) {
+                        const monthTarget = deptTargets.find(t => t.month === month && t.year === currentYear);
+                        budgetTarget += monthTarget?.value || 0;
+                      }
+                    } else if (timePeriod === 'last_month') {
+                      const lastMonthIndex = now.getMonth();
+                      const targetMonth = lastMonthIndex === 0 ? 12 : lastMonthIndex;
+                      const targetYear = lastMonthIndex === 0 ? currentYear - 1 : currentYear;
+                      const lastMonthTarget = deptTargets.find(t => t.month === targetMonth && t.year === targetYear);
+                      budgetTarget = lastMonthTarget?.value || 0;
+                    } else {
+                      const currentMonthTarget = deptTargets.find(t => t.month === now.getMonth() + 1 && t.year === currentYear);
+                      budgetTarget = currentMonthTarget?.value || 0;
+                    }
+                  }
+                  totalBudget += budgetTarget;
+
+                  if (budgetTarget > 0) {
+                    budgetPercentages.push(Math.round((dept.totalRevenue / budgetTarget) * 100));
+                  }
+
+                  // Daily goal
+                  if (budgetTarget) {
+                    const worksSaturdays = departmentWorksSaturdays(dept.department);
+                    let dailyGoal = null;
+                    if (timePeriod === 'mtd') {
+                      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                      const totalDays = getEffectiveWorkingDays(startOfMonth, endOfMonth, worksSaturdays);
+                      dailyGoal = totalDays > 0 ? Math.round(budgetTarget / totalDays) : null;
+                    } else if (timePeriod === 'last_month') {
+                      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                      const days = getEffectiveWorkingDays(lastMonth, endOfLastMonth, worksSaturdays);
+                      dailyGoal = days > 0 ? Math.round(budgetTarget / days) : null;
+                    } else if (timePeriod === 'ytd') {
+                      const startOfYear = new Date(now.getFullYear(), 0, 1);
+                      const days = getEffectiveWorkingDays(startOfYear, now, worksSaturdays);
+                      dailyGoal = days > 0 ? Math.round(budgetTarget / days) : null;
+                    }
+                    if (dailyGoal) totalDailyGoal += dailyGoal;
+
+                    // Adjusted daily target - compute actual remaining/day for totals
+                    if (dailyGoal && timePeriod === 'mtd') {
+                      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                      const elapsedDays = getEffectiveWorkingDays(startOfMonth, now, worksSaturdays);
+                      const totalDays = getEffectiveWorkingDays(startOfMonth, endOfMonth, worksSaturdays);
+                      const remainingDays = totalDays - elapsedDays;
+                      const remainingNeeded = budgetTarget - (dept.totalRevenue || 0);
+                      if (remainingDays > 0 && remainingNeeded > 0) {
+                        totalAdjustedTarget += Math.round(remainingNeeded / remainingDays);
+                      }
+                    }
+                  }
+                });
+
+                const avgBudgetPct = budgetPercentages.length > 0
+                  ? Math.round(budgetPercentages.reduce((a, b) => a + b, 0) / budgetPercentages.length)
+                  : null;
+                const avgBudgetStatus = getPaceBudgetStatus(
+                  avgBudgetPct ? avgBudgetPct / 100 * totalBudget : 0,
+                  totalBudget,
+                  timePeriod
+                );
+
+                return (
+                  <tr className="border-t-2 border-gray-500 font-semibold">
+                    <td className="sticky left-0 z-10 bg-gray-800 py-3 text-white text-sm">Total</td>
+                    <td className="py-3 text-center text-white text-sm">${totalRevenue.toLocaleString()}</td>
+                    <td className="py-3 text-center text-white text-sm">
+                      {totalBudget ? `$${totalBudget.toLocaleString()}` : 'N/A'}
+                    </td>
+                    <td className="py-3 text-center">
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className={`px-2 py-1 rounded text-sm font-medium ${getStatusColor(avgBudgetStatus)}`}>
+                          {avgBudgetPct ? `${avgBudgetPct}%` : 'N/A'}
+                        </span>
+                        {totalBudget && getStatusIcon(avgBudgetStatus)}
+                      </div>
+                    </td>
+                    <td className="py-3 text-center text-white text-sm">
+                      {totalDailyGoal ? `$${totalDailyGoal.toLocaleString()}` : 'N/A'}
+                    </td>
+                    <td className="py-3 text-center text-white text-sm">
+                      {totalAdjustedTarget > 0 ? `$${totalAdjustedTarget.toLocaleString()}` : 'N/A'}
+                    </td>
+                    <td className="py-3 text-center text-white text-sm">{totalTechJobs}</td>
+                    <td className="py-3 text-center text-white text-sm">{totalMarketingJobs}</td>
+                    <td className="py-3 text-center text-white text-sm">{totalOpportunities}</td>
+                  </tr>
+                );
+              })()}
             </tbody>
           </table>
         </div>

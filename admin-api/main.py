@@ -824,19 +824,18 @@ class AdminDatabaseManager:
             
             if financial_table_exists:
                 cursor.execute("""
-                UPDATE performance_targets 
+                UPDATE performance_targets
                 SET current_value = COALESCE((
                     SELECT SUM(revenue_cents::DECIMAL / 100)
-                    FROM department_financial_performance 
-                    WHERE department_name = performance_targets.department 
+                    FROM department_financial_performance
+                    WHERE department_name = performance_targets.department
                     AND EXTRACT(MONTH FROM report_date) = performance_targets.target_month
                     AND EXTRACT(YEAR FROM report_date) = performance_targets.target_year
                     AND period_type = 'mtd'
-                ), 0),
-                updated_at = CURRENT_TIMESTAMP
-                WHERE target_category = 'financial' 
-                AND target_name = 'monthly_budget'
+                ), 0)
+                WHERE target_category = 'financial'
                 AND department IS NOT NULL
+                AND target_month IS NOT NULL
                 """)
                 
                 logger.info("Updated financial targets")
@@ -886,56 +885,110 @@ class AdminDatabaseManager:
             with conn.cursor() as cursor:
                 # Handle financial targets with months
                 if target_data['category'] == 'financial' and target_data.get('isMonthly'):
-                    # Create 12 monthly targets
+                    # Create/update 12 monthly targets
                     target_ids = []
                     monthly_value = target_data['value'] / 12  # Distribute annual value across months
-                    
+                    year = target_data.get('year', datetime.now().year)
+                    department = target_data['department']
+
                     for month in range(1, 13):
-                        query = """
-                        INSERT INTO performance_targets (
-                            target_category, target_name, target_value, target_unit, 
-                            department, target_month, target_year, alert_threshold, effective_from, created_by
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id
-                        """
-                        cursor.execute(query, (
-                            target_data['category'],
-                            'monthly_budget',
-                            monthly_value,
-                            target_data['unit'],
-                            target_data['department'],
-                            month,
-                            target_data.get('year', datetime.now().year),
-                            monthly_value * 0.9,  # 90% threshold
-                            datetime.now().date(),
-                            'admin'
-                        ))
+                        # Check for existing target
+                        cursor.execute("""
+                            SELECT id FROM performance_targets
+                            WHERE target_category = 'financial'
+                            AND department = %s
+                            AND target_month = %s
+                            AND target_year = %s
+                            LIMIT 1
+                        """, (department, month, year))
+                        existing = cursor.fetchone()
+
+                        if existing:
+                            cursor.execute("""
+                                UPDATE performance_targets
+                                SET target_value = %s, alert_threshold = %s, updated_at = CURRENT_TIMESTAMP
+                                WHERE id = %s
+                                RETURNING id
+                            """, (monthly_value, monthly_value * 0.9, existing[0]))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO performance_targets (
+                                    target_category, target_name, target_value, target_unit,
+                                    department, target_month, target_year, alert_threshold, effective_from, created_by
+                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                RETURNING id
+                            """, (
+                                target_data['category'],
+                                'monthly_budget',
+                                monthly_value,
+                                target_data['unit'],
+                                department,
+                                month,
+                                year,
+                                monthly_value * 0.9,
+                                datetime.now().date(),
+                                'admin'
+                            ))
                         target_ids.append(cursor.fetchone()[0])
-                    
+
                     conn.commit()
                     return target_ids
                 else:
-                    # Create single target
-                    query = """
-                    INSERT INTO performance_targets (
-                        target_category, target_name, target_value, target_unit, 
-                        department, target_month, target_year, alert_threshold, effective_from, created_by
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """
                     # Handle alertThreshold - use default if empty or not provided
                     alert_threshold = target_data.get('alertThreshold')
                     if not alert_threshold or alert_threshold == '':
                         alert_threshold = target_data['value'] * 0.9
 
+                    department = target_data.get('department')
+                    month = target_data.get('month')
+                    year = target_data.get('year', datetime.now().year)
+
+                    # For financial monthly budgets, upsert to prevent duplicates
+                    if target_data['category'] == 'financial' and department and month:
+                        # Check if a target already exists for this dept/month/year
+                        cursor.execute("""
+                            SELECT id FROM performance_targets
+                            WHERE target_category = 'financial'
+                            AND department = %s
+                            AND target_month = %s
+                            AND target_year = %s
+                            LIMIT 1
+                        """, (department, month, year))
+                        existing = cursor.fetchone()
+
+                        if existing:
+                            # Update existing target
+                            cursor.execute("""
+                                UPDATE performance_targets
+                                SET target_value = %s, alert_threshold = %s, updated_at = CURRENT_TIMESTAMP
+                                WHERE id = %s
+                                RETURNING id
+                            """, (target_data['value'], alert_threshold, existing[0]))
+                            target_id = cursor.fetchone()[0]
+                            conn.commit()
+                            return target_id
+
+                    # Create single target
+                    query = """
+                    INSERT INTO performance_targets (
+                        target_category, target_name, target_value, target_unit,
+                        department, target_month, target_year, alert_threshold, effective_from, created_by
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """
+
+                    target_name = target_data.get('name', target_data.get('target_name', 'monthly_budget'))
+                    if isinstance(target_name, str):
+                        target_name = target_name.lower().replace(' ', '_')
+
                     cursor.execute(query, (
                         target_data['category'],
-                        target_data['name'].lower().replace(' ', '_'),
+                        target_name,
                         target_data['value'],
                         target_data['unit'],
-                        target_data.get('department'),
-                        target_data.get('month'),
-                        target_data.get('year', datetime.now().year),
+                        department,
+                        month,
+                        year,
                         alert_threshold,
                         datetime.now().date(),
                         'admin'

@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estimate Analysis - KPI Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState } = React;
+    const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ReferenceLine } = Recharts;
+
+    const EstimateAnalysis = () => {
+      const [selectedDepartment, setSelectedDepartment] = useState('all');
+      const [dateRange, setDateRange] = useState('MTD');
+
+      const colors = {
+        background: '#1a1f2e',
+        cardBg: '#252b3b',
+        cardBorder: '#2d3548',
+        textPrimary: '#ffffff',
+        textSecondary: '#8b95a5',
+        accent: '#3b82f6',
+        success: '#22c55e',
+        warning: '#f59e0b',
+        danger: '#ef4444',
+        cyan: '#06b6d4',
+        purple: '#8b5cf6',
+        orange: '#f97316',
+      };
+
+      const departments = [
+        { id: 'all', label: 'All Departments', color: colors.accent },
+        { id: 'sales', label: 'Sales', color: colors.accent },
+        { id: 'demand', label: 'Demand Calls', color: colors.success },
+        { id: 'maintenance', label: 'Maintenance', color: colors.orange },
+        { id: 'plumbing', label: 'Plumbing', color: colors.cyan },
+        { id: 'electrical', label: 'Electrical', color: colors.warning },
+        { id: 'tyler', label: 'Tyler', color: colors.purple },
+      ];
+
+      const departmentData = {
+        all: {
+          totalOpportunities: 6511,
+          won: 2686,
+          closeRate: 41.3,
+          closeRateTarget: 45,
+          avgTicket: 5765,
+          avgTicketTarget: 5000,
+          realisticUnsold: 8234567,
+          avgOptionsPerOpp: 3.0,
+          tierSelection: { low: 57.7, mid: 26.2, high: 16.1 },
+          timeToClose: { sameDay: 88.9, within7: 8.2, beyond7: 2.9 },
+          seasonality: [
+            { month: 'Jun', closeRate: 48.9 },
+            { month: 'Jul', closeRate: 50.9 },
+            { month: 'Aug', closeRate: 46.7 },
+            { month: 'Sep', closeRate: 41.8 },
+            { month: 'Oct', closeRate: 36.7 },
+            { month: 'Nov', closeRate: 33.4 },
+            { month: 'Dec', closeRate: 28.8 },
+          ],
+        },
+        sales: {
+          totalOpportunities: 833,
+          won: 473,
+          closeRate: 56.8,
+          closeRateTarget: 60,
+          avgTicket: 15746,
+          avgTicketTarget: 15000,
+          realisticUnsold: 4250000,
+          avgOptionsPerOpp: 2.7,
+          tierSelection: { low: 45.6, mid: 34.5, high: 19.9 },
+          timeToClose: { sameDay: 79.3, within7: 16.4, beyond7: 4.3 },
+          seasonality: [
+            { month: 'Jun', closeRate: 56.6 },
+            { month: 'Jul', closeRate: 58.2 },
+            { month: 'Aug', closeRate: 55.7 },
+            { month: 'Sep', closeRate: 64.0 },
+            { month: 'Oct', closeRate: 50.9 },
+            { month: 'Nov', closeRate: 56.0 },
+            { month: 'Dec', closeRate: 54.7 },
+          ],
+        },
+        demand: {
+          totalOpportunities: 2041,
+          won: 1235,
+          closeRate: 60.5,
+          closeRateTarget: 55,
+          avgTicket: 2110,
+          avgTicketTarget: 2000,
+          realisticUnsold: 1420000,
+          avgOptionsPerOpp: 2.6,
+          tierSelection: { low: 64.8, mid: 19.2, high: 16.0 },
+          timeToClose: { sameDay: 95.4, within7: 3.8, beyond7: 0.8 },
+          seasonality: [
+            { month: 'Jun', closeRate: 64.0 },
+            { month: 'Jul', closeRate: 64.6 },
+            { month: 'Aug', closeRate: 64.9 },
+            { month: 'Sep', closeRate: 57.1 },
+            { month: 'Oct', closeRate: 54.3 },
+            { month: 'Nov', closeRate: 50.6 },
+            { month: 'Dec', closeRate: 55.7 },
+          ],
+        },
+        maintenance: {
+          totalOpportunities: 3637,
+          won: 978,
+          closeRate: 26.9,
+          closeRateTarget: 30,
+          avgTicket: 2953,
+          avgTicketTarget: 2500,
+          realisticUnsold: 4150000,
+          avgOptionsPerOpp: 3.6,
+          tierSelection: { low: 62.8, mid: 28.9, high: 8.4 },
+          timeToClose: { sameDay: 92.0, within7: 4.3, beyond7: 3.7 },
+          seasonality: [
+            { month: 'Jun', closeRate: 32.0 },
+            { month: 'Jul', closeRate: 31.5 },
+            { month: 'Aug', closeRate: 28.1 },
+            { month: 'Sep', closeRate: 28.3 },
+            { month: 'Oct', closeRate: 30.2 },
+            { month: 'Nov', closeRate: 24.1 },
+            { month: 'Dec', closeRate: 17.8 },
+          ],
+        },
+        plumbing: {
+          totalOpportunities: 845,
+          won: 412,
+          closeRate: 48.8,
+          closeRateTarget: 50,
+          avgTicket: 1850,
+          avgTicketTarget: 1800,
+          realisticUnsold: 680000,
+          avgOptionsPerOpp: 2.4,
+          tierSelection: { low: 58.2, mid: 25.4, high: 16.4 },
+          timeToClose: { sameDay: 89.5, within7: 7.2, beyond7: 3.3 },
+          seasonality: [
+            { month: 'Jun', closeRate: 49.6 },
+            { month: 'Jul', closeRate: 51.5 },
+            { month: 'Aug', closeRate: 46.6 },
+            { month: 'Sep', closeRate: 46.9 },
+            { month: 'Oct', closeRate: 50.4 },
+            { month: 'Nov', closeRate: 48.1 },
+            { month: 'Dec', closeRate: 47.9 },
+          ],
+        },
+        electrical: {
+          totalOpportunities: 520,
+          won: 245,
+          closeRate: 47.1,
+          closeRateTarget: 50,
+          avgTicket: 1420,
+          avgTicketTarget: 1500,
+          realisticUnsold: 345000,
+          avgOptionsPerOpp: 2.2,
+          tierSelection: { low: 52.3, mid: 29.8, high: 17.9 },
+          timeToClose: { sameDay: 87.2, within7: 9.1, beyond7: 3.7 },
+          seasonality: [
+            { month: 'Jun', closeRate: 48.7 },
+            { month: 'Jul', closeRate: 50.0 },
+            { month: 'Aug', closeRate: 45.3 },
+            { month: 'Sep', closeRate: 45.8 },
+            { month: 'Oct', closeRate: 47.1 },
+            { month: 'Nov', closeRate: 48.6 },
+            { month: 'Dec', closeRate: 44.0 },
+          ],
+        },
+        tyler: {
+          totalOpportunities: 635,
+          won: 343,
+          closeRate: 54.0,
+          closeRateTarget: 50,
+          avgTicket: 1180,
+          avgTicketTarget: 1200,
+          realisticUnsold: 290000,
+          avgOptionsPerOpp: 2.8,
+          tierSelection: { low: 61.5, mid: 24.2, high: 14.3 },
+          timeToClose: { sameDay: 91.3, within7: 5.8, beyond7: 2.9 },
+          seasonality: [
+            { month: 'Jun', closeRate: 54.7 },
+            { month: 'Jul', closeRate: 56.9 },
+            { month: 'Aug', closeRate: 52.0 },
+            { month: 'Sep', closeRate: 53.4 },
+            { month: 'Oct', closeRate: 54.1 },
+            { month: 'Nov', closeRate: 53.7 },
+            { month: 'Dec', closeRate: 52.9 },
+          ],
+        },
+      };
+
+      const currentData = departmentData[selectedDepartment];
+      const currentDept = departments.find(d => d.id === selectedDepartment);
+
+      const comparisonData = [
+        { metric: 'Total Opportunities', sales: '833', demand: '2,041', maintenance: '3,637', plumbing: '845', electrical: '520', tyler: '635' },
+        { metric: 'Close Rate', sales: '56.8%', demand: '60.5%', maintenance: '26.9%', plumbing: '48.8%', electrical: '47.1%', tyler: '54.0%' },
+        { metric: 'Avg Options/Opp', sales: '2.7', demand: '2.6', maintenance: '3.6', plumbing: '2.4', electrical: '2.2', tyler: '2.8' },
+        { metric: 'Avg Ticket', sales: '$15,746', demand: '$2,110', maintenance: '$2,953', plumbing: '$1,850', electrical: '$1,420', tyler: '$1,180' },
+        { metric: 'Low Tier %', sales: '45.6%', demand: '64.8%', maintenance: '62.8%', plumbing: '58.2%', electrical: '52.3%', tyler: '61.5%' },
+        { metric: 'High Tier %', sales: '19.9%', demand: '16.0%', maintenance: '8.4%', plumbing: '16.4%', electrical: '17.9%', tyler: '14.3%' },
+        { metric: 'Same Day Close', sales: '79.3%', demand: '95.4%', maintenance: '92.0%', plumbing: '89.5%', electrical: '87.2%', tyler: '91.3%' },
+      ];
+
+      const getStatusColor = (value, target) => {
+        const ratio = value / target;
+        if (ratio >= 1.0) return colors.success;
+        if (ratio >= 0.85) return colors.warning;
+        return colors.danger;
+      };
+
+      const tierData = [
+        { name: 'Low', value: currentData.tierSelection.low, color: colors.success },
+        { name: 'Mid', value: currentData.tierSelection.mid, color: colors.warning },
+        { name: 'High', value: currentData.tierSelection.high, color: colors.accent },
+      ];
+
+      const timeToCloseData = [
+        { name: 'Same Day', value: currentData.timeToClose.sameDay, color: colors.success },
+        { name: '1-7 Days', value: currentData.timeToClose.within7, color: colors.warning },
+        { name: '8+ Days', value: currentData.timeToClose.beyond7, color: colors.danger },
+      ];
+
+      const styles = {
+        container: {
+          minHeight: '100vh',
+          padding: '24px',
+          backgroundColor: colors.background,
+        },
+        header: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px',
+        },
+        title: {
+          fontSize: '24px',
+          fontWeight: 'bold',
+          color: colors.textPrimary,
+          margin: 0,
+        },
+        dateButtons: {
+          display: 'flex',
+          gap: '8px',
+        },
+        dateButton: {
+          padding: '8px 16px',
+          borderRadius: '6px',
+          border: 'none',
+          fontSize: '14px',
+          fontWeight: '500',
+          cursor: 'pointer',
+        },
+        tabs: {
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '24px',
+          flexWrap: 'wrap',
+        },
+        tab: {
+          padding: '10px 20px',
+          borderRadius: '6px',
+          border: 'none',
+          fontSize: '14px',
+          fontWeight: '500',
+          cursor: 'pointer',
+        },
+        kpiRow: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '16px',
+          marginBottom: '24px',
+        },
+        kpiCard: {
+          backgroundColor: colors.cardBg,
+          borderRadius: '12px',
+          padding: '20px',
+          borderLeft: '4px solid',
+        },
+        kpiLabel: {
+          fontSize: '13px',
+          color: '#9ca3af',
+          marginBottom: '8px',
+        },
+        kpiValue: {
+          fontSize: '28px',
+          fontWeight: '700',
+          marginBottom: '4px',
+        },
+        kpiSubtext: {
+          fontSize: '12px',
+          color: '#6b7280',
+        },
+        chartRow: {
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '16px',
+          marginBottom: '24px',
+        },
+        chartCard: {
+          backgroundColor: colors.cardBg,
+          borderRadius: '12px',
+          padding: '20px',
+        },
+        chartTitle: {
+          fontSize: '16px',
+          fontWeight: '600',
+          color: colors.textPrimary,
+          marginBottom: '16px',
+        },
+        chartContainer: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+        legendContainer: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          paddingLeft: '16px',
+        },
+        legendItem: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          minWidth: '140px',
+        },
+        legendDot: {
+          width: '12px',
+          height: '12px',
+          borderRadius: '50%',
+          marginRight: '8px',
+        },
+        legendLabel: {
+          color: '#9ca3af',
+          fontSize: '14px',
+        },
+        legendValue: {
+          color: colors.textPrimary,
+          fontWeight: '600',
+          fontSize: '14px',
+        },
+        fullWidthCard: {
+          backgroundColor: colors.cardBg,
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '24px',
+        },
+        table: {
+          width: '100%',
+          borderCollapse: 'collapse',
+        },
+        th: {
+          textAlign: 'center',
+          padding: '12px 16px',
+          fontSize: '12px',
+          fontWeight: '600',
+          color: '#9ca3af',
+          borderBottom: '1px solid #374151',
+          textTransform: 'uppercase',
+        },
+        td: {
+          padding: '14px 16px',
+          fontSize: '14px',
+          color: colors.textPrimary,
+          borderBottom: '1px solid #2d3548',
+          textAlign: 'center',
+        },
+        badge: {
+          display: 'inline-block',
+          padding: '4px 10px',
+          borderRadius: '4px',
+          fontSize: '11px',
+          fontWeight: '600',
+          color: colors.textPrimary,
+        },
+        insightsCard: {
+          backgroundColor: colors.cardBg,
+          borderRadius: '12px',
+          padding: '20px',
+          borderLeft: '4px solid ' + colors.warning,
+        },
+        insightsTitle: {
+          fontSize: '16px',
+          fontWeight: '600',
+          color: colors.textPrimary,
+          marginBottom: '12px',
+        },
+        insightItem: {
+          color: '#9ca3af',
+          fontSize: '14px',
+          marginBottom: '8px',
+          lineHeight: '1.5',
+        },
+      };
+
+      return (
+        <div style={styles.container}>
+          {/* Header */}
+          <div style={styles.header}>
+            <h1 style={styles.title}>📊 Estimate Analysis</h1>
+            <div style={styles.dateButtons}>
+              {['MTD', 'YTD', 'Last Month'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setDateRange(range)}
+                  style={{
+                    ...styles.dateButton,
+                    backgroundColor: dateRange === range ? colors.accent : '#374151',
+                    color: dateRange === range ? colors.textPrimary : '#9ca3af',
+                  }}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Department Tabs */}
+          <div style={styles.tabs}>
+            {departments.map((dept) => (
+              <button
+                key={dept.id}
+                onClick={() => setSelectedDepartment(dept.id)}
+                style={{
+                  ...styles.tab,
+                  backgroundColor: selectedDepartment === dept.id ? dept.color : '#374151',
+                  color: selectedDepartment === dept.id ? colors.textPrimary : '#9ca3af',
+                }}
+              >
+                {dept.label}
+              </button>
+            ))}
+          </div>
+
+          {/* KPI Cards */}
+          <div style={styles.kpiRow}>
+            <div style={{ ...styles.kpiCard, borderLeftColor: currentDept.color }}>
+              <div style={styles.kpiLabel}>Total Opportunities</div>
+              <div style={{ ...styles.kpiValue, color: currentDept.color }}>
+                {currentData.totalOpportunities.toLocaleString()}
+              </div>
+              <div style={styles.kpiSubtext}>{currentData.won.toLocaleString()} won</div>
+            </div>
+            <div style={{ ...styles.kpiCard, borderLeftColor: getStatusColor(currentData.closeRate, currentData.closeRateTarget) }}>
+              <div style={styles.kpiLabel}>Close Rate</div>
+              <div style={{ ...styles.kpiValue, color: getStatusColor(currentData.closeRate, currentData.closeRateTarget) }}>
+                {currentData.closeRate}%
+              </div>
+              <div style={styles.kpiSubtext}>Target: {currentData.closeRateTarget}%</div>
+            </div>
+            <div style={{ ...styles.kpiCard, borderLeftColor: colors.warning }}>
+              <div style={styles.kpiLabel}>Realistic Unsold Revenue</div>
+              <div style={{ ...styles.kpiValue, color: colors.warning }}>
+                ${(currentData.realisticUnsold / 1000000).toFixed(2)}M
+              </div>
+              <div style={styles.kpiSubtext}>Weighted calculation</div>
+            </div>
+            <div style={{ ...styles.kpiCard, borderLeftColor: getStatusColor(currentData.avgTicket, currentData.avgTicketTarget) }}>
+              <div style={styles.kpiLabel}>Avg Ticket</div>
+              <div style={{ ...styles.kpiValue, color: getStatusColor(currentData.avgTicket, currentData.avgTicketTarget) }}>
+                ${currentData.avgTicket.toLocaleString()}
+              </div>
+              <div style={styles.kpiSubtext}>Target: ${currentData.avgTicketTarget.toLocaleString()}</div>
+            </div>
+          </div>
+
+          {/* Charts Row */}
+          <div style={styles.chartRow}>
+            {/* Tier Selection */}
+            <div style={styles.chartCard}>
+              <div style={styles.chartTitle}>Customer Tier Selection</div>
+              <div style={styles.chartContainer}>
+                <div style={{ width: '50%', height: 200 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={tierData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {tierData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: colors.cardBg, border: 'none', borderRadius: '8px' }}
+                        formatter={(value) => [`${value}%`, '']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={styles.legendContainer}>
+                  {tierData.map((tier) => (
+                    <div key={tier.name} style={styles.legendItem}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <div style={{ ...styles.legendDot, backgroundColor: tier.color }} />
+                        <span style={styles.legendLabel}>{tier.name} Tier</span>
+                      </div>
+                      <span style={styles.legendValue}>{tier.value}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Time to Close */}
+            <div style={styles.chartCard}>
+              <div style={styles.chartTitle}>Time to Close</div>
+              <div style={styles.chartContainer}>
+                <div style={{ width: '50%', height: 200 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={timeToCloseData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {timeToCloseData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: colors.cardBg, border: 'none', borderRadius: '8px' }}
+                        formatter={(value) => [`${value}%`, '']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={styles.legendContainer}>
+                  {timeToCloseData.map((item) => (
+                    <div key={item.name} style={styles.legendItem}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <div style={{ ...styles.legendDot, backgroundColor: item.color }} />
+                        <span style={styles.legendLabel}>{item.name}</span>
+                      </div>
+                      <span style={styles.legendValue}>{item.value}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Seasonality Chart */}
+          <div style={styles.fullWidthCard}>
+            <div style={styles.chartTitle}>Close Rate by Month</div>
+            <div style={{ height: 280 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={currentData.seasonality}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2d3548" />
+                  <XAxis dataKey="month" stroke="#8b95a5" />
+                  <YAxis stroke="#8b95a5" domain={[0, 80]} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: colors.cardBg, border: 'none', borderRadius: '8px' }}
+                    formatter={(value) => [`${value}%`, 'Close Rate']}
+                  />
+                  <ReferenceLine y={currentData.closeRateTarget} stroke={colors.danger} strokeDasharray="5 5" label={{ value: `Target: ${currentData.closeRateTarget}%`, position: 'right', fill: colors.danger, fontSize: 11 }} />
+                  <Bar dataKey="closeRate" fill={currentDept.color} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Comparison Table */}
+          <div style={styles.fullWidthCard}>
+            <div style={styles.chartTitle}>Department Comparison</div>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, textAlign: 'left' }}>Metric</th>
+                  <th style={styles.th}>
+                    <span style={{ ...styles.badge, backgroundColor: colors.accent }}>Sales</span>
+                  </th>
+                  <th style={styles.th}>
+                    <span style={{ ...styles.badge, backgroundColor: colors.success }}>Demand</span>
+                  </th>
+                  <th style={styles.th}>
+                    <span style={{ ...styles.badge, backgroundColor: colors.orange }}>Maint.</span>
+                  </th>
+                  <th style={styles.th}>
+                    <span style={{ ...styles.badge, backgroundColor: colors.cyan }}>Plumbing</span>
+                  </th>
+                  <th style={styles.th}>
+                    <span style={{ ...styles.badge, backgroundColor: colors.warning }}>Electrical</span>
+                  </th>
+                  <th style={styles.th}>
+                    <span style={{ ...styles.badge, backgroundColor: colors.purple }}>Tyler</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonData.map((row, index) => (
+                  <tr key={row.metric} style={{ backgroundColor: index % 2 === 1 ? 'rgba(45, 53, 72, 0.3)' : 'transparent' }}>
+                    <td style={{ ...styles.td, textAlign: 'left', color: '#9ca3af' }}>{row.metric}</td>
+                    <td style={styles.td}>{row.sales}</td>
+                    <td style={styles.td}>{row.demand}</td>
+                    <td style={styles.td}>{row.maintenance}</td>
+                    <td style={styles.td}>{row.plumbing}</td>
+                    <td style={styles.td}>{row.electrical}</td>
+                    <td style={styles.td}>{row.tyler}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Key Insights */}
+          <div style={styles.insightsCard}>
+            <div style={styles.insightsTitle}>💡 Key Insights</div>
+            <div style={styles.insightItem}>
+              • <strong style={{ color: colors.textPrimary }}>Sales</strong> customers tolerate higher prices (19.9% pick high tier vs 8.4% for Maintenance)
+            </div>
+            <div style={styles.insightItem}>
+              • <strong style={{ color: colors.textPrimary }}>Demand Calls</strong> close fastest — 95.4% same day. Follow-up window is 24-48 hours.
+            </div>
+            <div style={styles.insightItem}>
+              • <strong style={{ color: colors.textPrimary }}>Maintenance</strong> has the lowest close rate (26.9%) — these are surprise expenses for customers
+            </div>
+            <div style={styles.insightItem}>
+              • December is the toughest month across all departments — avoid big asks during holidays
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<EstimateAnalysis />, document.getElementById('root'));
+  </script>
+</body>
+</html>

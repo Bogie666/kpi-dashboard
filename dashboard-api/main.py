@@ -207,7 +207,7 @@ class DatabaseManager:
                     employee_name, business_unit, trade,
                     completed_jobs, total_sales_cents, total_job_average_cents,
                     close_rate_percent, opportunities, memberships_sold, leads_set, tech_recall_percent,
-                    first_call_arrival_time
+                    first_call_arrival_time, tech_lead_sales_cents
                 FROM hvac_tech_performance
                 WHERE period_type = %s
                 ORDER BY total_sales_cents DESC
@@ -227,7 +227,8 @@ class DatabaseManager:
                     'membershipsSold': row[8],
                     'leadsSet': float(row[9]) if row[9] else 0,
                     'techRecallPercent': float(row[10]) if row[10] else 0,
-                    'firstCallArrivalTime': row[11] if row[11] else ''
+                    'firstCallArrivalTime': row[11] if row[11] else '',
+                    'techLeadSales': row[12] / 100 if row[12] else 0
                 } for row in rows]
 
     def get_hvac_maintenance_data(self, period_type: str):
@@ -239,7 +240,7 @@ class DatabaseManager:
                     employee_name, business_unit, trade,
                     completed_jobs, total_sales_cents, total_job_average_cents,
                     close_rate_percent, opportunities, memberships_sold, leads_set, tech_recall_percent,
-                    first_call_arrival_time
+                    first_call_arrival_time, tech_lead_sales_cents
                 FROM hvac_maintenance_performance
                 WHERE period_type = %s
                 ORDER BY total_sales_cents DESC
@@ -259,7 +260,8 @@ class DatabaseManager:
                     'membershipsSold': row[8],
                     'leadsSet': float(row[9]) if row[9] else 0,
                     'techRecallPercent': float(row[10]) if row[10] else 0,
-                    'firstCallArrivalTime': row[11] if row[11] else ''
+                    'firstCallArrivalTime': row[11] if row[11] else '',
+                    'techLeadSales': row[12] / 100 if row[12] else 0
                 } for row in rows]
 
     def get_plumbing_data(self, period_type: str):
@@ -271,7 +273,7 @@ class DatabaseManager:
                     employee_name, business_unit, trade,
                     completed_jobs, total_sales_cents, total_job_average_cents,
                     close_rate_percent, opportunities, memberships_sold, tech_recall_percent,
-                    first_call_arrival_time
+                    first_call_arrival_time, tech_lead_sales_cents
                 FROM plumbing_tech_performance
                 WHERE period_type = %s
                 ORDER BY total_sales_cents DESC
@@ -289,9 +291,10 @@ class DatabaseManager:
                     'closeRatePercent': float(row[6]) if row[6] else 0,
                     'opportunities': row[7],
                     'membershipsSold': row[8],
-                    'leadsSet': 0,
                     'techRecallPercent': float(row[9]) if row[9] else 0,
-                    'firstCallArrivalTime': row[10] if row[10] else ''
+                    'firstCallArrivalTime': row[10] if row[10] else '',
+                    'techLeadSales': row[11] / 100 if row[11] else 0,
+                    'leadsSet': 0
                 } for row in rows]
 
     def get_electrical_data(self, period_type: str):
@@ -303,7 +306,7 @@ class DatabaseManager:
                     employee_name, business_unit, trade,
                     completed_jobs, total_sales_cents, total_job_average_cents,
                     close_rate_percent, opportunities, memberships_sold, tech_recall_percent,
-                    first_call_arrival_time
+                    first_call_arrival_time, tech_lead_sales_cents
                 FROM electrical_tech_performance
                 WHERE period_type = %s
                 ORDER BY total_sales_cents DESC
@@ -321,9 +324,10 @@ class DatabaseManager:
                     'closeRatePercent': float(row[6]) if row[6] else 0,
                     'opportunities': row[7],
                     'membershipsSold': row[8],
-                    'leadsSet': 0,
                     'techRecallPercent': float(row[9]) if row[9] else 0,
-                    'firstCallArrivalTime': row[10] if row[10] else ''
+                    'firstCallArrivalTime': row[10] if row[10] else '',
+                    'techLeadSales': row[11] / 100 if row[11] else 0,
+                    'leadsSet': 0
                 } for row in rows]
 
     def get_commercial_hvac_data(self, period_type: str):
@@ -355,7 +359,8 @@ class DatabaseManager:
                     'membershipsSold': row[8],
                     'leadsSet': float(row[9]) if row[9] else 0,
                     'techRecallPercent': float(row[10]) if row[10] else 0,
-                    'firstCallArrivalTime': row[11] if row[11] else ''
+                    'firstCallArrivalTime': row[11] if row[11] else '',
+                    'techLeadSales': 0
                 } for row in rows]
 
     def get_summary_metrics(self, period_type: str):
