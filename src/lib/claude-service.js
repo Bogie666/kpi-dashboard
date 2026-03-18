@@ -5,8 +5,11 @@
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-// Use Claude 3.7 Sonnet
-const CLAUDE_MODEL = 'claude-3-7-sonnet-20250219';
+const DEFAULT_CLAUDE_MODELS = [
+  process.env.ANTHROPIC_MODEL,
+  'claude-sonnet-4-5-20250514',
+  'claude-haiku-4-5-20251001'
+].filter(Boolean);
 
 class ClaudeService {
   constructor() {
@@ -26,7 +29,7 @@ class ClaudeService {
       };
     }
 
-    console.log('API Key configured:', this.apiKey ? `Yes (${this.apiKey.substring(0, 10)}...)` : 'No');
+    console.log('API Key configured:', this.apiKey ? 'Yes' : 'No');
 
     const {
       systemPrompt = 'You are a helpful AI assistant.',
@@ -35,54 +38,76 @@ class ClaudeService {
     } = options;
 
     try {
-      console.log('Calling Claude API with model:', CLAUDE_MODEL);
+      let lastError = 'Unknown Claude API error';
 
-      const response = await fetch(ANTHROPIC_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: CLAUDE_MODEL,
-          max_tokens: maxTokens,
-          temperature,
-          system: systemPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ]
-        })
-      });
+      for (const model of DEFAULT_CLAUDE_MODELS) {
+        console.log('Calling Claude API with model:', model);
 
-      console.log('Claude API response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: { message: 'Failed to parse error response' } }));
-        console.error('Claude API error:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData
+        const response = await fetch(ANTHROPIC_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: maxTokens,
+            temperature,
+            system: systemPrompt,
+            messages: [
+              {
+                role: 'user',
+                content: prompt
+              }
+            ]
+          })
         });
+
+        console.log('Claude API response status:', response.status);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: { message: 'Failed to parse error response' } }));
+          const apiError = errorData.error?.message || errorData.message || `API request failed: ${response.status} ${response.statusText}`;
+          lastError = apiError;
+
+          console.error('Claude API error:', {
+            model,
+            status: response.status,
+            statusText: response.statusText,
+            errorData
+          });
+
+          const modelNotAvailable =
+            response.status === 400 &&
+            /model|not found|unsupported|invalid/i.test(apiError);
+
+          if (modelNotAvailable) {
+            console.warn(`Model unavailable: ${model}. Trying next fallback model...`);
+            continue;
+          }
+
+          return {
+            success: false,
+            error: apiError
+          };
+        }
+
+        const data = await response.json();
+
+        // Extract text content from Claude's response
+        const content = data.content?.[0]?.text || '';
+
         return {
-          success: false,
-          error: errorData.error?.message || errorData.message || `API request failed: ${response.status} ${response.statusText}`
+          success: true,
+          content
         };
       }
 
-      const data = await response.json();
-
-      // Extract text content from Claude's response
-      const content = data.content?.[0]?.text || '';
-
       return {
-        success: true,
-        content
+        success: false,
+        error: `All configured Claude models failed. Last error: ${lastError}`
       };
-
     } catch (error) {
       console.error('Error calling Claude API:', error);
       return {
