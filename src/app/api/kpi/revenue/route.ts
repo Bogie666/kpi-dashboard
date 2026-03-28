@@ -7,6 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  'Cache-Control': 'public, max-age=60',
 };
 
 export async function OPTIONS() {
@@ -24,6 +25,69 @@ function resolvePeriod(period: string) {
   }
 }
 
+// Build target lookup from performance_targets table (same source as main dashboard)
+async function getTargetsForPeriod(pool: any, period: string): Promise<Record<string, number>> {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  if (period === 'ytd' || period === 'qtd') {
+    // Sum monthly targets from January (or quarter start) through current month
+    const startMonth = period === 'qtd' ? Math.floor((currentMonth - 1) / 3) * 3 + 1 : 1;
+    const result = await pool.query(`
+      SELECT department, SUM(target_value) as total_target
+      FROM performance_targets
+      WHERE target_category = 'financial'
+        AND target_month >= $1 AND target_month <= $2
+        AND target_year = $3
+        AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
+      GROUP BY department
+    `, [startMonth, currentMonth, currentYear]);
+
+    const targets: Record<string, number> = {};
+    for (const row of result.rows) {
+      if (row.department) targets[row.department] = Number(row.total_target);
+    }
+    return targets;
+  }
+
+  if (period === 'last30') {
+    // Use previous month's target
+    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const result = await pool.query(`
+      SELECT department, target_value
+      FROM performance_targets
+      WHERE target_category = 'financial'
+        AND target_month = $1
+        AND target_year = $2
+        AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
+    `, [lastMonth, lastMonthYear]);
+
+    const targets: Record<string, number> = {};
+    for (const row of result.rows) {
+      if (row.department) targets[row.department] = Number(row.target_value);
+    }
+    return targets;
+  }
+
+  // MTD (default) - current month target
+  const result = await pool.query(`
+    SELECT department, target_value
+    FROM performance_targets
+    WHERE target_category = 'financial'
+      AND target_month = $1
+      AND target_year = $2
+      AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
+  `, [currentMonth, currentYear]);
+
+  const targets: Record<string, number> = {};
+  for (const row of result.rows) {
+    if (row.department) targets[row.department] = Number(row.target_value);
+  }
+  return targets;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const pool = getPool();
@@ -33,6 +97,7 @@ export async function GET(request: NextRequest) {
 
     const params = request.nextUrl.searchParams;
     const period = params.get('period') || 'mtd';
+    const location = params.get('location') || 'lex';
     const { periodType, previousPeriodType } = resolvePeriod(period);
 
     // Fetch current period department revenue
@@ -57,34 +122,16 @@ export async function GET(request: NextRequest) {
       WHERE period_type = $1
     `;
 
-    // Fetch targets if they exist
-    const targetQuery = `
-      SELECT
-        department,
-        target_value
-      FROM performance_targets
-      WHERE target_type = 'revenue'
-        AND target_period = $1
-        AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)
-      ORDER BY effective_from DESC
-    `;
-
-    const [currentResult, prevResult, targetResult] = await Promise.all([
+    const [currentResult, prevResult, targetMap] = await Promise.all([
       pool.query(currentQuery, [periodType]),
       pool.query(prevQuery, [previousPeriodType]),
-      pool.query(targetQuery, [periodType]).catch(() => ({ rows: [] })),
+      getTargetsForPeriod(pool, period),
     ]);
 
     // Build previous period lookup
     const prevMap: Record<string, number> = {};
     for (const row of prevResult.rows) {
       prevMap[row.department_name] = Math.round(Number(row.revenue_cents) / 100);
-    }
-
-    // Build target lookup
-    const targetMap: Record<string, number> = {};
-    for (const row of targetResult.rows) {
-      targetMap[row.department] = Number(row.target_value);
     }
 
     // Normalize department name to ID
@@ -104,7 +151,7 @@ export async function GET(request: NextRequest) {
     const departments = currentResult.rows.map(row => {
       const revenue = Math.round(Number(row.revenue_cents) / 100);
       const id = deptId(row.department_name);
-      const target = targetMap[row.department_name] || targetMap[id] || 0;
+      const target = targetMap[row.department_name] || targetMap[id] || targetMap[row.department_name.toLowerCase()] || 0;
       const previousPeriod = prevMap[row.department_name] || 0;
       totalRevenue += revenue;
       totalTarget += target;
@@ -128,6 +175,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       period: periodLabel,
+      location,
       asOf: new Date().toISOString(),
       departments,
       total: {

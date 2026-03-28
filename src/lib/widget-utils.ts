@@ -125,10 +125,21 @@ export const WIDGET_HEADERS = {
   'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
 };
 
+export const LOCATION_IDS: Record<string, string[]> = {
+  lex: ['lex', '2211062401809147654'],
+  'lex-etx': ['lex-etx', '7913826327010230630'],
+};
+
+export function matchesLocation(locationId: string, locationParam: string): boolean {
+  const ids = LOCATION_IDS[locationParam];
+  if (!ids) return true; // show all if unknown location
+  return ids.includes(locationId);
+}
+
 export function getDepartmentIcon(dept: string): string {
   const d = dept.toLowerCase();
   if (d.includes('hvac') || d.includes('heating') || d.includes('cooling') || d.includes('air')) return '❄️';
-  if (d.includes('plumb')) return '🔧';
+  if (d.includes('plumb')) return '💧';
   if (d.includes('electr')) return '⚡';
   if (d.includes('solar')) return '☀️';
   return '🔹';
@@ -137,7 +148,7 @@ export function getDepartmentIcon(dept: string): string {
 export function getDepartmentColor(dept: string): string {
   const d = dept.toLowerCase();
   if (d.includes('hvac') || d.includes('heating') || d.includes('cooling') || d.includes('air')) return BRAND.sky;
-  if (d.includes('plumb')) return BRAND.blue;
+  if (d.includes('plumb')) return '#3B82F6';
   if (d.includes('electr')) return BRAND.gold;
   return BRAND.navy;
 }

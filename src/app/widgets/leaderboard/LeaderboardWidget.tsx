@@ -11,9 +11,14 @@ interface Technician {
   name: string;
   fullName: string;
   department: string;
+  departmentLabel: string;
+  metricType: string;
   revenue: number;
+  bookingRate: number;
   closeRate: number;
   jobsCompleted: number;
+  totalCalls: number;
+  memberships: number;
   trend: string;
   revenueHistory: number[];
 }
@@ -46,12 +51,15 @@ export default function LeaderboardWidget() {
     compact: false,
     location: 'lex',
     period: 'mtd',
-    limit: 5,
+    limit: 6,
     sortBy: 'revenue',
     dept: 'all',
+    mode: 'top_per_dept',
   });
 
   const isDark = params.theme === 'dark';
+
+  const isPerDept = params.mode === 'top_per_dept';
 
   const fetchData = useCallback(async () => {
     try {
@@ -61,6 +69,7 @@ export default function LeaderboardWidget() {
         limit: String(params.limit),
         sortBy: String(params.sortBy),
         dept: String(params.dept),
+        mode: String(params.mode),
       });
       const res = await fetch(`/api/kpi/leaderboard?${qs}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -151,13 +160,25 @@ export default function LeaderboardWidget() {
 
         {/* Rows */}
         {data.technicians.map((tech) => {
-          const medal = getMedalStyle(tech.rank);
+          const medal = getMedalStyle(isPerDept ? 1 : tech.rank);
+          const isBookingRate = tech.metricType === 'booking_rate';
           return (
-            <div key={tech.fullName} className="lb-row" style={tech.rank === 1 ? { background: `${BRAND.gold}08` } : {}}>
-              {/* Rank */}
-              <div className="lb-rank" style={{ backgroundColor: medal.bg, color: medal.color }}>
-                {medal.icon || tech.rank}
-              </div>
+            <div key={`${tech.department}-${tech.fullName}`} className="lb-row" style={!isPerDept && tech.rank === 1 ? { background: `${BRAND.gold}08` } : {}}>
+              {/* Rank or Department badge */}
+              {isPerDept ? (
+                <div className="lb-dept-badge" style={{
+                  fontSize: 10, fontWeight: 700, fontFamily: "'Montserrat', sans-serif",
+                  color: BRAND.gold, backgroundColor: `${BRAND.gold}15`,
+                  padding: '3px 8px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap',
+                  minWidth: 56, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.3px',
+                }}>
+                  {tech.departmentLabel}
+                </div>
+              ) : (
+                <div className="lb-rank" style={{ backgroundColor: medal.bg, color: medal.color }}>
+                  {medal.icon || tech.rank}
+                </div>
+              )}
 
               {/* Name + meta */}
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -165,19 +186,23 @@ export default function LeaderboardWidget() {
                   {tech.name}
                 </div>
                 <div className="lb-meta" style={{ fontSize: 11, color: mutedColor }}>
-                  {tech.jobsCompleted} jobs &middot; {tech.closeRate}% close rate
+                  {isBookingRate
+                    ? `${tech.totalCalls} calls · ${tech.memberships} memberships`
+                    : `${tech.jobsCompleted} jobs · ${tech.closeRate}% close`}
                 </div>
               </div>
 
-              {/* Sparkline */}
-              <div className="lb-sparkline"
-                dangerouslySetInnerHTML={{ __html: renderSparkline(tech.revenueHistory, BRAND.sky, 60, 24) }}
-              />
+              {/* Sparkline (hide for booking rate) */}
+              {!isBookingRate && (
+                <div className="lb-sparkline"
+                  dangerouslySetInnerHTML={{ __html: renderSparkline(tech.revenueHistory, BRAND.sky, 60, 24) }}
+                />
+              )}
 
-              {/* Revenue */}
+              {/* Primary metric */}
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <span className="widget-stat" style={{ fontSize: 15, color: textColor }}>
-                  {formatRevenue(tech.revenue)}
+                  {isBookingRate ? `${tech.bookingRate}%` : formatRevenue(tech.revenue)}
                 </span>
               </div>
 

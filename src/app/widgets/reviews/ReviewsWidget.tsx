@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { BRAND, WIDGET_BASE_STYLES, getWidgetParams, initIframeResize, initAutoRefresh } from '@/lib/widget-utils';
+import { BRAND, WIDGET_BASE_STYLES, getWidgetParams, initIframeResize, initAutoRefresh, matchesLocation, LOCATION_IDS } from '@/lib/widget-utils';
 
 interface Review {
   id: string;
@@ -101,26 +101,35 @@ export default function ReviewsWidget() {
   // Filter reviews
   const filteredReviews = data?.reviews
     ?.filter(r => r.rating >= (params.minRating as number))
-    ?.filter(r => {
-      if (params.location === 'lex') return r.locationId === 'lex' || r.locationId === '2211062401809147654';
-      if (params.location === 'lex-etx') return r.locationId === 'lex-etx' || r.locationId === '7913826327010230630';
-      return true;
-    })
+    ?.filter(r => matchesLocation(r.locationId, params.location as string))
     ?.slice(0, params.maxReviews as number) || [];
 
   // Calculate stats
-  const allLocationReviews = data?.reviews?.filter(r => {
-    if (params.location === 'lex') return r.locationId === 'lex' || r.locationId === '2211062401809147654';
-    if (params.location === 'lex-etx') return r.locationId === 'lex-etx' || r.locationId === '7913826327010230630';
-    return true;
-  }) || [];
+  const allLocationReviews = data?.reviews?.filter(r =>
+    matchesLocation(r.locationId, params.location as string)
+  ) || [];
 
   const avgRating = allLocationReviews.length > 0
     ? allLocationReviews.reduce((sum, r) => sum + r.rating, 0) / allLocationReviews.length
     : 0;
-  const totalReviewCount = data?.reportedTotals
-    ? Object.values(data.reportedTotals).reduce((a, b) => a + b, 0)
-    : data?.totalCount || 0;
+
+  // Get review count for the active location only (not all locations combined)
+  function getLocationTotalCount(): number {
+    if (data?.reportedTotals) {
+      const loc = params.location as string;
+      const ids = LOCATION_IDS[loc];
+      if (ids) {
+        for (const id of ids) {
+          if (data.reportedTotals[id] !== undefined) return data.reportedTotals[id];
+        }
+        return 0;
+      }
+      return Object.values(data.reportedTotals).reduce((a, b) => a + b, 0);
+    }
+    return data?.totalCount || 0;
+  }
+
+  const totalReviewCount = getLocationTotalCount();
 
   function getRatingLabel(avg: number): string {
     if (avg >= 4.8) return 'OUTSTANDING';
@@ -227,6 +236,7 @@ export default function ReviewsWidget() {
             onMouseEnter={() => { if (autoScrollRef.current) clearInterval(autoScrollRef.current); }}
             onMouseLeave={() => {
               if (!params.autoScroll) return;
+              if (autoScrollRef.current) clearInterval(autoScrollRef.current);
               autoScrollRef.current = setInterval(() => {
                 const el = carouselRef.current;
                 if (!el) return;

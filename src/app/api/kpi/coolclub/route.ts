@@ -7,11 +7,17 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  'Cache-Control': 'public, max-age=60',
 };
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
+
+const GOALS: Record<string, number> = {
+  lex: 5000,
+  'lex-etx': 500,
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -94,7 +100,7 @@ export async function GET(request: NextRequest) {
       location,
       asOf: new Date().toISOString(),
       activeMembers,
-      goal: 3000, // default goal, overridable via widget param
+      goal: GOALS[location] || 5000,
       newThisMonth,
       newThisWeek,
       churnThisMonth,

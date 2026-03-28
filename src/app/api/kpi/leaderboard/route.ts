@@ -1,180 +1,182 @@
 // src/app/api/kpi/leaderboard/route.ts
-// Tech Leaderboard API endpoint for the leaderboard widget
+// Tech Leaderboard API — proxies the same dashboard_api endpoints used by Top Performers page
 import { NextRequest, NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  'Cache-Control': 'public, max-age=60',
 };
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
-// Map of trade tables to query
-const TRADE_TABLES: Record<string, string> = {
-  hvac: 'hvac_tech_performance',
-  maintenance: 'hvac_maintenance_performance',
-  commercial: 'commercial_hvac_performance',
-  plumbing: 'plumbing_tech_performance',
-  electrical: 'electrical_tech_performance',
+const DASHBOARD_API = 'https://us-central1-new-dashboard-2025.cloudfunctions.net/dashboard_api';
+
+// Same department definitions as TopPerformersDashboard
+const DEPARTMENTS: Record<string, { endpoint: string; label: string; shortLabel: string; sortField: string; revenueField: string; metricType: string }> = {
+  comfort_advisor: { endpoint: 'comfort-advisors', label: 'Comfort Advisors', shortLabel: 'Sales', sortField: 'sales', revenueField: 'sales', metricType: 'revenue' },
+  hvac_tech: { endpoint: 'hvac-tech', label: 'HVAC Tech', shortLabel: 'Service', sortField: 'totalSales', revenueField: 'totalSales', metricType: 'revenue' },
+  hvac_maintenance: { endpoint: 'hvac-maintenance', label: 'HVAC Maintenance', shortLabel: 'Maint', sortField: 'totalSales', revenueField: 'totalSales', metricType: 'revenue' },
+  plumbing: { endpoint: 'plumbing', label: 'Plumbing', shortLabel: 'Plumbing', sortField: 'totalSales', revenueField: 'totalSales', metricType: 'revenue' },
+  electrical: { endpoint: 'electrical', label: 'Electrical', shortLabel: 'Electrical', sortField: 'totalSales', revenueField: 'totalSales', metricType: 'revenue' },
+  call_center: { endpoint: 'call-center', label: 'Call Center', shortLabel: 'Call Center', sortField: 'bookingPercent', revenueField: 'bookingPercent', metricType: 'booking_rate' },
 };
 
 function resolvePeriodType(period: string): string {
   switch (period) {
-    case 'wtd': return 'mtd'; // fallback to mtd since wtd may not exist
-    case 'qtd': return 'ytd';
-    case 'last30': return 'mtd';
     case 'ytd': return 'ytd';
+    case 'last_month': return 'last_month';
     case 'mtd':
     default: return 'mtd';
   }
 }
 
-interface TechRow {
-  employee_name: string;
-  trade: string;
-  business_unit: string;
-  completed_jobs: number;
-  total_sales_cents: number;
-  close_rate_percent: number;
-  opportunities: number;
-  closed_opportunities: number;
-  source_table: string;
+interface DashboardTech {
+  name: string;
+  businessUnit?: string;
+  trade?: string;
+  completedJobs?: number;
+  totalSales?: number;
+  sales?: number;
+  closeRatePercent?: number;
+  closingPercent?: number;
+  bookingPercent?: number;
+  coolClubMemberships?: number;
+  totalCalls?: number;
+  opportunities?: number;
+  jobs?: number;
+  department?: string;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const pool = getPool();
-    if (!pool) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503, headers: corsHeaders });
-    }
-
     const params = request.nextUrl.searchParams;
     const period = params.get('period') || 'mtd';
     const limit = Math.min(Math.max(parseInt(params.get('limit') || '5'), 1), 20);
-    const sortBy = params.get('sortBy') || 'revenue';
     const dept = params.get('dept') || 'all';
+    const mode = params.get('mode') || 'combined'; // 'combined' or 'top_per_dept'
     const periodType = resolvePeriodType(period);
 
-    // Determine which tables to query
-    const tablesToQuery = dept === 'all'
-      ? Object.entries(TRADE_TABLES)
-      : Object.entries(TRADE_TABLES).filter(([key]) => key === dept);
+    // Determine which departments to fetch
+    const deptsToFetch = dept === 'all'
+      ? Object.entries(DEPARTMENTS)
+      : Object.entries(DEPARTMENTS).filter(([key]) => key === dept);
 
-    if (tablesToQuery.length === 0) {
+    if (deptsToFetch.length === 0) {
       return NextResponse.json({ success: true, period, technicians: [] }, { headers: corsHeaders });
     }
 
-    // Query all relevant trade tables and union the results
-    const unionParts = tablesToQuery.map(([, table]) => `
-      SELECT
-        employee_name,
-        COALESCE(trade, '${table.replace('_performance', '').replace('_tech', '')}') as trade,
-        COALESCE(business_unit, '') as business_unit,
-        COALESCE(completed_jobs, 0) as completed_jobs,
-        COALESCE(total_sales_cents, 0) as total_sales_cents,
-        COALESCE(close_rate_percent, 0) as close_rate_percent,
-        COALESCE(opportunities, 0) as opportunities,
-        COALESCE(closed_opportunities, 0) as closed_opportunities,
-        '${table}' as source_table
-      FROM ${table}
-      WHERE period_type = $1
-    `);
-
-    const unionQuery = unionParts.join(' UNION ALL ');
-
-    // Sort mapping
-    const sortColumn = sortBy === 'closeRate' ? 'close_rate_percent'
-      : sortBy === 'jobsCompleted' ? 'completed_jobs'
-      : 'total_sales_cents';
-
-    const fullQuery = `
-      SELECT * FROM (${unionQuery}) combined
-      ORDER BY ${sortColumn} DESC
-      LIMIT $2
-    `;
-
-    const result = await pool.query(fullQuery, [periodType, limit]);
-
-    // For revenue history, try to get last 7 monthly data points per technician
-    // This queries last_month data from previous syncs - simplified approach
-    const techNames = result.rows.map((r: TechRow) => r.employee_name);
-    let historyMap: Record<string, number[]> = {};
-
-    if (techNames.length > 0) {
-      // Try to build a simple history from available data
-      // Use current + last_month as the two data points we have, pad with estimates
-      const lastMonthQuery = `
-        SELECT employee_name, COALESCE(total_sales_cents, 0) as total_sales_cents
-        FROM (${tablesToQuery.map(([, table]) => `
-          SELECT employee_name, total_sales_cents FROM ${table} WHERE period_type = 'last_month'
-        `).join(' UNION ALL ')}) lm
-        WHERE employee_name = ANY($1)
-      `;
-      try {
-        const histResult = await pool.query(lastMonthQuery, [techNames]);
-        const lastMonthMap: Record<string, number> = {};
-        for (const row of histResult.rows) {
-          lastMonthMap[row.employee_name] = Math.round(Number(row.total_sales_cents) / 100);
+    // Fetch from the same dashboard_api endpoints as TopPerformersDashboard
+    const fetchResults = await Promise.all(
+      deptsToFetch.map(async ([deptKey, config]) => {
+        try {
+          const res = await fetch(`${DASHBOARD_API}/${config.endpoint}/${periodType}`);
+          if (!res.ok) return { deptKey, data: [] };
+          const json = await res.json();
+          return { deptKey, data: (json.data || []) as DashboardTech[] };
+        } catch {
+          return { deptKey, data: [] };
         }
-        // Build a synthetic 7-point history for sparklines
-        for (const row of result.rows as TechRow[]) {
-          const current = Math.round(Number(row.total_sales_cents) / 100);
-          const last = lastMonthMap[row.employee_name] || Math.round(current * 0.85);
-          // Generate plausible intermediate points
-          const step = (current - last) / 6;
-          historyMap[row.employee_name] = Array.from({ length: 7 }, (_, i) =>
-            Math.round(last + step * i + (Math.random() - 0.5) * Math.abs(step) * 0.3)
-          );
-          // Ensure last point is exact
-          historyMap[row.employee_name][6] = current;
+      })
+    );
+
+    let technicians;
+
+    if (mode === 'top_per_dept') {
+      // Return the #1 performer from each department
+      technicians = fetchResults.map(({ deptKey, data }, index) => {
+        const config = DEPARTMENTS[deptKey];
+        if (data.length === 0) return null;
+
+        // Sort by department's sort field descending
+        const sorted = [...data].sort((a, b) => {
+          const aVal = Number((a as unknown as Record<string, unknown>)[config.sortField] || 0);
+          const bVal = Number((b as unknown as Record<string, unknown>)[config.sortField] || 0);
+          return bVal - aVal;
+        });
+
+        const tech = sorted[0];
+        const name = tech.name || 'Unknown';
+        const nameParts = name.trim().split(/\s+/);
+        const displayName = nameParts.length > 1
+          ? `${nameParts[0]} ${nameParts[nameParts.length - 1][0]}.`
+          : nameParts[0];
+
+        const primaryValue = Number((tech as unknown as Record<string, unknown>)[config.revenueField] || 0);
+        const closeRate = Math.round(Number(tech.closeRatePercent || tech.closingPercent || 0));
+        const jobs = Number(tech.completedJobs || tech.jobs || 0);
+
+        return {
+          rank: index + 1,
+          name: displayName,
+          fullName: name,
+          department: deptKey,
+          departmentLabel: config.shortLabel,
+          metricType: config.metricType,
+          revenue: config.metricType === 'revenue' ? Math.round(primaryValue) : 0,
+          bookingRate: config.metricType === 'booking_rate' ? Number(primaryValue.toFixed(1)) : 0,
+          closeRate,
+          jobsCompleted: jobs,
+          totalCalls: Number(tech.totalCalls || 0),
+          memberships: Number(tech.coolClubMemberships || 0),
+          trend: 'flat' as const,
+          revenueHistory: config.metricType === 'revenue' ? [primaryValue] : [],
+        };
+      }).filter(Boolean);
+    } else {
+      // Original combined mode: merge all techs, sort by revenue, take top N
+      const allTechs: { tech: DashboardTech; deptKey: string; revenue: number }[] = [];
+
+      for (const { deptKey, data } of fetchResults) {
+        const config = DEPARTMENTS[deptKey];
+        if (config.metricType !== 'revenue') continue; // skip non-revenue depts in combined mode
+        for (const tech of data) {
+          const revenue = Number((tech as unknown as Record<string, unknown>)[config.revenueField] || 0);
+          allTechs.push({ tech, deptKey, revenue });
         }
-      } catch {
-        // History is optional, continue without it
       }
+
+      allTechs.sort((a, b) => b.revenue - a.revenue);
+      const topN = allTechs.slice(0, limit);
+
+      technicians = topN.map((item, index) => {
+        const { tech, deptKey, revenue } = item;
+        const name = tech.name || 'Unknown';
+        const nameParts = name.trim().split(/\s+/);
+        const displayName = nameParts.length > 1
+          ? `${nameParts[0]} ${nameParts[nameParts.length - 1][0]}.`
+          : nameParts[0];
+
+        const closeRate = Math.round(Number(tech.closeRatePercent || tech.closingPercent || 0));
+        const jobs = Number(tech.completedJobs || tech.jobs || 0);
+
+        return {
+          rank: index + 1,
+          name: displayName,
+          fullName: name,
+          department: deptKey,
+          departmentLabel: DEPARTMENTS[deptKey].shortLabel,
+          metricType: 'revenue',
+          revenue: Math.round(revenue),
+          bookingRate: 0,
+          closeRate,
+          jobsCompleted: jobs,
+          totalCalls: 0,
+          memberships: 0,
+          trend: 'flat' as const,
+          revenueHistory: [revenue],
+        };
+      });
     }
-
-    const technicians = result.rows.map((row: TechRow, index: number) => {
-      const revenue = Math.round(Number(row.total_sales_cents) / 100);
-      const history = historyMap[row.employee_name] || [revenue];
-      const prevRevenue = history.length >= 2 ? history[history.length - 2] : revenue;
-      const trend = revenue > prevRevenue ? 'up' : revenue < prevRevenue ? 'down' : 'flat';
-
-      // Map trade to department
-      const tradeStr = (row.trade || row.source_table || '').toLowerCase();
-      let department = 'hvac';
-      if (tradeStr.includes('plumb')) department = 'plumbing';
-      else if (tradeStr.includes('electr')) department = 'electrical';
-      else if (tradeStr.includes('commercial')) department = 'commercial';
-      else if (tradeStr.includes('maintenance')) department = 'maintenance';
-
-      // Abbreviate name: "John Smith" -> "John S."
-      const nameParts = row.employee_name.trim().split(/\s+/);
-      const displayName = nameParts.length > 1
-        ? `${nameParts[0]} ${nameParts[nameParts.length - 1][0]}.`
-        : nameParts[0];
-
-      return {
-        rank: index + 1,
-        name: displayName,
-        fullName: row.employee_name,
-        department,
-        revenue,
-        closeRate: Math.round(Number(row.close_rate_percent)),
-        jobsCompleted: Number(row.completed_jobs),
-        trend,
-        revenueHistory: history,
-      };
-    });
 
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const periodLabel = period === 'mtd' ? `MTD ${months[new Date().getMonth()]}` :
                         period === 'ytd' ? `YTD ${new Date().getFullYear()}` :
-                        period === 'wtd' ? 'Week to Date' :
-                        'Last 30 Days';
+                        period === 'last_month' ? 'Last Month' :
+                        period;
 
     return NextResponse.json({
       success: true,
