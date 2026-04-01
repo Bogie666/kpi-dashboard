@@ -7,7 +7,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const DEFAULT_CLAUDE_MODELS = [
   process.env.ANTHROPIC_MODEL,
-  'claude-sonnet-4-5-20250514',
+  'claude-sonnet-4-6',
   'claude-haiku-4-5-20251001'
 ].filter(Boolean);
 
