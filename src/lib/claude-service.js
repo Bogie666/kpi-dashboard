@@ -189,7 +189,7 @@ You always respond with valid JSON format only, no markdown formatting or extra 
 
     const result = await this.generateCompletion(prompt, {
       systemPrompt,
-      maxTokens: 2000,
+      maxTokens: 4096,
       temperature: 0.3 // Lower for more consistent, analytical output
     });
 
