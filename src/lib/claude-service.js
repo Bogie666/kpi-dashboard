@@ -198,8 +198,14 @@ You always respond with valid JSON format only, no markdown formatting or extra 
     }
 
     try {
-      // Parse the JSON response
-      const insights = JSON.parse(result.content);
+      // Strip markdown code fences if present
+      let jsonText = result.content.trim();
+      const fenceMatch = jsonText.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
+      if (fenceMatch) {
+        jsonText = fenceMatch[1].trim();
+      }
+
+      const insights = JSON.parse(jsonText);
       return {
         success: true,
         insights
