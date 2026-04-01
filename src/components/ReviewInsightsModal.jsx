@@ -94,10 +94,13 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
     const contentWidth = pageWidth - (margin * 2);
     let yPos = margin;
 
+    // Sanitize text for jsPDF (replace unsupported Unicode with ASCII equivalents)
+    const sanitize = (str) => (str || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/[\u2026]/g, '...').replace(/[^\x00-\x7F]/g, '');
+
     // Helper function to add text with word wrap
     const addText = (text, x, y, maxWidth, fontSize = 10) => {
       doc.setFontSize(fontSize);
-      const lines = doc.splitTextToSize(text, maxWidth);
+      const lines = doc.splitTextToSize(sanitize(text), maxWidth);
       doc.text(lines, x, y);
       return y + (lines.length * fontSize * 0.4);
     };
@@ -184,7 +187,7 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
         const percentage = insights.totalReviews > 0 ? (count / insights.totalReviews) * 100 : 0;
         const barWidth = (percentage / 100) * (contentWidth - 40);
 
-        doc.text(`${rating}★`, margin, yPos);
+        doc.text(`${rating} star`, margin, yPos);
 
         // Draw bar
         const color = rating >= 4 ? [34, 197, 94] : rating >= 3 ? [234, 179, 8] : [239, 68, 68];
@@ -203,7 +206,7 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
       doc.setTextColor(22, 163, 74); // Green
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
-      doc.text('✓ What Customers Love', margin + 3, yPos + 5);
+      doc.text('What Customers Love', margin + 3, yPos + 5);
       yPos += 12;
 
       doc.setTextColor(0, 0, 0);
@@ -224,7 +227,7 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
       doc.setTextColor(220, 38, 38); // Red
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
-      doc.text('⚠ Areas for Improvement', margin + 3, yPos + 5);
+      doc.text('Areas for Improvement', margin + 3, yPos + 5);
       yPos += 12;
 
       doc.setTextColor(0, 0, 0);
@@ -256,11 +259,12 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
                               theme.sentiment === 'negative' ? [239, 68, 68] : [107, 114, 128];
         doc.setTextColor(...sentimentColor);
         doc.setFont(undefined, 'bold');
-        doc.text(`${theme.theme} (${theme.frequency}x)`, margin + 3, yPos);
+        doc.text(sanitize(`${theme.theme} (${theme.frequency}x)`), margin + 3, yPos);
         yPos += 5;
         doc.setTextColor(75, 85, 99);
         doc.setFont(undefined, 'italic');
-        yPos = addText(`"${theme.examples[0]?.substring(0, 120)}..."`, margin + 3, yPos, contentWidth - 6, 8);
+        const exampleText = (theme.examples[0] || '').substring(0, 120).replace(/[\u2018\u2019\u201C\u201D]/g, '"');
+        yPos = addText(`"${exampleText}..."`, margin + 3, yPos, contentWidth - 6, 8);
         yPos += 4;
       });
       yPos += 5;
@@ -273,7 +277,7 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
         doc.setTextColor(147, 51, 234); // Purple
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
-        doc.text('👤 Technician Shoutouts', margin + 3, yPos + 5);
+        doc.text('Technician Shoutouts', margin + 3, yPos + 5);
         yPos += 12;
 
         doc.setTextColor(0, 0, 0);
@@ -284,14 +288,15 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
           .slice(0, 8)
           .forEach((tech) => {
             checkPageBreak(15);
-            const sentimentIcon = tech.sentiment === 'positive' ? '✓' : tech.sentiment === 'negative' ? '✗' : '•';
+            const sentimentIcon = tech.sentiment === 'positive' ? '+' : tech.sentiment === 'negative' ? '-' : '*';
             doc.setFont(undefined, 'bold');
-            doc.text(`${sentimentIcon} ${tech.name} (${tech.mentions}x)`, margin + 3, yPos);
+            doc.text(sanitize(`${sentimentIcon} ${tech.name} (${tech.mentions}x)`), margin + 3, yPos);
             yPos += 4;
             if (tech.samplePraise) {
               doc.setFont(undefined, 'italic');
               doc.setTextColor(75, 85, 99);
-              yPos = addText(`"${tech.samplePraise.substring(0, 80)}..."`, margin + 8, yPos, contentWidth - 12, 8);
+              const praiseText = tech.samplePraise.substring(0, 80).replace(/[\u2018\u2019\u201C\u201D]/g, '"');
+              yPos = addText(`"${praiseText}..."`, margin + 8, yPos, contentWidth - 12, 8);
               doc.setTextColor(0, 0, 0);
             }
             yPos += 3;
@@ -306,7 +311,7 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
       doc.setTextColor(37, 99, 235); // Blue
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
-      doc.text('💡 AI Recommendations', margin + 3, yPos + 5);
+      doc.text('AI Recommendations', margin + 3, yPos + 5);
       yPos += 12;
 
       doc.setTextColor(0, 0, 0);
