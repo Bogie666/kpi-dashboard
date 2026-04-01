@@ -198,11 +198,20 @@ You always respond with valid JSON format only, no markdown formatting or extra 
     }
 
     try {
-      // Strip markdown code fences if present
+      // Strip markdown code fences if present (anywhere in response)
       let jsonText = result.content.trim();
-      const fenceMatch = jsonText.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
+      const fenceMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
       if (fenceMatch) {
         jsonText = fenceMatch[1].trim();
+      }
+
+      // If still not valid JSON, try to find a JSON object in the response
+      if (!jsonText.startsWith('{')) {
+        const jsonStart = jsonText.indexOf('{');
+        const jsonEnd = jsonText.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
+        }
       }
 
       const insights = JSON.parse(jsonText);
@@ -211,11 +220,11 @@ You always respond with valid JSON format only, no markdown formatting or extra 
         insights
       };
     } catch (error) {
-      console.error('Failed to parse Claude response as JSON:', error);
-      console.log('Raw response:', result.content);
+      console.error('Failed to parse Claude response as JSON:', error.message);
+      console.error('Raw response (first 500 chars):', result.content?.substring(0, 500));
       return {
         success: false,
-        error: 'Failed to parse AI response',
+        error: `Failed to parse AI response: ${error.message}`,
         rawResponse: result.content
       };
     }
