@@ -84,253 +84,721 @@ const ReviewInsightsModal = ({ isOpen, onClose, locations, reviews }) => {
     return 'Needs Attention';
   };
 
-  const exportInsights = () => {
-    if (!insights) return;
+  const exportGroupInsights = async () => {
+    const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const mx = 7;
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 20;
-    const contentWidth = pageWidth - (margin * 2);
-    let yPos = margin;
-
-    // Sanitize text for jsPDF (replace unsupported Unicode with ASCII equivalents)
     const sanitize = (str) => (str || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/[\u2026]/g, '...').replace(/[^\x00-\x7F]/g, '');
 
-    // Helper function to add text with word wrap
-    const addText = (text, x, y, maxWidth, fontSize = 10) => {
+    // Brand colors
+    const dark = [26, 26, 46];       // #1a1a2e
+    const lexBlue = [10, 38, 71];    // #0A2647
+    const etxGreen = [45, 80, 22];   // #2D5016
+    const lyonsBlue = [58, 91, 160]; // #3A5BA0
+    const green = [46, 139, 87];
+    const red = [231, 76, 60];
+
+    // Filter reviews by selected timeframe (matching server-side logic)
+    const now = new Date();
+    let cutoffDate;
+    switch (selectedTimeframe) {
+      case '1week': cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
+      case '2weeks': cutoffDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000); break;
+      case '1month': cutoffDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()); break;
+      case '3months': cutoffDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()); break;
+      case '6months': cutoffDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate()); break;
+      case 'year': cutoffDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()); break;
+      default: cutoffDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+    }
+    const filteredReviews = (reviews || []).filter(r => new Date(r.date) >= cutoffDate);
+
+    // Compute per-brand stats from filtered reviews
+    const brandIds = ['lex', 'lex-etx', 'lyons'];
+    const brandLabels = { 'lex': 'LEX (Plano/DFW)', 'lex-etx': 'LEX ETX (Tyler)', 'lyons': 'Lyons (Rockwall)' };
+    const brandColors = { 'lex': lexBlue, 'lex-etx': etxGreen, 'lyons': lyonsBlue };
+    const brandShort = { 'lex': 'LEX', 'lex-etx': 'ETX', 'lyons': 'LYONS' };
+
+    const perBrand = {};
+    brandIds.forEach(id => {
+      const br = filteredReviews.filter(r => r.locationId === id);
+      const validRatings = br.filter(r => r.rating && typeof r.rating === 'number');
+      const total = validRatings.length;
+      const avg = total > 0 ? validRatings.reduce((s, r) => s + r.rating, 0) / total : 0;
+      const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      validRatings.forEach(r => { if (r.rating >= 1 && r.rating <= 5) dist[r.rating]++; });
+      const fiveRate = total > 0 ? Math.round((dist[5] / total) * 100) : 0;
+      const oneRate = total > 0 ? Math.round((dist[1] / total) * 100) : 0;
+      perBrand[id] = { total, avg: Math.round(avg * 10) / 10, dist, fiveRate, oneRate };
+    });
+
+    const totalAll = insights.totalReviews;
+    const oneStarAll = totalAll > 0 ? Math.round(((insights.ratingDistribution[1] || 0) / totalAll) * 100) : 0;
+    const fiveStarAll = totalAll > 0 ? Math.round(((insights.ratingDistribution[5] || 0) / totalAll) * 100) : 0;
+
+    // Helpers
+    const drawWrapped = (text, x, y, maxW, fontSize, color, style = 'normal') => {
       doc.setFontSize(fontSize);
-      const lines = doc.splitTextToSize(sanitize(text), maxWidth);
+      doc.setFont(undefined, style);
+      doc.setTextColor(...color);
+      const lines = doc.splitTextToSize(sanitize(text), maxW);
       doc.text(lines, x, y);
-      return y + (lines.length * fontSize * 0.4);
+      return y + lines.length * fontSize * 0.38;
     };
 
-    // Helper to check if we need a new page
-    const checkPageBreak = (requiredSpace) => {
-      if (yPos + requiredSpace > pageHeight - margin) {
-        doc.addPage();
-        yPos = margin;
-        return true;
-      }
-      return false;
+    const drawSectionTitle = (text, x, y, w, color) => {
+      doc.setFontSize(6);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(...color);
+      doc.text(sanitize(text), x, y);
+      doc.setDrawColor(...color);
+      doc.setLineWidth(0.5);
+      doc.line(x, y + 1, x + w, y + 1);
+      return y + 3.5;
+    };
+
+    const drawBulletItem = (text, x, y, maxW, bulletColor) => {
+      doc.setFontSize(5.5);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(...bulletColor);
+      doc.text('>', x, y);
+      return drawWrapped(text, x + 3, y, maxW - 3, 5.5, [68, 68, 68]);
+    };
+
+    const drawGroupHeader = (title, subtitle) => {
+      doc.setFillColor(...dark);
+      doc.rect(0, 0, pw, 12, 'F');
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text(sanitize(title), mx + 1, 6.5);
+      doc.setFontSize(5);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(255, 255, 255, 128);
+      doc.text(sanitize(subtitle), mx + 1, 10);
+
+      // Brand dots on right
+      let dotX = pw - mx - 2;
+      [['LYONS', lyonsBlue], ['LEX ETX', etxGreen], ['LEX', lexBlue]].forEach(([label, color]) => {
+        doc.setFontSize(5);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(255, 255, 255, 153);
+        const lw = doc.getTextWidth(label);
+        doc.text(label, dotX - lw, 7);
+        doc.setFillColor(...color);
+        doc.circle(dotX - lw - 2.5, 6.3, 1.2, 'F');
+        dotX = dotX - lw - 7;
+      });
+
+      // Tri-color accent line
+      const third = pw / 3;
+      doc.setFillColor(...lexBlue);
+      doc.rect(0, 12, third, 1, 'F');
+      doc.setFillColor(...etxGreen);
+      doc.rect(third, 12, third, 1, 'F');
+      doc.setFillColor(...lyonsBlue);
+      doc.rect(third * 2, 12, third + 1, 1, 'F');
+    };
+
+    const drawGroupFooter = (pageNum, totalPages) => {
+      const fy = ph - 4.5;
+      // Tri-color accent line
+      const third = pw / 3;
+      doc.setFillColor(...lexBlue);
+      doc.rect(0, fy - 3, third, 0.8, 'F');
+      doc.setFillColor(...etxGreen);
+      doc.rect(third, fy - 3, third, 0.8, 'F');
+      doc.setFillColor(...lyonsBlue);
+      doc.rect(third * 2, fy - 3, third + 1, 0.8, 'F');
+      // Footer bar
+      doc.setFillColor(...dark);
+      doc.rect(0, fy - 2.2, pw, 6.7, 'F');
+      doc.setFontSize(4.5);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(255, 255, 255, 115);
+      doc.text('Generated by AI  \u2022  Customer Insights Platform  \u2022  Champions Group / Service Star Brands', mx + 1, fy);
+      doc.text(`Page ${pageNum} of ${totalPages}`, pw - mx - 1, fy, { align: 'right' });
     };
 
     try {
-      // Header with gradient background (simulated with rectangle)
-      doc.setFillColor(37, 99, 235); // Blue
-      doc.rect(0, 0, pageWidth, 40, 'F');
+      const tfLabel = timeframes.find(tf => tf.value === selectedTimeframe)?.label || '';
 
-      // Title
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(24);
-      doc.setFont(undefined, 'bold');
-      doc.text('Customer Insights Report', margin, 20);
+      // ═══════════════ PAGE 1: EXECUTIVE SCORECARD ═══════════════
+      drawGroupHeader('Customer Insights Report \u2014 All Brands', `AI-Powered Review Analysis  |  ${tfLabel}  |  Champions Group`);
 
-      // Subtitle
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
-      doc.text('AI-Powered Review Analysis', margin, 30);
+      // Combined KPIs
+      let y = 13;
+      const ckpiH = 12;
+      doc.setFillColor(244, 245, 247);
+      doc.rect(0, y, pw, ckpiH, 'F');
+      doc.setDrawColor(224, 224, 224);
+      doc.line(0, y + ckpiH, pw, y + ckpiH);
 
-      // Reset text color
-      doc.setTextColor(0, 0, 0);
-      yPos = 50;
-
-      // Metadata box
-      doc.setFillColor(249, 250, 251);
-      doc.rect(margin, yPos, contentWidth, 20, 'F');
-      doc.setFontSize(9);
-      doc.setTextColor(75, 85, 99);
-      doc.text(`Generated: ${new Date(insights.generatedAt).toLocaleString()}`, margin + 5, yPos + 7);
-      doc.text(`Timeframe: ${timeframes.find(tf => tf.value === selectedTimeframe)?.label}`, margin + 5, yPos + 14);
-      doc.text(`Location: ${selectedLocation === 'all' ? 'All Locations' : locations.find(l => l.id === selectedLocation)?.name}`, pageWidth / 2, yPos + 7);
-      yPos += 28;
-
-      // Overview Stats Section
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      doc.text('Overview', margin, yPos);
-      yPos += 8;
-
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
-      const statsY = yPos;
-
-      // Stats in columns
-      doc.text('Total Reviews:', margin, statsY);
-      doc.setFont(undefined, 'bold');
-      doc.text(`${insights.totalReviews}`, margin + 40, statsY);
-
-      doc.setFont(undefined, 'normal');
-      doc.text('Avg Rating:', margin + 70, statsY);
-      doc.setFont(undefined, 'bold');
-      doc.text(`${insights.averageRating} / 5.0`, margin + 105, statsY);
-
-      doc.setFont(undefined, 'normal');
-      doc.text('Sentiment Score:', margin + 145, statsY);
-      doc.setFont(undefined, 'bold');
-      doc.text(`${insights.sentimentScore}/100`, margin + 180, statsY);
-
-      yPos = statsY + 10;
-
-      // Rating Distribution
-      checkPageBreak(30);
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text('Rating Distribution', margin, yPos);
-      yPos += 8;
-
-      doc.setFont(undefined, 'normal');
-      doc.setFontSize(9);
-      [5, 4, 3, 2, 1].forEach((rating) => {
-        const count = insights.ratingDistribution[rating] || 0;
-        const percentage = insights.totalReviews > 0 ? (count / insights.totalReviews) * 100 : 0;
-        const barWidth = (percentage / 100) * (contentWidth - 40);
-
-        doc.text(`${rating} star`, margin, yPos);
-
-        // Draw bar
-        const color = rating >= 4 ? [34, 197, 94] : rating >= 3 ? [234, 179, 8] : [239, 68, 68];
-        doc.setFillColor(...color);
-        doc.rect(margin + 15, yPos - 3, barWidth, 4, 'F');
-
-        doc.text(`${count} (${percentage.toFixed(0)}%)`, margin + 15 + barWidth + 3, yPos);
-        yPos += 6;
-      });
-      yPos += 5;
-
-      // Common Praise Section
-      checkPageBreak(40);
-      doc.setFillColor(220, 252, 231); // Light green
-      doc.rect(margin, yPos, contentWidth, 8, 'F');
-      doc.setTextColor(22, 163, 74); // Green
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text('What Customers Love', margin + 3, yPos + 5);
-      yPos += 12;
-
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      insights.commonPraise?.slice(0, 5).forEach((praise, index) => {
-        const praiseText = `• ${praise}`;
-        yPos = addText(praiseText, margin + 3, yPos, contentWidth - 6, 9);
-        yPos += 2;
-        checkPageBreak(20);
-      });
-      yPos += 5;
-
-      // Areas for Improvement Section
-      checkPageBreak(40);
-      doc.setFillColor(254, 226, 226); // Light red
-      doc.rect(margin, yPos, contentWidth, 8, 'F');
-      doc.setTextColor(220, 38, 38); // Red
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text('Areas for Improvement', margin + 3, yPos + 5);
-      yPos += 12;
-
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      insights.commonComplaints?.slice(0, 4).forEach((complaint, index) => {
-        const complaintText = `• ${complaint}`;
-        yPos = addText(complaintText, margin + 3, yPos, contentWidth - 6, 9);
-        yPos += 2;
-        checkPageBreak(20);
-      });
-      yPos += 5;
-
-      // Key Themes Section
-      checkPageBreak(40);
-      doc.setFillColor(243, 244, 246); // Light gray
-      doc.rect(margin, yPos, contentWidth, 8, 'F');
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text('Key Themes', margin + 3, yPos + 5);
-      yPos += 12;
-
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      insights.keyThemes?.slice(0, 4).forEach((theme, index) => {
-        checkPageBreak(25);
-        const sentimentColor = theme.sentiment === 'positive' ? [34, 197, 94] :
-                              theme.sentiment === 'negative' ? [239, 68, 68] : [107, 114, 128];
-        doc.setTextColor(...sentimentColor);
+      const ckpis = [
+        { value: `${totalAll}`, label: 'TOTAL REVIEWS', color: dark },
+        { value: `${insights.averageRating.toFixed(1)}`, label: 'AVG RATING', color: green },
+        { value: `${insights.sentimentScore || 0}`, label: 'SENTIMENT SCORE', color: green },
+        { value: `${fiveStarAll}%`, label: '5-STAR RATE', color: green },
+        { value: `${oneStarAll}%`, label: '1-STAR RATE', color: red },
+      ];
+      const ckpiW = pw / ckpis.length;
+      ckpis.forEach((kpi, i) => {
+        const cx = i * ckpiW + ckpiW / 2;
+        doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
-        doc.text(sanitize(`${theme.theme} (${theme.frequency}x)`), margin + 3, yPos);
-        yPos += 5;
-        doc.setTextColor(75, 85, 99);
-        doc.setFont(undefined, 'italic');
-        const exampleText = (theme.examples[0] || '').substring(0, 120).replace(/[\u2018\u2019\u201C\u201D]/g, '"');
-        yPos = addText(`"${exampleText}..."`, margin + 3, yPos, contentWidth - 6, 8);
-        yPos += 4;
-      });
-      yPos += 5;
-
-      // Technician Shoutouts Section
-      if (insights.technicianMentions && insights.technicianMentions.length > 0) {
-        checkPageBreak(40);
-        doc.setFillColor(243, 232, 255); // Light purple
-        doc.rect(margin, yPos, contentWidth, 8, 'F');
-        doc.setTextColor(147, 51, 234); // Purple
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text('Technician Shoutouts', margin + 3, yPos + 5);
-        yPos += 12;
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(9);
+        doc.setTextColor(...kpi.color);
+        doc.text(kpi.value, cx, y + 6.5, { align: 'center' });
+        doc.setFontSize(4.5);
         doc.setFont(undefined, 'normal');
-        insights.technicianMentions
+        doc.setTextColor(136, 136, 136);
+        doc.text(kpi.label, cx, y + 9.5, { align: 'center' });
+      });
+      y += ckpiH;
+
+      // Brand Comparison Table
+      const tableX = 0;
+      const tableW = pw;
+      const cols = [tableW * 0.28, tableW * 0.24, tableW * 0.24, tableW * 0.24];
+      const colX = [0, cols[0], cols[0] + cols[1], cols[0] + cols[1] + cols[2]];
+      const rowH = 5.5;
+
+      // Table header
+      const headerColors = [[85, 85, 85], lexBlue, etxGreen, lyonsBlue];
+      const headerLabels = ['Metric', 'LEX (Plano/DFW)', 'LEX ETX (Tyler)', 'Lyons (Rockwall)'];
+      headerColors.forEach((c, i) => {
+        doc.setFillColor(...c);
+        doc.rect(colX[i], y, cols[i], rowH + 1, 'F');
+        doc.setFontSize(5.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.text(headerLabels[i], i === 0 ? colX[i] + 5 : colX[i] + cols[i] / 2, y + 3.8, i === 0 ? {} : { align: 'center' });
+      });
+      y += rowH + 1;
+
+      // Table rows
+      const tableRows = [
+        { label: 'Reviews', values: brandIds.map(id => `${perBrand[id].total}`) },
+        { label: 'Avg Rating', values: brandIds.map(id => `${perBrand[id].avg.toFixed(1)}`), colorFn: (v) => parseFloat(v) >= 4.5 ? green : parseFloat(v) >= 4.0 ? [184, 148, 45] : red },
+        { label: 'Sentiment Score', values: brandIds.map(() => '-') },
+        { label: '5-Star Rate', values: brandIds.map(id => `${perBrand[id].fiveRate}%`) },
+        { label: '1-Star Rate', values: brandIds.map(id => `${perBrand[id].oneRate}%`), colorFn: (v) => parseInt(v) > 5 ? red : [68, 68, 68] },
+      ];
+
+      tableRows.forEach((row, ri) => {
+        if (ri % 2 === 1) {
+          doc.setFillColor(250, 250, 250);
+          doc.rect(0, y, tableW, rowH, 'F');
+        }
+        doc.setDrawColor(238, 238, 238);
+        doc.line(0, y + rowH, tableW, y + rowH);
+
+        doc.setFontSize(5.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(68, 68, 68);
+        doc.text(row.label, 5, y + 3.5);
+
+        row.values.forEach((val, vi) => {
+          doc.setFont(undefined, 'bold');
+          const valColor = row.colorFn ? row.colorFn(val) : [68, 68, 68];
+          doc.setTextColor(...valColor);
+          doc.text(val, colX[vi + 1] + cols[vi + 1] / 2, y + 3.5, { align: 'center' });
+        });
+        y += rowH;
+      });
+      y += 3;
+
+      // Two-column content area
+      const colGap = 5;
+      const leftW = (pw - mx * 2 - colGap) * 0.50;
+      const rightX = mx + leftW + colGap;
+      const rightW = pw - mx - rightX;
+
+      // ── LEFT COLUMN: Strengths & Issues ──
+      let ly = y;
+      ly = drawSectionTitle("What's Working Across Brands", mx, ly, leftW, green);
+      insights.commonPraise?.slice(0, 5).forEach((praise) => {
+        ly = drawBulletItem(praise, mx, ly, leftW, green);
+        ly += 0.8;
+      });
+      ly += 2;
+
+      ly = drawSectionTitle('What Needs Attention', mx, ly, leftW, red);
+      insights.commonComplaints?.slice(0, 5).forEach((complaint) => {
+        ly = drawBulletItem(complaint, mx, ly, leftW, red);
+        ly += 0.8;
+      });
+
+      // ── RIGHT COLUMN: Key Themes + Rating Distribution ──
+      let ry = y;
+
+      // Column divider
+      doc.setDrawColor(238, 238, 238);
+      doc.setLineWidth(0.2);
+      doc.line(rightX - colGap / 2, y - 1, rightX - colGap / 2, ph - 18);
+
+      // Key Themes (aggregate with color coding)
+      ry = drawSectionTitle('Key Themes', rightX, ry, rightW, dark);
+      const maxFreq = Math.max(...(insights.keyThemes?.map(t => t.frequency) || [1]));
+      insights.keyThemes?.slice(0, 6).forEach((theme) => {
+        const pct = (theme.frequency / maxFreq) * 100;
+        const barColor = theme.sentiment === 'positive' ? green :
+                         theme.sentiment === 'negative' ? red : [41, 128, 185];
+
+        doc.setFontSize(5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(68, 68, 68);
+        doc.text(sanitize(theme.theme), rightX, ry);
+        doc.setTextColor(...dark);
+        doc.text(`${theme.frequency}x`, rightX + rightW - doc.getTextWidth(`${theme.frequency}x`), ry);
+        ry += 1.2;
+        doc.setFillColor(238, 238, 238);
+        doc.roundedRect(rightX, ry, rightW, 1.2, 0.6, 0.6, 'F');
+        doc.setFillColor(...barColor);
+        doc.roundedRect(rightX, ry, (pct / 100) * rightW, 1.2, 0.6, 0.6, 'F');
+        ry += 3;
+      });
+      ry += 2;
+
+      // Rating Distribution by Brand (5-star, 4-star, 1-star with 3 bars each)
+      ry = drawSectionTitle('Rating Distribution by Brand', rightX, ry, rightW, [136, 136, 136]);
+      const barStars = [5, 4, 1];
+      const barW = (rightW - 14) / 3;
+      barStars.forEach((star) => {
+        doc.setFontSize(5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(68, 68, 68);
+        doc.text(`${star} \u2605`, rightX, ry + 1.5);
+        const bx = rightX + 10;
+        brandIds.forEach((id, bi) => {
+          const pct = perBrand[id].total > 0 ? (perBrand[id].dist[star] / perBrand[id].total) * 100 : 0;
+          const x = bx + bi * (barW + 2);
+          doc.setFillColor(232, 234, 237);
+          doc.roundedRect(x, ry, barW, 1.8, 0.9, 0.9, 'F');
+          if (pct > 0) {
+            const c = star === 1 ? red : brandColors[id];
+            doc.setFillColor(...c);
+            doc.roundedRect(x, ry, Math.max((pct / 100) * barW, 0.5), 1.8, 0.9, 0.9, 'F');
+          }
+        });
+        ry += 3;
+      });
+      // Brand labels under bars
+      const bx = rightX + 10;
+      brandIds.forEach((id, bi) => {
+        const x = bx + bi * (barW + 2) + barW / 2;
+        doc.setFontSize(4);
+        doc.setTextColor(136, 136, 136);
+        doc.setFont(undefined, 'normal');
+        doc.text(brandShort[id], x, ry, { align: 'center' });
+      });
+
+      drawGroupFooter(1, 2);
+
+      // ═══════════════ PAGE 2: TECHS + RECOMMENDATIONS ═══════════════
+      doc.addPage();
+      drawGroupHeader('Technician Recognition & AI Recommendations', `${tfLabel}  |  Champions Group`);
+
+      let p2y = 14;
+      const p2LeftW = (pw - mx * 2 - colGap) * 0.50;
+      const p2RightX = mx + p2LeftW + colGap;
+      const p2RightW = pw - mx - p2RightX;
+
+      // Column divider
+      doc.setDrawColor(238, 238, 238);
+      doc.setLineWidth(0.2);
+      doc.line(p2RightX - colGap / 2, 14, p2RightX - colGap / 2, ph - 18);
+
+      // ── LEFT: Tech Shoutouts ──
+      let tly = p2y;
+      if (insights.technicianMentions && insights.technicianMentions.length > 0) {
+        tly = drawSectionTitle('Technician Shoutouts', mx, tly, p2LeftW, dark);
+
+        const sortedTechs = [...insights.technicianMentions]
           .sort((a, b) => b.mentions - a.mentions)
-          .slice(0, 8)
-          .forEach((tech) => {
-            checkPageBreak(15);
-            const sentimentIcon = tech.sentiment === 'positive' ? '+' : tech.sentiment === 'negative' ? '-' : '*';
-            doc.setFont(undefined, 'bold');
-            doc.text(sanitize(`${sentimentIcon} ${tech.name} (${tech.mentions}x)`), margin + 3, yPos);
-            yPos += 4;
-            if (tech.samplePraise) {
-              doc.setFont(undefined, 'italic');
-              doc.setTextColor(75, 85, 99);
-              const praiseText = tech.samplePraise.substring(0, 80).replace(/[\u2018\u2019\u201C\u201D]/g, '"');
-              yPos = addText(`"${praiseText}..."`, margin + 8, yPos, contentWidth - 12, 8);
-              doc.setTextColor(0, 0, 0);
-            }
-            yPos += 3;
-          });
-        yPos += 5;
+          .slice(0, 14);
+
+        sortedTechs.forEach((tech) => {
+          doc.setFontSize(5.5);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(...dark);
+          doc.text(`${tech.mentions}x`, mx, tly);
+          doc.text(sanitize(tech.name), mx + 8, tly);
+
+          if (tech.samplePraise) {
+            tly += 2;
+            doc.setFontSize(4.5);
+            doc.setFont(undefined, 'italic');
+            doc.setTextColor(153, 153, 153);
+            const snippet = sanitize(tech.samplePraise).substring(0, 65);
+            const lines = doc.splitTextToSize(`"${snippet}..."`, p2LeftW - 8);
+            doc.text(lines, mx + 8, tly);
+            tly += lines.length * 1.8;
+          }
+
+          doc.setDrawColor(240, 240, 240);
+          doc.setLineWidth(0.15);
+          doc.line(mx, tly + 0.5, mx + p2LeftW, tly + 0.5);
+          tly += 1.8;
+        });
       }
 
-      // AI Recommendations Section
-      checkPageBreak(40);
-      doc.setFillColor(219, 234, 254); // Light blue
-      doc.rect(margin, yPos, contentWidth, 8, 'F');
-      doc.setTextColor(37, 99, 235); // Blue
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text('AI Recommendations', margin + 3, yPos + 5);
-      yPos += 12;
+      // ── RIGHT: AI Recommendations ──
+      let try_ = p2y;
+      try_ = drawSectionTitle('Priority Recommendations', p2RightX, try_, p2RightW, red);
 
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-      insights.recommendations?.slice(0, 5).forEach((rec, index) => {
-        const recText = `${index + 1}. ${rec}`;
-        yPos = addText(recText, margin + 3, yPos, contentWidth - 6, 9);
-        yPos += 2;
-        checkPageBreak(20);
+      insights.recommendations?.slice(0, 7).forEach((rec, index) => {
+        // Number badge (dark background like template)
+        const numSize = 3.8;
+        doc.setFillColor(...dark);
+        doc.roundedRect(p2RightX, try_ - 2.5, numSize, numSize, 0.5, 0.5, 'F');
+        doc.setFontSize(5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.text(`${index + 1}`, p2RightX + numSize / 2, try_ - 0.3, { align: 'center' });
+
+        try_ = drawWrapped(rec, p2RightX + 5.5, try_, p2RightW - 5.5, 5, [68, 68, 68]);
+        try_ += 1.5;
       });
 
-      // Footer
-      doc.setFontSize(8);
-      doc.setTextColor(156, 163, 175);
-      doc.text('Generated by Claude AI • Customer Insights Platform', pageWidth / 2, pageHeight - 10, { align: 'center' });
+      drawGroupFooter(2, 2);
 
-      // Save the PDF
-      doc.save(`customer-insights-${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Group_Customer_Insights_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Error generating group PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
+  const exportInsights = async () => {
+    if (!insights) return;
+
+    // Route to group template when all locations selected
+    if (selectedLocation === 'all') {
+      return exportGroupInsights();
+    }
+
+    // Brand config based on selected location
+    const isLyons = selectedLocation === 'lyons';
+    const brand = isLyons ? {
+      navy: [27, 42, 74],
+      accent: [212, 132, 42],
+      kpiStripBg: [250, 246, 241],
+      recBadgeBg: [253, 240, 229],
+      logoUrl: 'https://www.acrepairsrockwall.com/wp-content/uploads/2025/04/lyons-web-transparent_logo-color.png',
+      companyName: 'Lyons Heating, Cooling, Plumbing & Electric',
+      phone: '(469) 224-1512',
+      website: 'acrepairsrockwall.com',
+      filePrefix: 'Lyons',
+    } : {
+      navy: [10, 38, 71],
+      accent: [200, 168, 81],
+      kpiStripBg: [240, 244, 248],
+      recBadgeBg: [232, 240, 250],
+      logoUrl: 'https://www.lexairconditioning.com/wp-content/uploads/2024/01/cropped-lex-logo@2x.png',
+      companyName: 'LEX Air Conditioning, Heating, Plumbing & Electrical',
+      phone: '(972) 466-1917',
+      website: 'lexairconditioning.com',
+      filePrefix: 'LEX',
+    };
+
+    // Load logo image
+    let logoDataUrl = null;
+    try {
+      const resp = await fetch(brand.logoUrl);
+      const blob = await resp.blob();
+      logoDataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('Could not load logo for PDF:', e);
+    }
+
+    const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+    const pw = doc.internal.pageSize.getWidth();   // 215.9
+    const ph = doc.internal.pageSize.getHeight();   // 279.4
+    const mx = 7; // horizontal margin
+
+    const sanitize = (str) => (str || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/[\u2026]/g, '...').replace(/[^\x00-\x7F]/g, '');
+
+    // Colors
+    const { navy, accent } = brand;
+    const green = [46, 139, 87];
+    const red = [231, 76, 60];
+    const blue = [41, 128, 185];
+
+    // Wrapped text helper - returns new Y after drawing
+    const drawWrapped = (text, x, y, maxW, fontSize, color, style = 'normal') => {
+      doc.setFontSize(fontSize);
+      doc.setFont(undefined, style);
+      doc.setTextColor(...color);
+      const lines = doc.splitTextToSize(sanitize(text), maxW);
+      doc.text(lines, x, y);
+      return y + lines.length * fontSize * 0.38;
+    };
+
+    try {
+      // ── HEADER ──
+      doc.setFillColor(...navy);
+      doc.rect(0, 0, pw, 13, 'F');
+
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('Customer', mx + 1, 7);
+      const cw = doc.getTextWidth('Customer ');
+      doc.setTextColor(...accent);
+      doc.text('Insights Report', mx + 1 + cw, 7);
+
+      // Logo on right side of header
+      if (logoDataUrl) {
+        try {
+          doc.addImage(logoDataUrl, 'PNG', pw - mx - 28, 1.5, 27, 10);
+        } catch (e) {
+          console.warn('Could not add logo to PDF:', e);
+        }
+      }
+
+      // Subtitle
+      doc.setFontSize(5.5);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(255, 255, 255, 140);
+
+      const tfLabel = timeframes.find(tf => tf.value === selectedTimeframe)?.label || '';
+      const locLabel = selectedLocation === 'all' ? 'All Locations' : (locations.find(l => l.id === selectedLocation)?.name || '');
+      const genDate = new Date(insights.generatedAt);
+      const dateStr = genDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      doc.text(`AI-Powered Review Analysis  |  ${tfLabel}  |  ${locLabel}`, mx + 1, 11);
+
+      // Gold accent line
+      doc.setFillColor(...accent);
+      doc.rect(0, 13, pw, 1, 'F');
+
+      // ── KPI STRIP ──
+      const kpiY = 14;
+      const kpiH = 14;
+      doc.setFillColor(...brand.kpiStripBg);
+      doc.rect(0, kpiY, pw, kpiH, 'F');
+      doc.setDrawColor(221, 227, 234);
+      doc.line(0, kpiY + kpiH, pw, kpiY + kpiH);
+
+      const kpiW = pw / 5;
+      const fiveStarCount = insights.ratingDistribution[5] || 0;
+      const fiveStarRate = insights.totalReviews > 0 ? Math.round((fiveStarCount / insights.totalReviews) * 100) : 0;
+
+      const kpis = [
+        { value: `${insights.totalReviews}`, label: 'TOTAL REVIEWS', color: navy },
+        { value: `${insights.averageRating.toFixed(1)}`, label: 'AVG RATING', color: accent },
+        { value: `${insights.sentimentScore || 0}`, label: 'SENTIMENT SCORE', color: green },
+        { value: `${fiveStarRate}%`, label: '5-STAR RATE', color: green },
+      ];
+
+      kpis.forEach((kpi, i) => {
+        const cx = i * kpiW + kpiW / 2;
+        doc.setFontSize(15);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...kpi.color);
+        doc.text(kpi.value, cx, kpiY + 7.5, { align: 'center' });
+        doc.setFontSize(5);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(136, 136, 136);
+        doc.text(kpi.label, cx, kpiY + 11, { align: 'center' });
+        // divider
+        if (i < 4) {
+          doc.setDrawColor(221, 227, 234);
+          doc.line((i + 1) * kpiW, kpiY + 1.5, (i + 1) * kpiW, kpiY + kpiH - 1.5);
+        }
+      });
+
+      // Mini rating distribution bars (5th KPI cell)
+      const rbX = 4 * kpiW + 4;
+      const rbW = kpiW - 8;
+      let rbY = kpiY + 2;
+      [5, 4, 3, 2, 1].forEach((star) => {
+        const count = insights.ratingDistribution[star] || 0;
+        const pct = insights.totalReviews > 0 ? (count / insights.totalReviews) * 100 : 0;
+        const barColor = star >= 4 ? green : star >= 3 ? accent : red;
+
+        doc.setFontSize(4.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(102, 102, 102);
+        doc.text(`${star}`, rbX, rbY + 1.5);
+
+        // Track
+        const trackX = rbX + 5;
+        const trackW = rbW - 16;
+        doc.setFillColor(232, 234, 237);
+        doc.roundedRect(trackX, rbY, trackW, 1.8, 0.9, 0.9, 'F');
+        // Fill
+        if (pct > 0) {
+          doc.setFillColor(...barColor);
+          doc.roundedRect(trackX, rbY, Math.max((pct / 100) * trackW, 0.5), 1.8, 0.9, 0.9, 'F');
+        }
+
+        doc.setFontSize(4);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(153, 153, 153);
+        doc.text(`${count}`, trackX + trackW + 1.5, rbY + 1.5);
+        rbY += 2.2;
+      });
+
+      // ── MAIN CONTENT (two columns) ──
+      const contentY = kpiY + kpiH + 3;
+      const colGap = 5;
+      const leftW = (pw - mx * 2 - colGap) * 0.52;
+      const rightX = mx + leftW + colGap;
+      const rightW = pw - mx - rightX;
+
+      // Section title helper
+      const drawSectionTitle = (text, x, y, w, color) => {
+        doc.setFontSize(6.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...color);
+        doc.text(sanitize(text), x, y);
+        doc.setDrawColor(...color);
+        doc.setLineWidth(0.5);
+        doc.line(x, y + 1, x + w, y + 1);
+        return y + 3.5;
+      };
+
+      // Bullet item helper
+      const drawBulletItem = (text, x, y, maxW, bulletColor) => {
+        doc.setFontSize(5.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...bulletColor);
+        doc.text('>', x, y);
+        return drawWrapped(text, x + 3, y, maxW - 3, 5.5, [68, 68, 68]);
+      };
+
+      // ── LEFT COLUMN ──
+      let ly = contentY;
+
+      // What Customers Love
+      ly = drawSectionTitle('What Customers Love', mx, ly, leftW, green);
+      insights.commonPraise?.slice(0, 5).forEach((praise) => {
+        ly = drawBulletItem(praise, mx, ly, leftW, green);
+        ly += 0.8;
+      });
+      ly += 2;
+
+      // Areas for Improvement
+      ly = drawSectionTitle('Areas for Improvement', mx, ly, leftW, red);
+      insights.commonComplaints?.slice(0, 4).forEach((complaint) => {
+        ly = drawBulletItem(complaint, mx, ly, leftW, red);
+        ly += 0.8;
+      });
+      ly += 2;
+
+      // Key Themes
+      ly = drawSectionTitle('Key Themes', mx, ly, leftW, navy);
+      const maxFreq = Math.max(...(insights.keyThemes?.map(t => t.frequency) || [1]));
+      insights.keyThemes?.slice(0, 4).forEach((theme) => {
+        const pct = (theme.frequency / maxFreq) * 100;
+        const barColor = theme.sentiment === 'positive' ? green :
+                         theme.sentiment === 'negative' ? red : blue;
+
+        // Theme name + count on same line
+        doc.setFontSize(5.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(68, 68, 68);
+        doc.text(sanitize(theme.theme), mx, ly);
+        doc.setFontSize(5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text(`${theme.frequency} mentions`, mx + leftW - doc.getTextWidth(`${theme.frequency} mentions`), ly);
+
+        ly += 1.5;
+        // Track bar
+        doc.setFillColor(238, 238, 238);
+        doc.roundedRect(mx, ly, leftW, 1.5, 0.75, 0.75, 'F');
+        doc.setFillColor(...barColor);
+        doc.roundedRect(mx, ly, (pct / 100) * leftW, 1.5, 0.75, 0.75, 'F');
+        ly += 3.5;
+      });
+
+      // ── RIGHT COLUMN ──
+      let ry = contentY;
+
+      // Divider line between columns
+      doc.setDrawColor(238, 238, 238);
+      doc.setLineWidth(0.2);
+      doc.line(rightX - colGap / 2, contentY - 1, rightX - colGap / 2, ph - 18);
+
+      // Technician Shoutouts
+      if (insights.technicianMentions && insights.technicianMentions.length > 0) {
+        ry = drawSectionTitle('Technician Shoutouts', rightX, ry, rightW, navy);
+
+        const sortedTechs = [...insights.technicianMentions]
+          .sort((a, b) => b.mentions - a.mentions)
+          .slice(0, 8);
+
+        sortedTechs.forEach((tech) => {
+          // Count badge
+          doc.setFontSize(5.5);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(...accent);
+          doc.text(`${tech.mentions}x`, rightX, ry);
+
+          // Name
+          doc.setTextColor(...navy);
+          doc.text(sanitize(tech.name), rightX + 8, ry);
+
+          // Sample quote
+          if (tech.samplePraise) {
+            ry += 2.2;
+            doc.setFontSize(4.5);
+            doc.setFont(undefined, 'italic');
+            doc.setTextColor(136, 136, 136);
+            const snippet = sanitize(tech.samplePraise).substring(0, 70);
+            const lines = doc.splitTextToSize(`"${snippet}..."`, rightW - 8);
+            doc.text(lines, rightX + 8, ry);
+            ry += lines.length * 1.8;
+          }
+
+          // Row divider
+          doc.setDrawColor(240, 240, 240);
+          doc.setLineWidth(0.15);
+          doc.line(rightX, ry + 0.5, rightX + rightW, ry + 0.5);
+          ry += 1.8;
+        });
+        ry += 2;
+      }
+
+      // AI Recommendations
+      ry = drawSectionTitle('AI Recommendations', rightX, ry, rightW, blue);
+      insights.recommendations?.slice(0, 5).forEach((rec, index) => {
+        // Number badge
+        const numX = rightX;
+        const numSize = 3.8;
+        doc.setFillColor(...brand.recBadgeBg);
+        doc.roundedRect(numX, ry - 2.5, numSize, numSize, 0.5, 0.5, 'F');
+        doc.setFontSize(5.5);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text(`${index + 1}`, numX + numSize / 2, ry - 0.3, { align: 'center' });
+
+        // Recommendation text
+        ry = drawWrapped(rec, rightX + 5.5, ry, rightW - 5.5, 5, [68, 68, 68]);
+        ry += 1.5;
+      });
+
+      // ── FOOTER ──
+      const footerY = ph - 5;
+      doc.setFillColor(...accent);
+      doc.rect(0, footerY - 3.5, pw, 0.8, 'F');
+      doc.setFillColor(...navy);
+      doc.rect(0, footerY - 2.7, pw, 7, 'F');
+
+      doc.setFontSize(4.5);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(255, 255, 255, 128);
+      doc.text(`Generated by AI  \u2022  Customer Insights Platform  \u2022  ${brand.companyName}`, mx + 1, footerY);
+      doc.text(`${brand.phone}  |  ${brand.website}`, pw - mx - 1, footerY, { align: 'right' });
+
+      // Save
+      doc.save(`${brand.filePrefix}_Customer_Insights_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF. Please try again.');
