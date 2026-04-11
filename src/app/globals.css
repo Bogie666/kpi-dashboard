@@ -13,96 +13,118 @@ html, body {
   width: 100%;
 }
 
-/* Balanced TV Display Styles - Not Too Big */
+/* ====================================================================
+   TV DISPLAY MODE
+   Primary target: 4K (3840x2160) on 70" screens at 15-20ft viewing distance
+   Secondary targets: 1440p (2560px wide) and 1080p (1920px wide)
+
+   Strategy: Baseline styles are sized for 4K 70".
+   clamp() provides fluid scaling between resolutions, and max-width
+   media queries scale DOWN for smaller displays so everything stays
+   proportional and readable at typical lobby viewing distances.
+   ==================================================================== */
+
+/* Baseline: 4K 70" @ viewing distance */
 .tv-display {
-  /* Moderate increase in base font size for TV viewing */
-  font-size: 1.125rem !important;
+  /* Fluid base font: ~22px at 1080p, ~26px at 1440p, ~32px at 4K */
+  font-size: clamp(1.25rem, 0.9rem + 0.55vw, 2rem) !important;
 }
 
-/* Header and Title Styles - Reasonable sizes */
+/* Headings use fluid viewport-based scaling */
 .tv-display h1 {
-  font-size: 3.5rem !important;
-  margin-bottom: 1.5rem !important;
-  font-weight: bold !important;
+  font-size: clamp(3rem, 2rem + 2.5vw, 7rem) !important;
+  line-height: 1.1 !important;
+  margin-bottom: clamp(1rem, 0.5rem + 0.5vw, 2rem) !important;
+  font-weight: 800 !important;
 }
 
 .tv-display h2 {
-  font-size: 2.5rem !important;
-  margin-bottom: 1rem !important;
+  font-size: clamp(2.25rem, 1.5rem + 1.5vw, 5rem) !important;
+  line-height: 1.15 !important;
+  margin-bottom: clamp(0.75rem, 0.4rem + 0.4vw, 1.5rem) !important;
+  font-weight: 700 !important;
 }
 
 .tv-display h3 {
-  font-size: 2rem !important;
-  margin-bottom: 0.75rem !important;
+  font-size: clamp(1.75rem, 1.25rem + 1vw, 3.5rem) !important;
+  line-height: 1.2 !important;
+  margin-bottom: clamp(0.5rem, 0.3rem + 0.3vw, 1rem) !important;
+  font-weight: 700 !important;
 }
 
 .tv-display h4 {
-  font-size: 1.5rem !important;
+  font-size: clamp(1.25rem, 1rem + 0.75vw, 2.5rem) !important;
   margin-bottom: 0.5rem !important;
+  font-weight: 600 !important;
 }
 
-/* Metric Cards - Larger but not huge */
+/* Metric Cards */
 .tv-display .metric-card {
-  padding: 2rem !important;
-  margin: 1rem !important;
+  padding: clamp(1.5rem, 1rem + 0.8vw, 3rem) !important;
+  margin: clamp(0.5rem, 0.4rem + 0.3vw, 1.5rem) !important;
 }
 
-/* Main metric values - Big but readable */
+/* Main metric values - prominent numbers that draw the eye */
 .tv-display .text-lg.font-bold,
 .tv-display .text-2xl.font-bold {
-  font-size: 2.5rem !important;
-  line-height: 1.1 !important;
+  font-size: clamp(2rem, 1.25rem + 1.5vw, 5rem) !important;
+  line-height: 1.05 !important;
   font-weight: 900 !important;
 }
 
-/* Card titles */
+/* Tailwind text size overrides - fluid scaling preserves hierarchy */
 .tv-display .text-xs {
-  font-size: 1rem !important;
+  font-size: clamp(0.875rem, 0.65rem + 0.35vw, 1.5rem) !important;
 }
 
 .tv-display .text-sm {
-  font-size: 1.125rem !important;
+  font-size: clamp(1rem, 0.75rem + 0.4vw, 1.75rem) !important;
 }
 
 .tv-display .text-base {
-  font-size: 1.25rem !important;
+  font-size: clamp(1.125rem, 0.85rem + 0.45vw, 2rem) !important;
 }
 
 .tv-display .text-lg {
-  font-size: 1.5rem !important;
+  font-size: clamp(1.375rem, 1rem + 0.6vw, 2.5rem) !important;
 }
 
 .tv-display .text-xl {
-  font-size: 1.75rem !important;
+  font-size: clamp(1.625rem, 1.2rem + 0.7vw, 3rem) !important;
 }
 
 .tv-display .text-2xl {
-  font-size: 2.5rem !important;
+  font-size: clamp(2rem, 1.4rem + 1vw, 4rem) !important;
 }
 
 .tv-display .text-3xl {
-  font-size: 3rem !important;
+  font-size: clamp(2.5rem, 1.75rem + 1.25vw, 5rem) !important;
 }
 
-/* Table Styles - Bigger but not overwhelming */
+/* Table Styles - readable at distance */
 .tv-display table {
-  font-size: 1.25rem !important;
+  font-size: clamp(1.125rem, 0.85rem + 0.5vw, 2rem) !important;
 }
 
 .tv-display table th {
-  font-size: 1.5rem !important;
-  padding: 1.25rem 0.75rem !important;
-  font-weight: bold !important;
+  font-size: clamp(1.25rem, 0.95rem + 0.6vw, 2.25rem) !important;
+  padding: clamp(0.875rem, 0.6rem + 0.5vw, 1.75rem) clamp(0.5rem, 0.35rem + 0.3vw, 1.25rem) !important;
+  font-weight: 700 !important;
 }
 
 .tv-display table td {
-  font-size: 1.25rem !important;
-  padding: 1rem 0.75rem !important;
+  font-size: clamp(1.125rem, 0.85rem + 0.5vw, 2rem) !important;
+  padding: clamp(0.75rem, 0.5rem + 0.5vw, 1.5rem) clamp(0.5rem, 0.35rem + 0.3vw, 1.25rem) !important;
 }
 
-/* Grid Cards - Moderate padding increase */
+/* Give sticky name columns room to breathe on bigger screens */
+.tv-display .sticky.left-0 {
+  max-width: clamp(160px, 14vw, 360px) !important;
+}
+
+/* Grid Cards - generous padding */
 .tv-display .bg-gray-800 {
-  padding: 1.5rem !important;
+  padding: clamp(1rem, 0.75rem + 0.6vw, 2.5rem) !important;
 }
 
 /* Status badges and indicators */
@@ -111,229 +133,305 @@ html, body {
 .tv-display .bg-green-600,
 .tv-display .bg-yellow-600,
 .tv-display .bg-red-600 {
-  font-size: 1.125rem !important;
-  padding: 0.75rem 1rem !important;
+  font-size: clamp(1rem, 0.75rem + 0.4vw, 1.75rem) !important;
+  padding: clamp(0.5rem, 0.35rem + 0.25vw, 1rem) clamp(0.75rem, 0.5rem + 0.35vw, 1.5rem) !important;
 }
 
-/* Progress bars - Slightly thicker */
+/* Progress bars - thicker at larger sizes */
 .tv-display .progress-bar,
 .tv-display .h-1\.5,
 .tv-display .h-2 {
-  height: 0.75rem !important;
+  height: clamp(0.5rem, 0.35rem + 0.2vw, 1.25rem) !important;
 }
 
-/* Icons - Moderately larger */
-.tv-display svg {
-  width: 1.5rem !important;
-  height: 1.5rem !important;
+/* Icons - scoped to common icon contexts only (NOT inside charts).
+   Uses :not() guards so Recharts / chart SVGs render natively. */
+.tv-display button svg,
+.tv-display a svg,
+.tv-display h1 svg,
+.tv-display h2 svg,
+.tv-display h3 svg,
+.tv-display .icon svg,
+.tv-display span > svg {
+  width: clamp(1.25rem, 1rem + 0.5vw, 2.5rem) !important;
+  height: clamp(1.25rem, 1rem + 0.5vw, 2.5rem) !important;
 }
 
 .tv-display .icon-large svg {
-  width: 2rem !important;
-  height: 2rem !important;
+  width: clamp(1.75rem, 1.25rem + 0.75vw, 3.5rem) !important;
+  height: clamp(1.75rem, 1.25rem + 0.75vw, 3.5rem) !important;
+}
+
+/* Prevent the icon rule from shrinking chart SVGs */
+.tv-display .recharts-wrapper svg,
+.tv-display .recharts-surface,
+.tv-display [class*="recharts-"] svg {
+  width: auto !important;
+  height: auto !important;
 }
 
 /* Grid spacing */
 .tv-display .grid {
-  gap: 1.5rem !important;
+  gap: clamp(1rem, 0.7rem + 0.6vw, 2.5rem) !important;
 }
 
 .tv-display .space-y-4 > * + * {
-  margin-top: 1.5rem !important;
+  margin-top: clamp(1rem, 0.7rem + 0.6vw, 2.5rem) !important;
 }
 
 .tv-display .space-y-6 > * + * {
-  margin-top: 2rem !important;
+  margin-top: clamp(1.25rem, 0.85rem + 0.7vw, 3rem) !important;
 }
 
-/* Text colors - Keep same size as base but ensure visibility */
+/* Text colors - keep labels proportional */
 .tv-display .text-gray-300,
 .tv-display .text-gray-400 {
-  font-size: 1.125rem !important;
+  font-size: clamp(1rem, 0.75rem + 0.4vw, 1.75rem) !important;
 }
 
-/* Colored text (status indicators) */
+/* Colored status text - emphasize weight */
 .tv-display .text-green-400,
 .tv-display .text-yellow-400,
 .tv-display .text-red-400,
 .tv-display .text-blue-400,
 .tv-display .text-purple-400 {
-  font-weight: 600 !important;
+  font-weight: 700 !important;
 }
 
-/* Large screen adjustments */
-@media (min-width: 1920px) {
-  .tv-display {
-    font-size: 1.25rem !important;
-  }
-  
-  .tv-display table th {
-    font-size: 1.75rem !important;
-  }
-  
-  .tv-display table td {
-    font-size: 1.5rem !important;
-  }
-  
-  .tv-display .text-2xl.font-bold {
-    font-size: 3rem !important;
-  }
-}
-
-/* Touch targets for TV remote */
+/* Touch targets (used when display mode runs on a kiosk with input) */
 .tv-display button,
 .tv-display a {
-  min-height: 2.5rem !important;
-  min-width: 2.5rem !important;
+  min-height: clamp(2.5rem, 2rem + 0.8vw, 4rem) !important;
+  min-width: clamp(2.5rem, 2rem + 0.8vw, 4rem) !important;
+}
+
+/* Expand container on very wide displays so content uses the full screen */
+.tv-display .container {
+  max-width: 100% !important;
+  padding-left: clamp(1rem, 0.5rem + 1vw, 3rem) !important;
+  padding-right: clamp(1rem, 0.5rem + 1vw, 3rem) !important;
+}
+
+/* ---- Viewport-specific refinements ---- */
+
+/* Portrait orientation (wall-mounted vertical signage) */
+@media (orientation: portrait) {
+  .tv-display .container {
+    padding-top: clamp(0.5rem, 0.4rem + 0.3vh, 1.5rem) !important;
+    padding-bottom: clamp(0.5rem, 0.4rem + 0.3vh, 1.5rem) !important;
+  }
+
+  /* Most dashboards use md:flex-row - allow them to stay column in portrait */
+  .tv-display .flex-col.md\:flex-row {
+    flex-direction: column !important;
+  }
+
+  /* Shrink headings slightly in portrait to leave room for content */
+  .tv-display h1 {
+    font-size: clamp(2.5rem, 1.5rem + 2vw, 5rem) !important;
+  }
+}
+
+/* 1440p / QHD (2560px) - scale slightly below 4K defaults */
+@media (max-width: 2559px) and (min-width: 1920px) {
+  .tv-display table .sticky.left-0 {
+    max-width: clamp(140px, 13vw, 280px) !important;
+  }
+}
+
+/* 1080p / Full HD (1920px and below) - tighten spacing */
+@media (max-width: 1919px) {
+  .tv-display .container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .tv-display .grid {
+    gap: 1rem !important;
+  }
+
+  .tv-display .bg-gray-800 {
+    padding: 1.25rem !important;
+  }
+
+  .tv-display table th,
+  .tv-display table td {
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .tv-display .sticky.left-0 {
+    max-width: 180px !important;
+  }
+}
+
+/* Smaller landscape displays (sub-1080p / large tablets) - final squeeze */
+@media (max-width: 1439px) {
+  .tv-display h1 {
+    font-size: 2.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .tv-display h2 {
+    font-size: 2rem !important;
+  }
+
+  .tv-display h3 {
+    font-size: 1.625rem !important;
+  }
+
+  .tv-display .text-lg.font-bold,
+  .tv-display .text-2xl.font-bold {
+    font-size: 1.875rem !important;
+  }
+
+  .tv-display table {
+    font-size: 1rem !important;
+  }
+
+  .tv-display table th {
+    font-size: 1.125rem !important;
+  }
+
+  .tv-display table td {
+    font-size: 1rem !important;
+  }
+
+  .tv-display .sticky.left-0 {
+    max-width: 140px !important;
+  }
 }
 /* ====================================================================
-   ENHANCED TOP PERFORMERS TV DISPLAY - OPTIMIZED FOR VISIBILITY
-   Replace your existing Top Performers TV styles with these
+   TOP PERFORMERS - Dashboard-specific TV display tweaks
+   Uses clamp() for fluid scaling. Base sizes target 4K 70".
    ==================================================================== */
 
-/* Reduce top padding to move content up */
+/* Tighten vertical padding so cards fit in viewport */
 .tv-display .min-h-screen.bg-gradient-to-br {
-  padding-top: 1rem !important;
-  padding-bottom: 1rem !important;
+  padding-top: clamp(0.5rem, 0.3rem + 0.3vw, 1.5rem) !important;
+  padding-bottom: clamp(0.5rem, 0.3rem + 0.3vw, 1.5rem) !important;
 }
 
-/* Main Header "Top Performers" - Bigger */
-.tv-display h1.text-2xl.md\:text-4xl,
-.tv-display h1 {
-  font-size: 5rem !important;
-  font-weight: 900 !important;
-  margin-bottom: 1rem !important;
-}
-
-/* Subtitle "Last Month's Champions" */
+/* Header subtitle "Last Month's Champions" */
 .tv-display .text-center p.text-base {
-  font-size: 2.5rem !important;
-  margin-bottom: 2rem !important;
+  font-size: clamp(1.5rem, 1rem + 1vw, 3.5rem) !important;
+  margin-bottom: clamp(1rem, 0.7rem + 0.6vw, 2.5rem) !important;
 }
 
-/* Trophy Icons in Header */
+/* Trophy icons in the Top Performers header */
 .tv-display .w-8.h-8,
 .tv-display .md\:w-12.md\:h-12 {
-  width: 5rem !important;
-  height: 5rem !important;
+  width: clamp(3rem, 2rem + 1.5vw, 7rem) !important;
+  height: clamp(3rem, 2rem + 1.5vw, 7rem) !important;
 }
 
-/* Medal Emojis - MASSIVE */
+/* Medal emojis (🥇🥈🥉) */
 .tv-display .text-3xl.md\:text-5xl {
-  font-size: 7rem !important;
+  font-size: clamp(4rem, 2.5rem + 2.5vw, 9rem) !important;
   line-height: 1 !important;
-  margin-bottom: 1rem !important;
+  margin-bottom: clamp(0.5rem, 0.35rem + 0.3vw, 1.25rem) !important;
 }
 
-/* Performer Photo Circles - Bigger */
+/* Performer photo circles */
 .tv-display .w-24.h-24,
 .tv-display .md\:w-32.md\:h-32 {
-  width: 14rem !important;
-  height: 14rem !important;
+  width: clamp(8rem, 5rem + 5vw, 20rem) !important;
+  height: clamp(8rem, 5rem + 5vw, 20rem) !important;
 }
 
-/* Star Icon on Winner */
+/* Star icon on winner avatar */
 .tv-display .w-4.h-4.md\:w-6.md\:h-6 {
-  width: 3rem !important;
-  height: 3rem !important;
+  width: clamp(1.75rem, 1rem + 1vw, 4rem) !important;
+  height: clamp(1.75rem, 1rem + 1vw, 4rem) !important;
 }
 
-/* Star container */
+/* Star badge container */
 .tv-display .bg-yellow-400.rounded-full.p-2 {
-  padding: 0.75rem !important;
+  padding: clamp(0.5rem, 0.35rem + 0.25vw, 1.25rem) !important;
 }
 
-/* Performer Names - HUGE */
+/* Performer names (h3 inside podium cards) - override baseline h3 */
 .tv-display h3.text-lg.md\:text-xl {
-  font-size: 3rem !important;
-  line-height: 1.2 !important;
-  margin-bottom: 1.5rem !important;
+  font-size: clamp(2rem, 1.25rem + 1.5vw, 5rem) !important;
+  line-height: 1.15 !important;
+  margin-bottom: clamp(0.75rem, 0.5rem + 0.5vw, 2rem) !important;
   font-weight: 900 !important;
 }
 
-/* Performer Cards - Optimized sizing */
+/* Performer podium cards */
 .tv-display .bg-gradient-to-br.from-slate-800 {
-  padding: 2rem !important;
-  min-width: 28rem !important;
-  margin-bottom: 2rem !important;
+  padding: clamp(1.25rem, 0.75rem + 1vw, 3rem) !important;
+  min-width: clamp(18rem, 14rem + 8vw, 38rem) !important;
+  margin-bottom: clamp(1rem, 0.75rem + 0.5vw, 2.5rem) !important;
 }
 
-/* Metric Labels - Much Larger */
+/* Metric labels inside podium cards */
 .tv-display .text-xs.md\:text-sm.text-gray-300 {
-  font-size: 1.75rem !important;
+  font-size: clamp(1.125rem, 0.85rem + 0.6vw, 2.25rem) !important;
   font-weight: 600 !important;
 }
 
-/* Metric Values - HUGE and Ultra Bold */
+/* Metric values inside podium cards (Revenue, Close Rate, etc.) */
 .tv-display .font-bold.text-green-400,
 .tv-display .font-bold.text-blue-400,
 .tv-display .font-bold.text-purple-400 {
-  font-size: 3rem !important;
+  font-size: clamp(2rem, 1.25rem + 1.5vw, 5rem) !important;
   font-weight: 900 !important;
 }
 
-/* Metric rows - Better padding */
+/* Metric row padding */
 .tv-display .flex.justify-between.items-center.px-3.py-2 {
-  padding: 1.5rem 2rem !important;
-  margin-bottom: 0.5rem !important;
+  padding: clamp(1rem, 0.75rem + 0.5vw, 2rem) clamp(1.25rem, 0.9rem + 0.6vw, 2.5rem) !important;
+  margin-bottom: clamp(0.35rem, 0.25rem + 0.2vw, 0.75rem) !important;
   border-width: 2px !important;
 }
 
-/* Space between metric rows */
 .tv-display .space-y-2 > * + * {
-  margin-top: 0.75rem !important;
+  margin-top: clamp(0.5rem, 0.35rem + 0.3vw, 1rem) !important;
 }
 
-/* Gaps between Performer Cards */
+/* Gap between podium cards */
 .tv-display .gap-4.md\:gap-6 {
-  gap: 3rem !important;
+  gap: clamp(1.5rem, 1rem + 1vw, 4rem) !important;
 }
 
-/* Footer department info - Hide or make smaller */
+/* Footer department label */
 .tv-display .text-center.text-gray-400.text-xs.md\:text-sm {
-  font-size: 1.5rem !important;
-  margin-top: 2rem !important;
+  font-size: clamp(1rem, 0.75rem + 0.5vw, 2rem) !important;
+  margin-top: clamp(1rem, 0.75rem + 0.5vw, 2.5rem) !important;
 }
 
-/* Reduce header section margins */
+/* Header section margin */
 .tv-display .text-center.mb-6.md\:mb-8 {
-  margin-bottom: 2rem !important;
+  margin-bottom: clamp(1rem, 0.75rem + 0.5vw, 2.5rem) !important;
 }
 
-/* Reduce podium section margins */
+/* Podium section margin */
 .tv-display .flex.flex-col.md\:flex-row.items-end.justify-center.gap-4 {
-  margin-bottom: 1rem !important;
+  margin-bottom: clamp(0.5rem, 0.35rem + 0.3vw, 1.25rem) !important;
 }
 
-/* Center the cards better vertically */
+/* Center cards vertically in viewport - use min-height 100svh to handle
+   browser UI chrome (e.g., kiosk toolbar) and avoid overflow on portrait */
 .tv-display .max-w-7xl.mx-auto {
   display: flex !important;
   flex-direction: column !important;
   justify-content: center !important;
   min-height: 100vh !important;
+  min-height: 100svh !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
 }
 
-/* 4K and large displays */
-@media (min-width: 2560px) {
-  .tv-display h1 {
-    font-size: 7rem !important;
+/* Portrait: let podium cards stack properly without min-width blowout */
+@media (orientation: portrait) {
+  .tv-display .bg-gradient-to-br.from-slate-800 {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 90vw !important;
   }
-  
-  .tv-display h3.text-lg.md\:text-xl {
-    font-size: 4rem !important;
-  }
-  
-  .tv-display .w-24.h-24,
-  .tv-display .md\:w-32.md\:h-32 {
-    width: 18rem !important;
-    height: 18rem !important;
-  }
-  
-  .tv-display .font-bold.text-green-400,
-  .tv-display .font-bold.text-blue-400,
-  .tv-display .font-bold.text-purple-400 {
-    font-size: 4rem !important;
+
+  .tv-display .flex.flex-col.md\:flex-row.items-end.justify-center.gap-4 {
+    flex-direction: column !important;
+    align-items: center !important;
   }
 }

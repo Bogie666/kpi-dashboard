@@ -1000,7 +1000,7 @@ const PerformanceTable = ({ data, targetValues, title }) => {
 
               return (
                 <tr key={index} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
-                  <td className="sticky left-0 z-10 bg-gray-800 py-3 text-white font-medium text-sm truncate max-w-[120px]">{advisor.name}</td>
+                  <td className="sticky left-0 z-10 bg-gray-800 py-3 text-white font-medium text-sm truncate max-w-[120px] md:max-w-[180px] lg:max-w-[240px] xl:max-w-[320px]">{advisor.name}</td>
                   <td className="py-3 text-center text-gray-300 text-sm">{advisor.jobs}</td>
                   <td className="py-3 text-center text-gray-300 text-sm">{advisor.opportunities}</td>
                   <td className="py-3 text-center">
@@ -1323,7 +1323,7 @@ const PerformanceTable = ({ data, targetValues, title }) => {
                 
                 return (
                   <tr key={index} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
-                    <td className="sticky left-0 z-10 bg-gray-800 py-3 text-white font-medium text-sm truncate max-w-[120px]">{agent.name}</td>
+                    <td className="sticky left-0 z-10 bg-gray-800 py-3 text-white font-medium text-sm truncate max-w-[120px] md:max-w-[180px] lg:max-w-[240px] xl:max-w-[320px]">{agent.name}</td>
                     <td className="py-3 text-center text-gray-300 text-sm">{agent.totalCalls}</td>
 
                     <td className="py-3 text-center text-gray-300 text-sm">{agent.leadCalls}</td>
@@ -1653,7 +1653,7 @@ const TechnicianView = ({
                 
                 return (
                   <tr key={index} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
-                    <td className="sticky left-0 z-10 bg-gray-800 py-3 text-white font-medium text-sm truncate max-w-[120px]">{tech.name}</td>
+                    <td className="sticky left-0 z-10 bg-gray-800 py-3 text-white font-medium text-sm truncate max-w-[120px] md:max-w-[180px] lg:max-w-[240px] xl:max-w-[320px]">{tech.name}</td>
                     <td className="py-3 text-center text-gray-300 text-sm">{tech.trade}</td>
                     <td className="py-3 text-center text-gray-300 text-sm">{tech.completedJobs}</td>
                     <td className="py-3 text-center text-gray-300 text-sm">{tech.opportunities}</td>
