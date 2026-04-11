@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, ReferenceLine } from 'recharts';
 import { UserCheck, Phone, DollarSign, Wrench, Users, Settings, TrendingUp, Target, AlertTriangle, Trophy, CheckCircle, Zap, Droplets, MessageSquare, ChevronUp, ChevronDown, BarChart2 } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
-import CompetitionLeaderboard from './CompetitionLeaderboard';
 import LoginScreen from './LoginScreen';
 import { LogOut, User, Monitor } from 'lucide-react';
 import YtdTrendChart from './YtdTrendChart';
@@ -94,7 +93,6 @@ const operationsSubTabs = [
 const engagementSubTabs = [
   { id: 'reviews', label: 'Reviews' },
   { id: 'top_performers', label: 'Top Performers' },
-  { id: 'competition', label: 'Competition' },
 ];
 
 // Styled SubTabs component with color outlines
@@ -217,7 +215,7 @@ useEffect(() => {
       const validPages = [
         'financial', 'revenue-ttm', 'comfort_advisor', 'technician',
         'hvac_maintenance', 'commercial_hvac', 'plumbing', 'electrical', 'call_center',
-        'memberships', 'reviews', 'top_performers', 'competition',
+        'memberships', 'reviews', 'top_performers',
         'top_comfort_advisor', 'top_hvac_tech', 'top_hvac_maintenance',
         'top_commercial_hvac', 'top_plumbing', 'top_electrical', 'top_call_center'
       ];
@@ -2852,8 +2850,6 @@ const EnhancedTotalRevenueCard = () => {
           return <GoogleReviews />;
         case 'top_performers':
           return <TopPerformersDashboard />;
-        case 'competition':
-          return <CompetitionLeaderboard />;
         default:
           return <GoogleReviews />;
       }
@@ -2929,8 +2925,6 @@ const EnhancedTotalRevenueCard = () => {
       return <GoogleReviews />;
     case "top_performers":
       return <TopPerformersDashboard />;
-    case "competition":
-      return <CompetitionLeaderboard />;
     case "top_comfort_advisor":
       return <TopPerformersDashboard initialTab="comfort_advisor" />;
     case "top_hvac_tech":
